@@ -1,0 +1,33 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import RegistrationForm from "./components/RegistrationForm";
+import LoginForm from "./components/LoginForm";
+import StudentDashboard from "./components/StudentDashboard";
+import AdminDashboard from "./components/AdminDashboard";
+import CompanyDashboard from "./components/CompanyDashboard";
+import SupervisorDashboard from "./components/SupervisorDashboard";
+import AdvisorDashboard from "./components/AdvisorDashboard";
+import ExaminerDashboard from "./components/ExaminerDashboard"; // <-- added Examiner
+import LandingPage from "./components/LandingPage";
+import { About } from "./components/About";
+import "./App.css";
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/register" element={<RegistrationForm />} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/student-dashboard" element={<StudentDashboard />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/company-dashboard" element={<CompanyDashboard />} />
+        <Route path="/supervisor-dashboard" element={<SupervisorDashboard />} />
+        <Route path="/advisor-dashboard" element={<AdvisorDashboard />} />
+        <Route path="/examiner-dashboard" element={<ExaminerDashboard />} /> {/* <-- Examiner route */}
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
