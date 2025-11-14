@@ -7,18 +7,15 @@ import CompanyDashboard from "./components/CompanyDashboard";
 import SupervisorDashboard from "./components/SupervisorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import ExaminerDashboard from "./components/ExaminerDashboard"; // <-- added Examiner
-import LandingPage from "./components/LandingPage";
-import { About } from "./components/About";
 import "./App.css";
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<LoginForm />} />
         <Route path="/register" element={<RegistrationForm />} />
         <Route path="/login" element={<LoginForm />} />
-        <Route path="/about" element={<About />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/company-dashboard" element={<CompanyDashboard />} />
