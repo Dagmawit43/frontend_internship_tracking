@@ -39,6 +39,59 @@ const RegistrationForm = () => {
     reader.readAsDataURL(file);
   };
 
+  const getFriendlyErrorMessage = (error) => {
+    // Handle API response errors
+    if (error?.response?.data) {
+      const data = error.response.data;
+      
+      // Check for duplicate email
+      if (data.email || (data.detail && data.detail.toLowerCase().includes("email"))) {
+        return "This email address is already registered. Please use a different email or try logging in.";
+      }
+      
+      // Check for duplicate student ID
+      if (data.id || (data.detail && data.detail.toLowerCase().includes("id"))) {
+        return "This student ID is already registered. Please check your student ID or contact support.";
+      }
+      
+      // Check for validation errors
+      if (data.detail) {
+        // If it's a string, try to make it more user-friendly
+        const detail = String(data.detail).toLowerCase();
+        if (detail.includes("already exists") || detail.includes("duplicate")) {
+          return "An account with these details already exists. Please try logging in instead.";
+        }
+        if (detail.includes("invalid")) {
+          return "Please check your information and try again.";
+        }
+        // For other details, return a generic message
+        return "Registration failed. Please check your information and try again.";
+      }
+      
+      // Check for field-specific errors
+      if (typeof data === "object") {
+        const errorMessages = Object.values(data).flat();
+        if (errorMessages.length > 0) {
+          const firstError = String(errorMessages[0]).toLowerCase();
+          if (firstError.includes("already exists") || firstError.includes("duplicate")) {
+            return "An account with these details already exists. Please try logging in instead.";
+          }
+        }
+      }
+    }
+    
+    // Handle network errors
+    if (error?.message) {
+      const message = error.message.toLowerCase();
+      if (message.includes("network") || message.includes("fetch")) {
+        return "Network error. Please check your connection and try again.";
+      }
+    }
+    
+    // Default friendly message
+    return "Registration failed. Please check your information and try again. If the problem persists, contact support.";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -107,10 +160,7 @@ const RegistrationForm = () => {
         setSuccess("Student registration successful! Redirecting to login...");
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
-        const data = err.response?.data || err.message;
-        setError(
-          data?.detail || data?.message || JSON.stringify(data) || "Registration failed"
-        );
+        setError(getFriendlyErrorMessage(err));
       } finally {
         setIsSubmitting(false);
       }
@@ -119,6 +169,27 @@ const RegistrationForm = () => {
 
     if (role === "Company") {
       const companies = JSON.parse(localStorage.getItem("companies")) || [];
+      
+      // Check for duplicate company name
+      const duplicateName = companies.find(
+        (c) => c.companyName?.toLowerCase() === companyName.toLowerCase()
+      );
+      if (duplicateName) {
+        setError("A company with this name is already registered. Please use a different company name or contact support.");
+        return;
+      }
+      
+      // Check for duplicate email if email is provided
+      if (email) {
+        const duplicateEmail = companies.find(
+          (c) => c.contactEmail?.toLowerCase() === email.toLowerCase()
+        );
+        if (duplicateEmail) {
+          setError("This email address is already registered. Please use a different email or try logging in.");
+          return;
+        }
+      }
+      
       const newCompany = {
         id: Date.now(),
         companyName,

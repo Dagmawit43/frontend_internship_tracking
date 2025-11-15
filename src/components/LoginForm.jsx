@@ -8,6 +8,7 @@ const roleRoutes = {
   Advisor: "/advisor-dashboard",
   Supervisor: "/supervisor-dashboard",
   Examiner: "/examiner-dashboard",
+  Company: "/company-dashboard",
 };
 
 const LoginForm = () => {
@@ -38,6 +39,37 @@ const LoginForm = () => {
     } catch (err) {
       setError(err?.message || "Login failed");
     }
+  };
+
+  const handleCompanyLogin = () => {
+    const credential = identifier.trim().toLowerCase();
+    const companies = JSON.parse(localStorage.getItem("companies")) || [];
+    const match = companies.find((company) => {
+      const emailMatches = company.contactEmail?.toLowerCase() === credential;
+      const companyNameMatches = company.companyName?.toLowerCase() === credential;
+      return (emailMatches || companyNameMatches) && company.verified === true;
+    });
+
+    if (!match) {
+      setError("No verified company account found for those credentials. Please wait for admin verification.");
+      return;
+    }
+
+    if (match.password !== password) {
+      setError("Invalid credentials");
+      return;
+    }
+
+    localStorage.setItem(
+      "activeCompanyUser",
+      JSON.stringify({
+        companyName: match.companyName,
+        contactEmail: match.contactEmail,
+        role: "Company",
+        id: match.id,
+      })
+    );
+    navigate(roleRoutes.Company);
   };
 
   const handleStaffLogin = () => {
@@ -99,6 +131,8 @@ const LoginForm = () => {
 
     if (accountType === "Student") {
       await handleStudentLogin(credential, pwd);
+    } else if (accountType === "Company") {
+      handleCompanyLogin();
     } else {
       handleStaffLogin();
     }
@@ -148,12 +182,17 @@ const LoginForm = () => {
               <option value="Advisor">Advisor</option>
               <option value="Supervisor">Supervisor</option>
               <option value="Examiner">Examiner</option>
+              <option value="Company">Company</option>
             </select>
           </div>
 
           <div>
             <label className="block text-gray-700 text-sm font-medium mb-2">
-              {accountType === "Student" ? "AASTU Email" : "Username or Email"}
+              {accountType === "Student" 
+                ? "AASTU Email" 
+                : accountType === "Company" 
+                ? "Company Email or Company Name" 
+                : "Username or Email"}
             </label>
             <input
               type={accountType === "Student" ? "email" : "text"}
@@ -164,6 +203,8 @@ const LoginForm = () => {
               placeholder={
                 accountType === "Student"
                   ? "example@aastustudent.edu.et"
+                  : accountType === "Company"
+                  ? "Enter company email or company name"
                   : "Enter username or email"
               }
             />
