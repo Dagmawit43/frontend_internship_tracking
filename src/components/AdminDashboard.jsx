@@ -5,11 +5,12 @@ const AdminDashboard = () => {
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
-    role: "Advisor",
+    role: "Staff",
   });
   const [success, setSuccess] = useState("");
-  const [activeTab, setActiveTab] = useState("view"); // 'view', 'create' or 'companies'
+  const [activeTab, setActiveTab] = useState("view"); // 'view', 'create', 'companies', 'staff', or 'coordinator'
   const [companies, setCompanies] = useState([]);
+  const [staffList, setStaffList] = useState([]);
 
   // Load all users from localStorage
   useEffect(() => {
@@ -43,7 +44,21 @@ const AdminDashboard = () => {
       }));
 
     setUsers([...studentUsers, ...otherUsersNorm, ...verifiedCompaniesAsUsers]);
+    
+    // Load staff members separately
+    const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
+    setStaffList(staffMembers);
   }, []);
+
+  // Refresh staff list when staff or coordinator tab is opened
+  useEffect(() => {
+    if (activeTab === "staff" || activeTab === "coordinator") {
+      const storedOtherUsers =
+        JSON.parse(localStorage.getItem("otherUsers")) || [];
+      const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
+      setStaffList(staffMembers);
+    }
+  }, [activeTab]);
 
   // Approve a company and add to users list
   const handleApproveCompany = (companyId) => {
@@ -85,9 +100,32 @@ const AdminDashboard = () => {
     localStorage.setItem("otherUsers", JSON.stringify(otherUsers));
 
     setUsers((prev) => [...prev, userToAdd]);
+    setStaffList((prev) => [...prev, userToAdd]);
     setSuccess(`User ${newUser.username} created as ${newUser.role}!`);
-    setNewUser({ username: "", password: "", role: "Advisor" });
+    setNewUser({ username: "", password: "", role: "Staff" });
 
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
+  // Promote staff to coordinator
+  const handlePromoteToCoordinator = (username) => {
+    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+    const updatedUsers = otherUsers.map((u) =>
+      u.username === username ? { ...u, role: "Coordinator" } : u
+    );
+    localStorage.setItem("otherUsers", JSON.stringify(updatedUsers));
+
+    // Update staff list
+    setStaffList((prev) => prev.filter((s) => s.username !== username));
+
+    // Update users list
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.username === username ? { ...u, role: "Coordinator" } : u
+      )
+    );
+
+    setSuccess(`Staff ${username} promoted to Coordinator!`);
     setTimeout(() => setSuccess(""), 3000);
   };
 
@@ -126,6 +164,26 @@ const AdminDashboard = () => {
           }`}
         >
           Verify Companies
+        </button>
+        <button
+          onClick={() => setActiveTab("staff")}
+          className={`py-2 px-4 rounded-md font-medium ${
+            activeTab === "staff"
+              ? "bg-blue-600 text-white"
+              : "bg-white border"
+          }`}
+        >
+          Staff List
+        </button>
+        <button
+          onClick={() => setActiveTab("coordinator")}
+          className={`py-2 px-4 rounded-md font-medium ${
+            activeTab === "coordinator"
+              ? "bg-blue-600 text-white"
+              : "bg-white border"
+          }`}
+        >
+          Create Coordinator
         </button>
       </div>
 
@@ -223,6 +281,89 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {activeTab === "staff" && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead className="bg-blue-600 text-white">
+              <tr>
+                <th className="py-2 px-4">Username</th>
+                <th className="py-2 px-4">Email</th>
+                <th className="py-2 px-4">Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staffList.length === 0 && (
+                <tr>
+                  <td colSpan="3" className="text-center py-4">
+                    No staff members found
+                  </td>
+                </tr>
+              )}
+              {staffList.map((staff, index) => (
+                <tr
+                  key={index}
+                  className={index % 2 === 0 ? "bg-gray-100" : "bg-white"}
+                >
+                  <td className="py-2 px-4">{staff.username}</td>
+                  <td className="py-2 px-4">{staff.email || "-"}</td>
+                  <td className="py-2 px-4">{staff.role}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "coordinator" && (
+        <div className="overflow-x-auto">
+          {success && (
+            <div className="bg-green-100 text-green-600 p-3 mb-4 rounded-md text-sm max-w-2xl mx-auto">
+              {success}
+            </div>
+          )}
+          <h3 className="text-xl font-bold mb-4 text-gray-700 text-center">
+            Promote Staff to Coordinator
+          </h3>
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead className="bg-purple-600 text-white">
+              <tr>
+                <th className="py-2 px-4">Username</th>
+                <th className="py-2 px-4">Email</th>
+                <th className="py-2 px-4">Current Role</th>
+                <th className="py-2 px-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {staffList.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="text-center py-4">
+                    No staff members available to promote
+                  </td>
+                </tr>
+              )}
+              {staffList.map((staff, index) => (
+                <tr
+                  key={index}
+                  className={index % 2 === 0 ? "bg-gray-100" : "bg-white"}
+                >
+                  <td className="py-2 px-4">{staff.username}</td>
+                  <td className="py-2 px-4">{staff.email || "-"}</td>
+                  <td className="py-2 px-4">{staff.role}</td>
+                  <td className="py-2 px-4">
+                    <button
+                      onClick={() => handlePromoteToCoordinator(staff.username)}
+                      className="bg-purple-600 text-white py-1 px-3 rounded-md hover:bg-purple-700 transition"
+                    >
+                      Promote to Coordinator
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {activeTab === "create" && (
         <div className="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-md mt-4">
           <h3 className="text-xl font-bold mb-4 text-gray-700">
@@ -262,22 +403,6 @@ const AdminDashboard = () => {
                 required
                 className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
               />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-gray-600 text-sm font-medium mb-1">
-                Role
-              </label>
-              <select
-                name="role"
-                value={newUser.role}
-                onChange={handleChange}
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
-              >
-                <option value="Advisor">Advisor</option>
-                <option value="Supervisor">Supervisor</option>
-                <option value="Examiner">Examiner</option>
-              </select>
             </div>
 
             <button
