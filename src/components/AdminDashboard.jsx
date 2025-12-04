@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { DEPARTMENTS } from "../constants/departments";
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -6,6 +7,11 @@ const AdminDashboard = () => {
     username: "",
     password: "",
     role: "Staff",
+    department: "",
+  });
+  const [coordinatorPromotion, setCoordinatorPromotion] = useState({
+    username: "",
+    department: "",
   });
   const [success, setSuccess] = useState("");
   const [activeTab, setActiveTab] = useState("view"); // 'view', 'create', 'companies', 'staff', or 'coordinator'
@@ -92,7 +98,13 @@ const AdminDashboard = () => {
   // Add new user
   const handleAddUser = (e) => {
     e.preventDefault();
-    if (!newUser.username || !newUser.password) return;
+    if (!newUser.username || !newUser.password || !newUser.department) {
+      setSuccess("");
+      if (!newUser.department) {
+        alert("Please select a department");
+      }
+      return;
+    }
 
     const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
     const userToAdd = { ...newUser };
@@ -102,30 +114,49 @@ const AdminDashboard = () => {
     setUsers((prev) => [...prev, userToAdd]);
     setStaffList((prev) => [...prev, userToAdd]);
     setSuccess(`User ${newUser.username} created as ${newUser.role}!`);
-    setNewUser({ username: "", password: "", role: "Staff" });
+    setNewUser({ username: "", password: "", role: "Staff", department: "" });
 
     setTimeout(() => setSuccess(""), 3000);
   };
 
+  // Open coordinator promotion modal
+  const handleOpenPromotion = (username) => {
+    setCoordinatorPromotion({ username, department: "" });
+  };
+
   // Promote staff to coordinator
-  const handlePromoteToCoordinator = (username) => {
+  const handlePromoteToCoordinator = () => {
+    if (!coordinatorPromotion.department) {
+      alert("Please select a department");
+      return;
+    }
+
     const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
     const updatedUsers = otherUsers.map((u) =>
-      u.username === username ? { ...u, role: "Coordinator" } : u
+      u.username === coordinatorPromotion.username
+        ? { ...u, role: "Coordinator", department: coordinatorPromotion.department }
+        : u
     );
     localStorage.setItem("otherUsers", JSON.stringify(updatedUsers));
 
     // Update staff list
-    setStaffList((prev) => prev.filter((s) => s.username !== username));
+    setStaffList((prev) =>
+      prev.filter((s) => s.username !== coordinatorPromotion.username)
+    );
 
     // Update users list
     setUsers((prev) =>
       prev.map((u) =>
-        u.username === username ? { ...u, role: "Coordinator" } : u
+        u.username === coordinatorPromotion.username
+          ? { ...u, role: "Coordinator", department: coordinatorPromotion.department }
+          : u
       )
     );
 
-    setSuccess(`Staff ${username} promoted to Coordinator!`);
+    setSuccess(
+      `Staff ${coordinatorPromotion.username} promoted to Coordinator for ${coordinatorPromotion.department}!`
+    );
+    setCoordinatorPromotion({ username: "", department: "" });
     setTimeout(() => setSuccess(""), 3000);
   };
 
@@ -288,13 +319,14 @@ const AdminDashboard = () => {
               <tr>
                 <th className="py-2 px-4">Username</th>
                 <th className="py-2 px-4">Email</th>
+                <th className="py-2 px-4">Department</th>
                 <th className="py-2 px-4">Role</th>
               </tr>
             </thead>
             <tbody>
               {staffList.length === 0 && (
                 <tr>
-                  <td colSpan="3" className="text-center py-4">
+                  <td colSpan="4" className="text-center py-4">
                     No staff members found
                   </td>
                 </tr>
@@ -306,6 +338,7 @@ const AdminDashboard = () => {
                 >
                   <td className="py-2 px-4">{staff.username}</td>
                   <td className="py-2 px-4">{staff.email || "-"}</td>
+                  <td className="py-2 px-4">{staff.department || "-"}</td>
                   <td className="py-2 px-4">{staff.role}</td>
                 </tr>
               ))}
@@ -329,6 +362,7 @@ const AdminDashboard = () => {
               <tr>
                 <th className="py-2 px-4">Username</th>
                 <th className="py-2 px-4">Email</th>
+                <th className="py-2 px-4">Department</th>
                 <th className="py-2 px-4">Current Role</th>
                 <th className="py-2 px-4">Actions</th>
               </tr>
@@ -336,7 +370,7 @@ const AdminDashboard = () => {
             <tbody>
               {staffList.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="text-center py-4">
+                  <td colSpan="5" className="text-center py-4">
                     No staff members available to promote
                   </td>
                 </tr>
@@ -348,10 +382,11 @@ const AdminDashboard = () => {
                 >
                   <td className="py-2 px-4">{staff.username}</td>
                   <td className="py-2 px-4">{staff.email || "-"}</td>
+                  <td className="py-2 px-4">{staff.department || "-"}</td>
                   <td className="py-2 px-4">{staff.role}</td>
                   <td className="py-2 px-4">
                     <button
-                      onClick={() => handlePromoteToCoordinator(staff.username)}
+                      onClick={() => handleOpenPromotion(staff.username)}
                       className="bg-purple-600 text-white py-1 px-3 rounded-md hover:bg-purple-700 transition"
                     >
                       Promote to Coordinator
@@ -361,6 +396,53 @@ const AdminDashboard = () => {
               ))}
             </tbody>
           </table>
+
+          {/* Promotion Modal */}
+          {coordinatorPromotion.username && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <h3 className="text-xl font-bold mb-4">
+                  Promote {coordinatorPromotion.username} to Coordinator
+                </h3>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">
+                    Select Department
+                  </label>
+                  <select
+                    value={coordinatorPromotion.department}
+                    onChange={(e) =>
+                      setCoordinatorPromotion({
+                        ...coordinatorPromotion,
+                        department: e.target.value,
+                      })
+                    }
+                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">Select Department</option>
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handlePromoteToCoordinator}
+                    className="flex-1 bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition"
+                  >
+                    Promote
+                  </button>
+                  <button
+                    onClick={() => setCoordinatorPromotion({ username: "", department: "" })}
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -403,6 +485,26 @@ const AdminDashboard = () => {
                 required
                 className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
               />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-600 text-sm font-medium mb-1">
+                Department
+              </label>
+              <select
+                name="department"
+                value={newUser.department}
+                onChange={handleChange}
+                required
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">Select Department</option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button

@@ -4,7 +4,7 @@ import LoginForm from "./components/LoginForm";
 import StudentDashboard from "./components/StudentDashboard";
 import AdminDashboard from "./components/AdminDashboard";
 import CompanyDashboard from "./components/CompanyDashboard";
-import SupervisorDashboard from "./components/SupervisorDashboard";
+import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import ExaminerDashboard from "./components/ExaminerDashboard"; // <-- added Examiner
 import "./App.css";
@@ -19,7 +19,7 @@ function App() {
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/company-dashboard" element={<CompanyDashboard />} />
-        <Route path="/supervisor-dashboard" element={<SupervisorDashboard />} />
+        <Route path="/coordinator-dashboard" element={<CoordinatorDashboard />} />
         <Route path="/advisor-dashboard" element={<AdvisorDashboard />} />
         <Route path="/examiner-dashboard" element={<ExaminerDashboard />} /> {/* <-- Examiner route */}
       </Routes>

@@ -6,7 +6,7 @@ import logoSrc from "../assets/aastu-logo.jpg";
 const roleRoutes = {
   Admin: "/admin-dashboard",
   Advisor: "/advisor-dashboard",
-  Supervisor: "/supervisor-dashboard",
+  Coordinator: "/coordinator-dashboard",
   Examiner: "/examiner-dashboard",
   Company: "/company-dashboard",
 };
@@ -98,6 +98,7 @@ const LoginForm = () => {
         username: match.username,
         email: match.email,
         role: match.role,
+        department: match.department || "",
       })
     );
     const targetRoute = roleRoutes[accountType] || "/login";
@@ -180,7 +181,7 @@ const LoginForm = () => {
               <option value="Student">Student</option>
               <option value="Admin">Admin</option>
               <option value="Advisor">Advisor</option>
-              <option value="Supervisor">Supervisor</option>
+              <option value="Coordinator">Coordinator</option>
               <option value="Examiner">Examiner</option>
               <option value="Company">Company</option>
             </select>
@@ -242,7 +243,7 @@ const LoginForm = () => {
           <button
             type="button"
             className="w-full text-sm text-blue-600 font-semibold mt-2 hover:underline"
-            onClick={() => alert("Please contact your supervisor to reset your password.")}
+            onClick={() => alert("Please contact your coordinator to reset your password.")}
           >
             Forgot password?
           </button>
