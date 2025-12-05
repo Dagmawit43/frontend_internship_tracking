@@ -25,8 +25,26 @@ const LoginForm = () => {
     password: "admin123",
   };
 
-  const handleStudentLogin = async (email, pwd) => {
-    const result = await login(email.toLowerCase(), pwd);
+  const handleStudentLogin = async (credential, pwd) => {
+    const normalized = credential.toLowerCase();
+
+    // 1) Check local first (helps offline and avoids API if already registered locally)
+    const localStudents = JSON.parse(localStorage.getItem("students")) || [];
+    const localMatch = localStudents.find(
+      (s) =>
+        (s.email?.toLowerCase() === normalized || s.studentId === credential || s.id === credential) &&
+        s.password === pwd
+    );
+    if (localMatch) {
+      localStorage.setItem("student", JSON.stringify(localMatch));
+      navigate("/student-dashboard", {
+        state: { studentName: localMatch.fullName || localMatch.name },
+      });
+      return;
+    }
+
+    // 2) Try API
+    const result = await login(normalized, pwd);
 
     // Success via API
     if (result.ok) {
@@ -42,26 +60,29 @@ const LoginForm = () => {
       errMsg.includes("network") ||
       errMsg.includes("timeout") ||
       errMsg.includes("fetch") ||
-      errMsg.includes("connection");
+      errMsg.includes("connection") ||
+      errMsg.includes("failed to fetch");
 
     if (!isNetworkError) {
       setError(result.error?.detail || result.error?.message || "Invalid credentials");
       return;
     }
 
-    // Offline fallback: check local students
-    const students = JSON.parse(localStorage.getItem("students")) || [];
-    const student = students.find(
-      (s) => s.email?.toLowerCase() === email.toLowerCase() && s.password === pwd
+    // 3) Offline fallback: check local students (email or studentId)
+    const offlineStudents = JSON.parse(localStorage.getItem("students")) || [];
+    const offlineMatch = offlineStudents.find(
+      (s) =>
+        (s.email?.toLowerCase() === normalized || s.studentId === credential || s.id === credential) &&
+        s.password === pwd
     );
-    if (!student) {
-      setError("Invalid credentials (offline mode).");
+    if (!offlineMatch) {
+      setError("Invalid credentials (offline mode). Make sure you use the same email/ID and password you registered with.");
       return;
     }
 
-    localStorage.setItem("student", JSON.stringify(student));
+    localStorage.setItem("student", JSON.stringify(offlineMatch));
     navigate("/student-dashboard", {
-      state: { studentName: student.fullName || student.name },
+      state: { studentName: offlineMatch.fullName || offlineMatch.name },
     });
   };
 
