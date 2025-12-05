@@ -160,7 +160,43 @@ const RegistrationForm = () => {
         setSuccess("Student registration successful! Redirecting to login...");
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
-        setError(getFriendlyErrorMessage(err));
+        // Fallback: if network/API fails, register locally so users can continue
+        const isNetworkError =
+          err?.message?.toLowerCase().includes("network") ||
+          err?.message?.toLowerCase().includes("timeout") ||
+          err?.message?.toLowerCase().includes("connection");
+
+        if (isNetworkError) {
+          const localStudents = JSON.parse(localStorage.getItem("students")) || [];
+          const exists = localStudents.find(
+            (s) =>
+              s.email?.toLowerCase() === email.toLowerCase() ||
+              s.studentId === studentId
+          );
+          if (exists) {
+            setError(
+              "A student with this email or ID already exists locally. Try logging in."
+            );
+          } else {
+            const newStudent = {
+              id: studentId,
+              studentId,
+              fullName,
+              email,
+              phone,
+              password,
+              createdAt: new Date().toISOString(),
+            };
+            localStudents.push(newStudent);
+            localStorage.setItem("students", JSON.stringify(localStudents));
+            setSuccess(
+              "Registered locally due to network issues. You can log in with these credentials."
+            );
+            setTimeout(() => navigate("/login"), 1200);
+          }
+        } else {
+          setError(getFriendlyErrorMessage(err));
+        }
       } finally {
         setIsSubmitting(false);
       }

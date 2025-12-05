@@ -26,19 +26,43 @@ const LoginForm = () => {
   };
 
   const handleStudentLogin = async (email, pwd) => {
-    try {
-      const result = await login(email.toLowerCase(), pwd);
-      if (result.ok) {
-        const student = JSON.parse(localStorage.getItem("student"));
-        navigate("/student-dashboard", {
-          state: { studentName: student?.name },
-        });
-        return;
-      }
-      setError(result.error?.detail || result.error?.message || "Invalid credentials");
-    } catch (err) {
-      setError(err?.message || "Login failed");
+    const result = await login(email.toLowerCase(), pwd);
+
+    // Success via API
+    if (result.ok) {
+      const student = JSON.parse(localStorage.getItem("student"));
+      navigate("/student-dashboard", {
+        state: { studentName: student?.name || student?.fullName },
+      });
+      return;
     }
+
+    const errMsg = (result.error?.detail || result.error?.message || "").toLowerCase();
+    const isNetworkError =
+      errMsg.includes("network") ||
+      errMsg.includes("timeout") ||
+      errMsg.includes("fetch") ||
+      errMsg.includes("connection");
+
+    if (!isNetworkError) {
+      setError(result.error?.detail || result.error?.message || "Invalid credentials");
+      return;
+    }
+
+    // Offline fallback: check local students
+    const students = JSON.parse(localStorage.getItem("students")) || [];
+    const student = students.find(
+      (s) => s.email?.toLowerCase() === email.toLowerCase() && s.password === pwd
+    );
+    if (!student) {
+      setError("Invalid credentials (offline mode).");
+      return;
+    }
+
+    localStorage.setItem("student", JSON.stringify(student));
+    navigate("/student-dashboard", {
+      state: { studentName: student.fullName || student.name },
+    });
   };
 
   const handleCompanyLogin = () => {
