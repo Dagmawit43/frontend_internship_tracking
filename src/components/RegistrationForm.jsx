@@ -160,13 +160,19 @@ const RegistrationForm = () => {
         setSuccess("Student registration successful! Redirecting to login...");
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
-        // Fallback: if network/API fails, register locally so users can continue
+        // Fallback: if network/API fails or no server response, register locally so users can continue
+        const message = err?.message?.toLowerCase() || "";
+        const status = err?.response?.status;
         const isNetworkError =
-          err?.message?.toLowerCase().includes("network") ||
-          err?.message?.toLowerCase().includes("timeout") ||
-          err?.message?.toLowerCase().includes("connection");
+          message.includes("network") ||
+          message.includes("timeout") ||
+          message.includes("connection") ||
+          !err?.response; // no server response
 
-        if (isNetworkError) {
+        // If we got a client-side validation error from API, show it
+        if (!isNetworkError && status && status < 500) {
+          setError(getFriendlyErrorMessage(err));
+        } else {
           const localStudents = JSON.parse(localStorage.getItem("students")) || [];
           const exists = localStudents.find(
             (s) =>
@@ -190,12 +196,10 @@ const RegistrationForm = () => {
             localStudents.push(newStudent);
             localStorage.setItem("students", JSON.stringify(localStudents));
             setSuccess(
-              "Registered locally due to network issues. You can log in with these credentials."
+              "Registered locally due to server/network issues. You can log in with these credentials."
             );
             setTimeout(() => navigate("/login"), 1200);
           }
-        } else {
-          setError(getFriendlyErrorMessage(err));
         }
       } finally {
         setIsSubmitting(false);
