@@ -26,13 +26,18 @@ const LoginForm = () => {
   };
 
   const handleStudentLogin = async (credential, pwd) => {
-    const normalized = credential.toLowerCase();
+    const normalized = (credential || "").trim().toLowerCase();
+
+    const matchesStudentId = (student, credLower) => {
+      const sid = (student.studentId || student.id || "").toString().toLowerCase();
+      return sid && sid === credLower;
+    };
 
     // 1) Check local first (helps offline and avoids API if already registered locally)
     const localStudents = JSON.parse(localStorage.getItem("students")) || [];
     const localMatch = localStudents.find(
       (s) =>
-        (s.email?.toLowerCase() === normalized || s.studentId === credential || s.id === credential) &&
+        (s.email?.toLowerCase() === normalized || matchesStudentId(s, normalized)) &&
         s.password === pwd
     );
     if (localMatch) {
@@ -72,7 +77,7 @@ const LoginForm = () => {
     const offlineStudents = JSON.parse(localStorage.getItem("students")) || [];
     const offlineMatch = offlineStudents.find(
       (s) =>
-        (s.email?.toLowerCase() === normalized || s.studentId === credential || s.id === credential) &&
+        (s.email?.toLowerCase() === normalized || matchesStudentId(s, normalized)) &&
         s.password === pwd
     );
     if (!offlineMatch) {
