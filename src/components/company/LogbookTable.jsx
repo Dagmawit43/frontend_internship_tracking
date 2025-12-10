@@ -51,3 +51,4 @@ const LogbookTable = ({ logbooks, onApprove, onReject }) => {
 
 export default LogbookTable;
 
+

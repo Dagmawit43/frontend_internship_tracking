@@ -35,6 +35,15 @@ const LoginForm = () => {
       return sid && sid === credLower;
     };
 
+    const isEligible = (student) => {
+      const eligible = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
+      return eligible.some(
+        (s) =>
+          s.studentId === student.studentId ||
+          s.email?.toLowerCase() === student.email?.toLowerCase()
+      );
+    };
+
     // 1) Check local first (helps offline and avoids API if already registered locally)
     const localStudents = JSON.parse(localStorage.getItem("students")) || [];
     const localMatch = localStudents.find(
@@ -43,6 +52,10 @@ const LoginForm = () => {
         s.password === pwd
     );
     if (localMatch) {
+      if (!isEligible(localMatch)) {
+        setError("You are not in the eligible students list. Please contact your coordinator.");
+        return;
+      }
       localStorage.setItem("student", JSON.stringify(localMatch));
       navigate("/student-dashboard", {
         state: { studentName: localMatch.fullName || localMatch.name },
@@ -56,6 +69,10 @@ const LoginForm = () => {
     // Success via API
     if (result.ok) {
       const student = JSON.parse(localStorage.getItem("student"));
+      if (!student || !isEligible(student)) {
+        setError("You are not in the eligible students list. Please contact your coordinator.");
+        return;
+      }
       navigate("/student-dashboard", {
         state: { studentName: student?.name || student?.fullName },
       });
@@ -84,6 +101,10 @@ const LoginForm = () => {
     );
     if (!offlineMatch) {
       setError("Invalid credentials (offline mode). Make sure you use the same email/ID and password you registered with.");
+      return;
+    }
+    if (!isEligible(offlineMatch)) {
+      setError("You are not in the eligible students list. Please contact your coordinator.");
       return;
     }
 

@@ -64,3 +64,4 @@ const ApplicationTable = ({ applications, onAccept, onReject, onRequestInfo }) =
 
 export default ApplicationTable;
 
+
