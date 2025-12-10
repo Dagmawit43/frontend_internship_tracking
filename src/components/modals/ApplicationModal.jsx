@@ -183,3 +183,6 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
 
 export default ApplicationModal;
 
+
+
+

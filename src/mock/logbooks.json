@@ -1,0 +1,19 @@
+[
+  {
+    "id": "log-001",
+    "student_name": "Liya Tesfaye",
+    "date": "2025-02-01",
+    "tasks": "Implemented authentication flow, wrote unit tests",
+    "evidence": "https://github.com/example/repo/pull/12",
+    "status": "Pending"
+  },
+  {
+    "id": "log-002",
+    "student_name": "Kalkidan Mekonnen",
+    "date": "2025-02-02",
+    "tasks": "Designed circuit layout, documented power analysis",
+    "evidence": "https://drive.google.com/sample",
+    "status": "Pending"
+  }
+]
+

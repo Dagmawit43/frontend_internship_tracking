@@ -1,0 +1,25 @@
+[
+  {
+    "id": "comp-001",
+    "company_name": "TechNova Solutions",
+    "representative_name": "Sara Bekele",
+    "representative_email": "sara@technova.com",
+    "phone": "+251911111111",
+    "license_number": "LIC-2024-001",
+    "location": "Addis Ababa",
+    "status": "VERIFIED",
+    "password": "company123"
+  },
+  {
+    "id": "comp-002",
+    "company_name": "GreenField Industries",
+    "representative_name": "Michael Tadesse",
+    "representative_email": "michael@greenfield.com",
+    "phone": "+251922222222",
+    "license_number": "LIC-2024-002",
+    "location": "Adama",
+    "status": "PENDING",
+    "password": "company123"
+  }
+]
+

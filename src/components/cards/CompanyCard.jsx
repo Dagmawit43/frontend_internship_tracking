@@ -66,3 +66,6 @@ const CompanyCard = ({ company, onViewDetails, onApply }) => {
 
 export default CompanyCard;
 
+
+
+

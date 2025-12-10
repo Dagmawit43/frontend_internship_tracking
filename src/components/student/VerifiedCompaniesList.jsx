@@ -183,3 +183,6 @@ const VerifiedCompaniesList = ({ studentId, studentName, onApplicationSubmit }) 
 
 export default VerifiedCompaniesList;
 
+
+
+

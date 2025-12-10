@@ -1,0 +1,29 @@
+[
+  {
+    "id": "app-001",
+    "student_name": "Liya Tesfaye",
+    "department": "Software Engineering",
+    "cgpa": 3.6,
+    "status": "Pending",
+    "company_id": "comp-001"
+  },
+  {
+    "id": "app-002",
+    "student_name": "Kalkidan Mekonnen",
+    "department": "Electrical Engineering",
+    "cgpa": 3.3,
+    "status": "Accepted",
+    "company_id": "comp-001",
+    "supervisor": "Abel Girma"
+  },
+  {
+    "id": "app-003",
+    "student_name": "Abel Yohannes",
+    "department": "Mechanical Engineering",
+    "cgpa": 3.1,
+    "status": "Rejected",
+    "company_id": "comp-001",
+    "rejectionReason": "Position filled"
+  }
+]
+
