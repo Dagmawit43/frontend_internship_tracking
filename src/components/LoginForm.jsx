@@ -8,7 +8,7 @@ const roleRoutes = {
   Advisor: "/advisor-dashboard",
   Coordinator: "/coordinator-dashboard",
   Examiner: "/examiner-dashboard",
-  Company: "/company-dashboard",
+  Company: "/company/dashboard",
 };
 
 const LoginForm = () => {
@@ -110,15 +110,15 @@ const LoginForm = () => {
       return;
     }
 
-    localStorage.setItem(
-      "activeCompanyUser",
-      JSON.stringify({
-        companyName: match.companyName,
-        contactEmail: match.contactEmail,
-        role: "Company",
-        id: match.id,
-      })
-    );
+    const payload = {
+      companyName: match.companyName,
+      contactEmail: match.contactEmail,
+      role: "Company",
+      id: match.id,
+      status: match.status,
+    };
+    localStorage.setItem("activeCompanyUser", JSON.stringify(payload));
+    localStorage.setItem("activeCompany", JSON.stringify(payload));
     navigate(roleRoutes.Company);
   };
 

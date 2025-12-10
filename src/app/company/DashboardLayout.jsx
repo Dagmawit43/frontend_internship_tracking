@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 
@@ -12,16 +12,34 @@ const navItems = [
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
-  const company = useMemo(() => JSON.parse(localStorage.getItem("activeCompany") || "null"), []);
+  const [loading, setLoading] = useState(true);
+  const company = useMemo(() => {
+    // Accept either key to stay compatible with main LoginForm and company login
+    const fromCompany = JSON.parse(localStorage.getItem("activeCompany") || "null");
+    const fromUser = JSON.parse(localStorage.getItem("activeCompanyUser") || "null");
+    return fromCompany || fromUser;
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("activeCompany");
+    localStorage.removeItem("activeCompanyUser");
     navigate("/company/login");
   };
 
-  if (!company) {
-    navigate("/company/login");
-    return null;
+  useEffect(() => {
+    if (!company) {
+      navigate("/company/login");
+    } else {
+      setLoading(false);
+    }
+  }, [company, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-gray-600 text-sm">Loading company dashboard...</div>
+      </div>
+    );
   }
 
   return (
