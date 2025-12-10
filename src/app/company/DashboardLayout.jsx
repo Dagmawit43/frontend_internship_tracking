@@ -10,7 +10,7 @@ const navItems = [
   { to: "/company/dashboard/final-evaluation", label: "Final Evaluation Form" },
 ];
 
-const DashboardLayout = () => {
+const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const company = useMemo(() => {
@@ -81,7 +81,7 @@ const DashboardLayout = () => {
           </header>
 
           <main className="p-4 md:p-6">
-            <Outlet />
+            {children || <Outlet />}
           </main>
         </div>
       </div>

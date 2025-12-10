@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import companiesMock from "../mock/companies.json";
+
 const roleRoutes = {
   Admin: "/admin-dashboard",
   Advisor: "/advisor-dashboard",
   Coordinator: "/coordinator-dashboard",
   Examiner: "/examiner-dashboard",
-  Company: "/company/dashboard",
+  Company: "/company-dashboard",
 };
 
 const LoginForm = () => {
@@ -93,7 +95,11 @@ const LoginForm = () => {
 
   const handleCompanyLogin = () => {
     const credential = identifier.trim().toLowerCase();
-    const companies = JSON.parse(localStorage.getItem("companies")) || [];
+    // Seed companies from mock if none exist locally
+    const companies =
+      JSON.parse(localStorage.getItem("companies"))?.length > 0
+        ? JSON.parse(localStorage.getItem("companies"))
+        : companiesMock;
     const match = companies.find((company) => {
       const emailMatches = company.contactEmail?.toLowerCase() === credential;
       const companyNameMatches = company.companyName?.toLowerCase() === credential;

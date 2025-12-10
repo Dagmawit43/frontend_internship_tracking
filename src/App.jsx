@@ -3,9 +3,7 @@ import RegistrationForm from "./components/RegistrationForm";
 import LoginForm from "./components/LoginForm";
 import StudentDashboard from "./components/StudentDashboard";
 import AdminDashboard from "./components/AdminDashboard";
-import CompanyRegister from "./app/company/Register";
-import CompanyLogin from "./app/company/Login";
-import CompanyDashboardLayout from "./app/company/DashboardLayout";
+import CompanyDashboard from "./components/CompanyDashboard";
 import CompanyOverview from "./app/company/Overview";
 import CompanyApplications from "./app/company/Applications";
 import CompanyLogbooks from "./app/company/Logbooks";
@@ -25,9 +23,7 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        <Route path="/company/register" element={<CompanyRegister />} />
-        <Route path="/company/login" element={<CompanyLogin />} />
-        <Route path="/company/dashboard" element={<CompanyDashboardLayout />}>
+        <Route path="/company-dashboard" element={<CompanyDashboard />}>
           <Route index element={<CompanyOverview />} />
           <Route path="applications" element={<CompanyApplications />} />
           <Route path="logbooks" element={<CompanyLogbooks />} />
