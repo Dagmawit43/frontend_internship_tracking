@@ -23,7 +23,15 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        {/* Legacy route (company-dashboard) and new route (company/dashboard) share the same component tree */}
         <Route path="/company-dashboard" element={<CompanyDashboard />}>
+          <Route index element={<CompanyOverview />} />
+          <Route path="applications" element={<CompanyApplications />} />
+          <Route path="logbooks" element={<CompanyLogbooks />} />
+          <Route path="monthly" element={<CompanyMonthly />} />
+          <Route path="final-evaluation" element={<CompanyFinalEvaluation />} />
+        </Route>
+        <Route path="/company/dashboard" element={<CompanyDashboard />}>
           <Route index element={<CompanyOverview />} />
           <Route path="applications" element={<CompanyApplications />} />
           <Route path="logbooks" element={<CompanyLogbooks />} />
