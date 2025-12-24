@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
+import { DEPARTMENTS } from "../constants/departments";
 
 const RegistrationForm = () => {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ const RegistrationForm = () => {
     email: "",
     phone: "",
     studentId: "",
+    department: "",
     password: "",
     confirmPassword: "",
     documentName: "",
@@ -104,6 +106,7 @@ const RegistrationForm = () => {
       email,
       phone,
       studentId,
+      department,
       password,
       confirmPassword,
       documentData,
@@ -117,6 +120,10 @@ const RegistrationForm = () => {
       }
       if (!studentId) {
         setError("Student ID is required for student registration.");
+        return;
+      }
+      if (!department) {
+        setError("Department is required for student registration.");
         return;
       }
       // Must be pre-uploaded by coordinator in eligibleStudents
@@ -167,6 +174,7 @@ const RegistrationForm = () => {
           phone,
           id: studentId,
           image: null,
+          department,
         };
 
         await api.post("/api/students/register/", payload);
@@ -205,6 +213,7 @@ const RegistrationForm = () => {
               email,
               phone,
               password,
+              department,
               createdAt: new Date().toISOString(),
             };
             localStudents.push(newStudent);
@@ -383,18 +392,39 @@ const RegistrationForm = () => {
             />
           </div>
         ) : (
-          <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              Student ID
-            </label>
-            <input
-              type="text"
-              name="studentId"
-              value={formData.studentId}
-              onChange={handleChange}
-              required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-gray-600 text-sm font-medium mb-1">
+                Student ID
+              </label>
+              <input
+                type="text"
+                name="studentId"
+                value={formData.studentId}
+                onChange={handleChange}
+                required
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-600 text-sm font-medium mb-1">
+                Department
+              </label>
+              <select
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                required
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Department</option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

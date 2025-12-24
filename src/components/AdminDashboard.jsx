@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DEPARTMENTS } from "../constants/departments";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -14,7 +16,7 @@ const AdminDashboard = () => {
     department: "",
   });
   const [success, setSuccess] = useState("");
-  const [activeTab, setActiveTab] = useState("view"); // 'view', 'create', 'companies', 'staff', or 'coordinator'
+  const [activeTab, setActiveTab] = useState("view"); // 'view', 'create', 'companies', or 'coordinator'
   const [companies, setCompanies] = useState([]);
   const [staffList, setStaffList] = useState([]);
 
@@ -50,15 +52,15 @@ const AdminDashboard = () => {
       }));
 
     setUsers([...studentUsers, ...otherUsersNorm, ...verifiedCompaniesAsUsers]);
-    
-    // Load staff members separately
+
+    // keep a staff-only list for coordinator promotion
     const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
     setStaffList(staffMembers);
   }, []);
 
-  // Refresh staff list when staff or coordinator tab is opened
+  // Refresh staff list when opening the coordinator tab (in case new staff were added)
   useEffect(() => {
-    if (activeTab === "staff" || activeTab === "coordinator") {
+    if (activeTab === "coordinator") {
       const storedOtherUsers =
         JSON.parse(localStorage.getItem("otherUsers")) || [];
       const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
@@ -119,6 +121,28 @@ const AdminDashboard = () => {
     setTimeout(() => setSuccess(""), 3000);
   };
 
+  const handleViewCompanyDocument = (company) => {
+    if (!company?.documentData) {
+      alert("This company does not have a document attached.");
+      return;
+    }
+
+    try {
+      const link = document.createElement("a");
+      link.href = company.documentData;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      // Use the stored name if available, otherwise a fallback
+      link.download = company.documentName || "company-document";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("Error opening company document", e);
+      alert("Unable to open document. Please try again.");
+    }
+  };
+
   // Open coordinator promotion modal
   const handleOpenPromotion = (username) => {
     setCoordinatorPromotion({ username, department: "" });
@@ -139,11 +163,6 @@ const AdminDashboard = () => {
     );
     localStorage.setItem("otherUsers", JSON.stringify(updatedUsers));
 
-    // Update staff list
-    setStaffList((prev) =>
-      prev.filter((s) => s.username !== coordinatorPromotion.username)
-    );
-
     // Update users list
     setUsers((prev) =>
       prev.map((u) =>
@@ -160,11 +179,24 @@ const AdminDashboard = () => {
     setTimeout(() => setSuccess(""), 3000);
   };
 
+  const handleLogout = () => {
+    // If you later store admin-specific auth in localStorage, clear it here.
+    navigate("/login");
+  };
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <h2 className="text-3xl font-bold mb-6 text-center">
-        Hello Admin, manage all users here
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-3xl font-bold text-gray-900">
+          Hello Admin, manage all users here
+        </h2>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+        >
+          Logout
+        </button>
+      </div>
 
       {/* Tabs */}
       <div className="flex justify-center mb-6 space-x-4">
@@ -195,16 +227,6 @@ const AdminDashboard = () => {
           }`}
         >
           Verify Companies
-        </button>
-        <button
-          onClick={() => setActiveTab("staff")}
-          className={`py-2 px-4 rounded-md font-medium ${
-            activeTab === "staff"
-              ? "bg-blue-600 text-white"
-              : "bg-white border"
-          }`}
-        >
-          Staff List
         </button>
         <button
           onClick={() => setActiveTab("coordinator")}
@@ -290,7 +312,7 @@ const AdminDashboard = () => {
                   <td className="py-2 px-4 space-x-2">
                     {c.documentData && (
                       <button
-                        onClick={() => window.open(c.documentData, "_blank")}
+                        onClick={() => handleViewCompanyDocument(c)}
                         className="bg-gray-200 py-1 px-2 rounded-md"
                       >
                         View Document
@@ -305,41 +327,6 @@ const AdminDashboard = () => {
                       </button>
                     )}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {activeTab === "staff" && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-            <thead className="bg-blue-600 text-white">
-              <tr>
-                <th className="py-2 px-4">Username</th>
-                <th className="py-2 px-4">Email</th>
-                <th className="py-2 px-4">Department</th>
-                <th className="py-2 px-4">Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staffList.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="text-center py-4">
-                    No staff members found
-                  </td>
-                </tr>
-              )}
-              {staffList.map((staff, index) => (
-                <tr
-                  key={index}
-                  className={index % 2 === 0 ? "bg-gray-100" : "bg-white"}
-                >
-                  <td className="py-2 px-4">{staff.username}</td>
-                  <td className="py-2 px-4">{staff.email || "-"}</td>
-                  <td className="py-2 px-4">{staff.department || "-"}</td>
-                  <td className="py-2 px-4">{staff.role}</td>
                 </tr>
               ))}
             </tbody>
