@@ -138,7 +138,7 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
 };
 
 // Welcome header (inlined)
-const WelcomeHeader = ({ studentName, department, college, internshipStatus }) => {
+const WelcomeHeader = ({ studentName, department, college, internshipStatus, advisor, examiner }) => {
   const getStatusConfig = (status) => {
     const statusMap = {
       "Not Applied": {
@@ -174,34 +174,60 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus }) =
 
   return (
     <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {studentName || "Student"}</h1>
-          <div className="flex flex-wrap gap-4 text-sm md:text-base">
-            {department && (
-              <div className="flex items-center gap-2">
-                <span className="opacity-90">Department:</span>
-                <span className="font-semibold">{department}</span>
-              </div>
-            )}
-            {college && (
-              <div className="flex items-center gap-2">
-                <span className="opacity-90">College:</span>
-                <span className="font-semibold">{college}</span>
-              </div>
-            )}
+      <div className="flex flex-col gap-6">
+        {/* Top Row: Name and Status */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {studentName || "Student"}</h1>
+            <div className="flex flex-wrap gap-4 text-sm md:text-base">
+              {department && (
+                <div className="flex items-center gap-2">
+                  <span className="opacity-90">Department:</span>
+                  <span className="font-semibold">{department}</span>
+                </div>
+              )}
+              {college && (
+                <div className="flex items-center gap-2">
+                  <span className="opacity-90">College:</span>
+                  <span className="font-semibold">{college}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
+          >
+            <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
+            <div>
+              <p className={`text-xs font-medium ${statusConfig.color} opacity-70`}>Internship Status</p>
+              <p className={`text-sm font-bold ${statusConfig.color}`}>{internshipStatus || "Not Applied"}</p>
+            </div>
           </div>
         </div>
 
-        <div
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
-        >
-          <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
-          <div>
-            <p className={`text-xs font-medium ${statusConfig.color} opacity-70`}>Internship Status</p>
-            <p className={`text-sm font-bold ${statusConfig.color}`}>{internshipStatus || "Not Applied"}</p>
+        {/* Assignment Information Row */}
+        {(advisor || examiner) && (
+          <div className="border-t border-blue-500/30 pt-4">
+            <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {advisor && (
+                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
+                  <User className="w-4 h-4" />
+                  <span className="opacity-90">Advisor:</span>
+                  <span className="font-semibold">{advisor}</span>
+                </div>
+              )}
+              {examiner && (
+                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
+                  <User className="w-4 h-4" />
+                  <span className="opacity-90">Examiner:</span>
+                  <span className="font-semibold">{examiner}</span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -795,6 +821,8 @@ const StudentDashboard = () => {
   const [internshipStatus, setInternshipStatus] = useState("Not Applied");
   const [notificationCount, setNotificationCount] = useState(0);
   const [applications, setApplications] = useState([]);
+  const [advisor, setAdvisor] = useState(null);
+  const [examiner, setExaminer] = useState(null);
 
   useEffect(() => {
     // Get student data from localStorage or context
@@ -803,13 +831,20 @@ const StudentDashboard = () => {
     const studentId = student?.id || student?.studentId || storedStudent.id || storedStudent.studentId || "";
     const department = student?.department || storedStudent.department || "";
     const college = student?.college || storedStudent.college || "Addis Ababa Science and Technology University";
+    const email = student?.email || storedStudent.email || "";
+
+    console.log("👨‍🎓 Student data loaded:", { name, studentId, department, email, storedStudent, student });
 
     setStudentData({
       name,
       studentId,
       department,
       college,
+      email,
     });
+
+    // Load assignment information (advisor and examiner)
+    loadAssignment(studentId, name, email, department);
 
     // Load applications to determine status
     loadApplications(studentId, name);
@@ -817,6 +852,143 @@ const StudentDashboard = () => {
     // Load notification count
     loadNotificationCount(studentId, name);
   }, [student, studentName]);
+
+  // Listen for storage changes to refresh assignments
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "studentAssignments" && studentData) {
+        loadAssignment(studentData.studentId, studentData.name, studentData.email, studentData.department);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    
+    // Also listen for custom storage events (for same-tab updates)
+    const handleCustomStorageChange = () => {
+      if (studentData) {
+        loadAssignment(studentData.studentId, studentData.name, studentData.email, studentData.department);
+      }
+    };
+
+    // Custom event listener for same-tab updates
+    window.addEventListener("localStorageChange", handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("localStorageChange", handleCustomStorageChange);
+    };
+  }, [studentData]);
+
+  const loadAssignment = (studentId, studentName, studentEmail, department) => {
+    try {
+      const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
+      const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+      
+      console.log("🔍 Loading assignment for:", { studentId, studentName, studentEmail, department });
+      console.log("📋 Available assignments:", assignments);
+      
+      if (assignments.length === 0) {
+        console.log("❌ No assignments found in localStorage");
+        setAdvisor(null);
+        setExaminer(null);
+        return;
+      }
+      
+      // Try multiple matching strategies - be more flexible with matching
+      // First try with department match, then without
+      let assignment = assignments.find((a) => {
+        // Match by studentId (exact match)
+        if (studentId && a.studentId && a.studentId.toString() === studentId.toString()) {
+          return department ? a.department === department : true;
+        }
+        
+        // Match by email (case-insensitive)
+        if (studentEmail && a.email) {
+          if (a.email.toLowerCase() === studentEmail.toLowerCase()) {
+            return department ? a.department === department : true;
+          }
+        }
+        
+        // Match by studentName (case-insensitive, flexible)
+        if (studentName && a.studentName) {
+          const aName = (a.studentName || "").toLowerCase().trim();
+          const sName = (studentName || "").toLowerCase().trim();
+          if (aName === sName || aName.includes(sName) || sName.includes(aName)) {
+            return department ? a.department === department : true;
+          }
+        }
+        
+        return false;
+      });
+
+      // If no match with department, try without department requirement
+      if (!assignment) {
+        assignment = assignments.find((a) => {
+          // Match by studentId
+          if (studentId && a.studentId && a.studentId.toString() === studentId.toString()) {
+            return true;
+          }
+          
+          // Match by email
+          if (studentEmail && a.email) {
+            if (a.email.toLowerCase() === studentEmail.toLowerCase()) {
+              return true;
+            }
+          }
+          
+          // Match by studentName
+          if (studentName && a.studentName) {
+            const aName = (a.studentName || "").toLowerCase().trim();
+            const sName = (studentName || "").toLowerCase().trim();
+            if (aName === sName || aName.includes(sName) || sName.includes(aName)) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+      }
+
+      if (assignment) {
+        console.log("✅ Found assignment:", assignment);
+        
+        // Get full names from otherUsers
+        let advisorName = assignment.advisor;
+        let examinerName = assignment.examiner;
+        
+        if (assignment.advisor) {
+          const advisorUser = otherUsers.find(u => u.username === assignment.advisor && u.role === "Advisor");
+          if (advisorUser) {
+            advisorName = advisorUser.fullName || advisorUser.name || advisorUser.username;
+            console.log("👤 Advisor found:", advisorName);
+          } else {
+            console.log("⚠️ Advisor username not found in otherUsers:", assignment.advisor);
+          }
+        }
+        
+        if (assignment.examiner) {
+          const examinerUser = otherUsers.find(u => u.username === assignment.examiner && u.role === "Examiner");
+          if (examinerUser) {
+            examinerName = examinerUser.fullName || examinerUser.name || examinerUser.username;
+            console.log("👤 Examiner found:", examinerName);
+          } else {
+            console.log("⚠️ Examiner username not found in otherUsers:", assignment.examiner);
+          }
+        }
+        
+        setAdvisor(advisorName || null);
+        setExaminer(examinerName || null);
+      } else {
+        console.log("❌ No matching assignment found");
+        setAdvisor(null);
+        setExaminer(null);
+      }
+    } catch (error) {
+      console.error("❌ Error loading assignment:", error);
+      setAdvisor(null);
+      setExaminer(null);
+    }
+  };
 
   const loadApplications = (studentId, studentName) => {
     try {
@@ -894,6 +1066,8 @@ const StudentDashboard = () => {
           department={studentData.department}
           college={studentData.college}
           internshipStatus={internshipStatus}
+          advisor={advisor}
+          examiner={examiner}
         />
 
         {/* Main Grid Layout */}
