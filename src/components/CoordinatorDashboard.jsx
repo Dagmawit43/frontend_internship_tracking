@@ -7,7 +7,7 @@ import UploadStudentList from "./UploadStudentLists";
 
 // Dashboard Home Component
 
-const DashboardHome = ({ stats }) => {
+const DashboardHome = ({ stats, onStatClick }) => {
 
   return (
 
@@ -21,7 +21,7 @@ const DashboardHome = ({ stats }) => {
 
       </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
 
             {stats.map((stat) => {
 
@@ -29,7 +29,11 @@ const DashboardHome = ({ stats }) => {
 
             return (
 
-                <div key={stat.title} className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                <div 
+                  key={stat.title} 
+                  onClick={() => onStatClick && onStatClick(stat.title)}
+                  className="bg-white p-6 rounded-lg shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow"
+                >
 
                 <div className="flex flex-row items-center justify-between pb-2">
 
@@ -428,6 +432,261 @@ const AssignStudents = () => {
   );
 };
 
+// List View Components
+const StudentsList = ({ coordinatorDept, onBack }) => {
+  const [students, setStudents] = useState([]);
+
+  useEffect(() => {
+    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
+    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
+
+    const deptEligibleStudents = coordinatorDept
+      ? eligibleStudents.filter((s) => s.department === coordinatorDept)
+      : [];
+    const deptRegisteredStudents = coordinatorDept
+      ? registeredStudents.filter((s) => s.department === coordinatorDept)
+      : [];
+
+    const allDeptStudents = [...deptEligibleStudents];
+    deptRegisteredStudents.forEach((rs) => {
+      if (!allDeptStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
+        allDeptStudents.push({
+          studentId: rs.studentId || rs.id,
+          fullName: rs.fullName || rs.name,
+          email: rs.email,
+          department: rs.department,
+        });
+      }
+    });
+
+    setStudents(allDeptStudents);
+  }, [coordinatorDept]);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">Students List</h2>
+      </div>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Department: <span className="font-semibold">{coordinatorDept}</span> ({students.length} students)
+          </p>
+          {students.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">No students found in your department</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {students.map((student, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{student.fullName || student.name || "Unknown"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{student.studentId || student.id || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{student.email || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{student.department || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdvisorsList = ({ coordinatorDept, onBack }) => {
+  const [advisors, setAdvisors] = useState([]);
+
+  useEffect(() => {
+    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+    const deptAdvisors = coordinatorDept
+      ? otherUsers.filter((u) => u.role === "Advisor" && u.department === coordinatorDept)
+      : [];
+    setAdvisors(deptAdvisors);
+  }, [coordinatorDept]);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">Advisors List</h2>
+      </div>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Department: <span className="font-semibold">{coordinatorDept}</span> ({advisors.length} advisors)
+          </p>
+          {advisors.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">No advisors found in your department</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {advisors.map((advisor, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{advisor.username || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.email || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.department || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.role || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ExaminersList = ({ coordinatorDept, onBack }) => {
+  const [examiners, setExaminers] = useState([]);
+
+  useEffect(() => {
+    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+    const deptExaminers = coordinatorDept
+      ? otherUsers.filter((u) => u.role === "Examiner" && u.department === coordinatorDept)
+      : [];
+    setExaminers(deptExaminers);
+  }, [coordinatorDept]);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">Examiners List</h2>
+      </div>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Department: <span className="font-semibold">{coordinatorDept}</span> ({examiners.length} examiners)
+          </p>
+          {examiners.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">No examiners found in your department</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {examiners.map((examiner, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{examiner.username || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.email || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.department || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.role || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CoordinatorsList = ({ coordinatorDept, onBack }) => {
+  const [coordinators, setCoordinators] = useState([]);
+
+  useEffect(() => {
+    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+    const deptCoordinators = coordinatorDept
+      ? otherUsers.filter((u) => u.role === "Coordinator" && u.department === coordinatorDept)
+      : [];
+    setCoordinators(deptCoordinators);
+  }, [coordinatorDept]);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">Coordinators List</h2>
+      </div>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Department: <span className="font-semibold">{coordinatorDept}</span> ({coordinators.length} coordinators)
+          </p>
+          {coordinators.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">No coordinators found in your department</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {coordinators.map((coordinator, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{coordinator.username || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.email || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.department || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.role || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Settings Component
 
 const Settings = () => {
@@ -461,6 +720,7 @@ const Settings = () => {
 const CoordinatorDashboard = () => {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState("home");
+  const [selectedListView, setSelectedListView] = useState(null);
 
   const [stats, setStats] = useState({
 
@@ -471,6 +731,8 @@ const CoordinatorDashboard = () => {
     advisors: 0,
 
     coordinators: 0,
+
+    examiners: 0,
 
   });
 
@@ -501,6 +763,9 @@ const CoordinatorDashboard = () => {
     const deptCoordinators = coordinatorDept
       ? otherUsers.filter((u) => u.role === "Coordinator" && u.department === coordinatorDept).length
       : 0;
+    const deptExaminers = coordinatorDept
+      ? otherUsers.filter((u) => u.role === "Examiner" && u.department === coordinatorDept).length
+      : 0;
     const deptAssignments = coordinatorDept
       ? assignments.filter((a) => a.department === coordinatorDept && (a.advisor || a.examiner))
       : [];
@@ -518,8 +783,9 @@ const CoordinatorDashboard = () => {
       assignedStudents: deptAssignments.length,
       advisors: deptAdvisors,
       coordinators: deptCoordinators,
+      examiners: deptExaminers,
     });
-  }, [currentPage]); // Reload stats when page changes
+  }, [currentPage, selectedListView]); // Reload stats when page changes or list view changes
 
   const statsData = [
 
@@ -587,15 +853,63 @@ const CoordinatorDashboard = () => {
 
     },
 
+    {
+
+      title: "Examiners",
+
+      value: stats.examiners.toString(),
+
+      description: "Active examiners",
+
+      icon: UserCheck,
+
+      color: "text-indigo-600",
+
+      bgColor: "bg-indigo-50",
+
+    },
+
   ];
 
+  const coordinatorDept = getCoordinatorDepartment();
+
+  const handleStatClick = (statTitle) => {
+    setSelectedListView(statTitle);
+  };
+
+  const handleBackToList = () => {
+    setSelectedListView(null);
+  };
+
+  // Reset list view when navigating away from home
+  useEffect(() => {
+    if (currentPage !== "home") {
+      setSelectedListView(null);
+    }
+  }, [currentPage]);
+
   const renderPage = () => {
+    // If a list view is selected, show it
+    if (selectedListView) {
+      switch (selectedListView) {
+        case "Total Students":
+          return <StudentsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
+        case "Advisors":
+          return <AdvisorsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
+        case "Examiners":
+          return <ExaminersList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
+        case "Coordinators":
+          return <CoordinatorsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
+        default:
+          return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
+      }
+    }
 
     switch (currentPage) {
 
       case "home":
 
-        return <DashboardHome stats={statsData} />;
+        return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
 
       case "create-accounts":
 
@@ -615,7 +929,7 @@ const CoordinatorDashboard = () => {
 
       default:
 
-        return <DashboardHome stats={statsData} />;
+        return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
 
     }
 
