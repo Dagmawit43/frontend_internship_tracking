@@ -510,6 +510,129 @@ const StudentsList = ({ coordinatorDept, onBack }) => {
   );
 };
 
+const AssignedStudentsList = ({ coordinatorDept, onBack }) => {
+  const [assignedStudents, setAssignedStudents] = useState([]);
+
+  useEffect(() => {
+    const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
+    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
+    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
+    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+
+    // Filter assignments by department
+    const deptAssignments = coordinatorDept
+      ? assignments.filter((a) => a.department === coordinatorDept && (a.advisor || a.examiner))
+      : [];
+
+    // Combine eligible and registered students for lookup
+    const allStudents = [...eligibleStudents];
+    registeredStudents.forEach((rs) => {
+      if (!allStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
+        allStudents.push({
+          studentId: rs.studentId || rs.id,
+          fullName: rs.fullName || rs.name,
+          email: rs.email,
+          department: rs.department,
+        });
+      }
+    });
+
+    // Create a map of usernames to full names for advisors and examiners
+    const userMap = {};
+    otherUsers.forEach((user) => {
+      userMap[user.username] = user.username; // Default to username, can be enhanced with fullName if available
+    });
+
+    // Combine assignment data with student data
+    const assignedList = deptAssignments.map((assignment) => {
+      const student = allStudents.find(
+        (s) =>
+          (s.studentId === assignment.studentId || s.email === assignment.email) &&
+          s.department === coordinatorDept
+      );
+
+      return {
+        studentId: assignment.studentId || student?.studentId,
+        studentName: assignment.studentName || student?.fullName || student?.name || "Unknown",
+        email: assignment.email || student?.email,
+        department: assignment.department || student?.department,
+        advisor: assignment.advisor || null,
+        examiner: assignment.examiner || null,
+        assignedAt: assignment.assignedAt,
+      };
+    });
+
+    setAssignedStudents(assignedList);
+  }, [coordinatorDept]);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">Assigned Students List</h2>
+      </div>
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Department: <span className="font-semibold">{coordinatorDept}</span> ({assignedStudents.length} assigned students)
+          </p>
+          {assignedStudents.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">No assigned students found in your department</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Advisor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Examiner</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Assigned Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {assignedStudents.map((student, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{student.studentName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{student.studentId || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{student.email || "-"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {student.advisor ? (
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">{student.advisor}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {student.examiner ? (
+                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">{student.examiner}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {student.assignedAt
+                          ? new Date(student.assignedAt).toLocaleDateString()
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdvisorsList = ({ coordinatorDept, onBack }) => {
   const [advisors, setAdvisors] = useState([]);
 
@@ -894,6 +1017,8 @@ const CoordinatorDashboard = () => {
       switch (selectedListView) {
         case "Total Students":
           return <StudentsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
+        case "Assigned Students":
+          return <AssignedStudentsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
         case "Advisors":
           return <AdvisorsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
         case "Examiners":
