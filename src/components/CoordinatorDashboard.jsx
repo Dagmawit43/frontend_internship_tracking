@@ -420,7 +420,7 @@ const AssignStudents = () => {
 
               <button
                 onClick={handleAssign}
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition text-sm font-medium"
+                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
               >
                 {getAssignment(selectedStudent) ? "Update Assignment" : "Assign"}
               </button>
@@ -1073,7 +1073,7 @@ const CoordinatorDashboard = () => {
           <h1 className="text-2xl font-bold text-gray-900">Coordinator Dashboard</h1>
           <button
             onClick={handleLogout}
-            className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+            className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
           >
             Logout
           </button>

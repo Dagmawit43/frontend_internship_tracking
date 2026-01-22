@@ -1,9 +1,9 @@
 import React from "react";
 
 const variantClasses = {
-  default: "bg-blue-600 text-white hover:bg-blue-700",
+  default: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm",
   outline: "border border-gray-300 text-gray-700 hover:bg-gray-50",
-  destructive: "bg-red-600 text-white hover:bg-red-700",
+  destructive: "bg-red-600 text-white hover:bg-red-700 shadow-sm",
 };
 
 const sizeClasses = {
@@ -30,6 +30,8 @@ export const Button = ({
 };
 
 export default Button;
+
+
 
 
 

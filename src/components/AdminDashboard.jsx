@@ -72,7 +72,7 @@ const AdminDashboard = () => {
   const handleApproveCompany = (companyId) => {
     const stored = JSON.parse(localStorage.getItem("companies")) || [];
     const updated = stored.map((co) =>
-      co.id === companyId ? { ...co, verified: true } : co
+      co.id === companyId ? { ...co, verified: true, rejected: false } : co
     );
     setCompanies(updated);
     localStorage.setItem("companies", JSON.stringify(updated));
@@ -88,6 +88,29 @@ const AdminDashboard = () => {
         },
       ]);
       setSuccess(`Company ${approved.companyName} verified.`);
+      setTimeout(() => setSuccess(""), 3000);
+    }
+  };
+
+  // Reject a company
+  const handleRejectCompany = (companyId) => {
+    const stored = JSON.parse(localStorage.getItem("companies")) || [];
+    const updated = stored.map((co) =>
+      co.id === companyId ? { ...co, verified: false, rejected: true } : co
+    );
+    setCompanies(updated);
+    localStorage.setItem("companies", JSON.stringify(updated));
+
+    const rejected = updated.find((c) => c.id === companyId);
+    if (rejected) {
+      // Remove from users list if it was there
+      setUsers((prev) =>
+        prev.filter(
+          (u) =>
+            !(u.email === rejected.contactEmail && u.role === "Company")
+        )
+      );
+      setSuccess(`Company ${rejected.companyName} rejected.`);
       setTimeout(() => setSuccess(""), 3000);
     }
   };
@@ -192,7 +215,7 @@ const AdminDashboard = () => {
         </h2>
         <button
           onClick={handleLogout}
-          className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition"
+          className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
         >
           Logout
         </button>
@@ -202,38 +225,40 @@ const AdminDashboard = () => {
       <div className="flex justify-center mb-6 space-x-4">
         <button
           onClick={() => setActiveTab("view")}
-          className={`py-2 px-4 rounded-md font-medium ${
-            activeTab === "view" ? "bg-blue-600 text-white" : "bg-white border"
+          className={`py-2 px-4 rounded-md font-medium transition-colors ${
+            activeTab === "view" 
+              ? "bg-blue-600 text-white shadow-md" 
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
           View Users
         </button>
         <button
           onClick={() => setActiveTab("create")}
-          className={`py-2 px-4 rounded-md font-medium ${
+          className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "create"
-              ? "bg-blue-600 text-white"
-              : "bg-white border"
+              ? "bg-blue-600 text-white shadow-md"
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
           Create User
         </button>
         <button
           onClick={() => setActiveTab("companies")}
-          className={`py-2 px-4 rounded-md font-medium ${
+          className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "companies"
-              ? "bg-blue-600 text-white"
-              : "bg-white border"
+              ? "bg-blue-600 text-white shadow-md"
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
           Verify Companies
         </button>
         <button
           onClick={() => setActiveTab("coordinator")}
-          className={`py-2 px-4 rounded-md font-medium ${
+          className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "coordinator"
-              ? "bg-blue-600 text-white"
-              : "bg-white border"
+              ? "bg-blue-600 text-white shadow-md"
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
           Create Coordinator
@@ -243,12 +268,12 @@ const AdminDashboard = () => {
       {/* Tab Content */}
       {activeTab === "view" && (
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
             <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="py-2 px-4">Name / Username</th>
-                <th className="py-2 px-4">Email / ID</th>
-                <th className="py-2 px-4">Role</th>
+                <th className="py-3 px-4 text-left font-semibold">Name / Username</th>
+                <th className="py-3 px-4 text-left font-semibold">Email / ID</th>
+                <th className="py-3 px-4 text-left font-semibold">Role</th>
               </tr>
             </thead>
             <tbody>
@@ -280,13 +305,13 @@ const AdminDashboard = () => {
 
       {activeTab === "companies" && (
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
             <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="py-2 px-4">Company Name</th>
-                <th className="py-2 px-4">Contact</th>
-                <th className="py-2 px-4">Status</th>
-                <th className="py-2 px-4">Actions</th>
+                <th className="py-3 px-4 text-left font-semibold">Company Name</th>
+                <th className="py-3 px-4 text-left font-semibold">Contact</th>
+                <th className="py-3 px-4 text-left font-semibold">Status</th>
+                <th className="py-3 px-4 text-left font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -307,24 +332,38 @@ const AdminDashboard = () => {
                     {c.contactEmail || "-"} / {c.phone || "-"}
                   </td>
                   <td className="py-2 px-4">
-                    {c.verified ? "Verified" : "Pending"}
+                    {c.verified ? (
+                      <span className="text-green-600 font-semibold">Verified</span>
+                    ) : c.rejected ? (
+                      <span className="text-red-600 font-semibold">Rejected</span>
+                    ) : (
+                      <span className="text-yellow-600 font-semibold">Pending</span>
+                    )}
                   </td>
                   <td className="py-2 px-4 space-x-2">
                     {c.documentData && (
                       <button
                         onClick={() => handleViewCompanyDocument(c)}
-                        className="bg-gray-200 py-1 px-2 rounded-md"
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-3 rounded-md text-sm font-medium transition-colors border border-gray-300"
                       >
                         View Document
                       </button>
                     )}
-                    {!c.verified && (
-                      <button
-                        onClick={() => handleApproveCompany(c.id)}
-                        className="bg-green-600 text-white py-1 px-2 rounded-md"
-                      >
-                        Approve
-                      </button>
+                    {!c.verified && !c.rejected && (
+                      <>
+                        <button
+                          onClick={() => handleApproveCompany(c.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded-md text-sm font-medium transition-colors shadow-sm"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectCompany(c.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded-md text-sm font-medium transition-colors shadow-sm"
+                        >
+                          Reject
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -344,14 +383,14 @@ const AdminDashboard = () => {
           <h3 className="text-xl font-bold mb-4 text-gray-700 text-center">
             Promote Staff to Coordinator
           </h3>
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-            <thead className="bg-purple-600 text-white">
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+            <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="py-2 px-4">Username</th>
-                <th className="py-2 px-4">Email</th>
-                <th className="py-2 px-4">Department</th>
-                <th className="py-2 px-4">Current Role</th>
-                <th className="py-2 px-4">Actions</th>
+                <th className="py-3 px-4 text-left font-semibold">Username</th>
+                <th className="py-3 px-4 text-left font-semibold">Email</th>
+                <th className="py-3 px-4 text-left font-semibold">Department</th>
+                <th className="py-3 px-4 text-left font-semibold">Current Role</th>
+                <th className="py-3 px-4 text-left font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -374,7 +413,7 @@ const AdminDashboard = () => {
                   <td className="py-2 px-4">
                     <button
                       onClick={() => handleOpenPromotion(staff.username)}
-                      className="bg-purple-600 text-white py-1 px-3 rounded-md hover:bg-purple-700 transition"
+                      className="bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
                     >
                       Promote to Coordinator
                     </button>
@@ -416,13 +455,13 @@ const AdminDashboard = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handlePromoteToCoordinator}
-                    className="flex-1 bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition"
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm"
                   >
                     Promote
                   </button>
                   <button
                     onClick={() => setCoordinatorPromotion({ username: "", department: "" })}
-                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400 transition"
+                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-colors font-medium"
                   >
                     Cancel
                   </button>
@@ -496,7 +535,7 @@ const AdminDashboard = () => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm"
             >
               Create User
             </button>

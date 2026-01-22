@@ -53,7 +53,7 @@ const CompanyCard = ({ company, onViewDetails, onApply }) => (
         </button>
         <button
           onClick={() => onApply(company)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
         >
           Apply
         </button>
@@ -90,7 +90,7 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
               <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
                     {notificationCount > 9 ? "9+" : notificationCount}
                   </span>
                 )}
@@ -99,7 +99,7 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
 
             <button
               onClick={handleLogout}
-              className="hidden sm:inline-flex px-3 py-2 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition"
+              className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
             >
               Logout
             </button>
@@ -109,7 +109,7 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold shadow-sm">
                   {studentName?.charAt(0)?.toUpperCase() || "S"}
                 </div>
                 <span className="text-sm font-medium text-gray-700 hidden sm:block">
@@ -331,17 +331,21 @@ const VerifiedCompaniesList = ({ studentId, studentName, onApplicationSubmit }) 
         <div className="flex gap-2">
           <button
             onClick={() => setViewMode("grid")}
-            className={`p-2 rounded-lg ${
-              viewMode === "grid" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            } transition-colors`}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === "grid" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+            }`}
           >
             Grid
           </button>
           <button
             onClick={() => setViewMode("list")}
-            className={`p-2 rounded-lg ${
-              viewMode === "list" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            } transition-colors`}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === "list" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+            }`}
           >
             List
           </button>
@@ -507,7 +511,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
           {!isFormOpen ? (
             <button
               onClick={() => setIsFormOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
             >
               <Upload className="w-5 h-5" />
               Submit Self-Placement Request
@@ -664,7 +668,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? "Submitting..." : "Submit Request"}
                 </button>

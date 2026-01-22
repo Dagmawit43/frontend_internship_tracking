@@ -8,9 +8,9 @@ import finalData from "../mock/finalCompanyEvaluations.json";
 import { Button } from "./ui/Button";
 
 // Small reusable card for overview stats
-const DashboardCard = ({ title, value, subtitle, icon: Icon, color = "text-blue-600" }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-    <div className={`h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center ${color}`}>
+const DashboardCard = ({ title, value, subtitle, icon: Icon, color = "text-blue-600", bgColor = "bg-blue-50" }) => (
+  <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 flex items-center gap-4 hover:shadow-lg transition-shadow">
+    <div className={`h-12 w-12 rounded-full ${bgColor} flex items-center justify-center ${color}`}>
       {Icon ? <Icon className="w-6 h-6" /> : null}
     </div>
     <div>
@@ -39,10 +39,10 @@ const Overview = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardCard title="Total Applications" value={stats.total} icon={Briefcase} />
-        <DashboardCard title="Accepted" value={stats.accepted} icon={CheckCircle} color="text-green-600" />
-        <DashboardCard title="Pending" value={stats.pending} icon={Clock} color="text-yellow-600" />
-        <DashboardCard title="Rejected" value={stats.rejected} icon={XCircle} color="text-red-600" />
+        <DashboardCard title="Total Applications" value={stats.total} icon={Briefcase} color="text-blue-600" bgColor="bg-blue-50" />
+        <DashboardCard title="Accepted" value={stats.accepted} icon={CheckCircle} color="text-green-600" bgColor="bg-green-50" />
+        <DashboardCard title="Pending" value={stats.pending} icon={Clock} color="text-yellow-600" bgColor="bg-yellow-50" />
+        <DashboardCard title="Rejected" value={stats.rejected} icon={XCircle} color="text-red-600" bgColor="bg-red-50" />
       </div>
     </div>
   );
@@ -221,13 +221,13 @@ const statusColors = {
 const ApplicationTable = ({ applications, onAccept, onReject, onRequestInfo }) => (
   <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
     <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
+      <thead className="bg-blue-600 text-white">
         <tr>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Student</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Department</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">CGPA</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
-          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Student</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Department</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">CGPA</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
+          <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Actions</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
@@ -274,13 +274,13 @@ const ApplicationTable = ({ applications, onAccept, onReject, onRequestInfo }) =
 const LogbookTable = ({ logbooks, onApprove, onReject }) => (
   <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
     <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gray-50">
+      <thead className="bg-blue-600 text-white">
         <tr>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Student</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tasks</th>
-          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Evidence</th>
-          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Student</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Date</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Tasks</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Evidence</th>
+          <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Actions</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
@@ -735,9 +735,9 @@ const CompanyDashboard = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
+                className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? "bg-blue-50 text-blue-700 border border-blue-100"
+                    ? "bg-blue-600 text-white shadow-sm"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
@@ -748,14 +748,17 @@ const CompanyDashboard = () => {
         </aside>
 
         <div className="flex-1 flex flex-col">
-          <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between">
+          <header className="bg-white border-b border-gray-200 px-4 md:px-6 py-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <span className="text-lg font-bold text-gray-900">{company.company_name}</span>
               <span className="text-sm text-gray-500">({company.location})</span>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+            >
               Logout
-            </Button>
+            </button>
           </header>
 
           <main className="p-4 md:p-6">{renderContent()}</main>

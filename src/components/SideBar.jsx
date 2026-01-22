@@ -26,7 +26,7 @@ const Sidebar = ({ currentPage, onPageChange }) => {
               onClick={() => onPageChange(item.id)}
               className={`w-full flex items-center gap-3 px-6 py-3 text-left transition-colors ${
                 isActive
-                  ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
+                  ? "bg-blue-600 text-white shadow-sm"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
