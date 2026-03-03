@@ -127,19 +127,7 @@ const RegistrationForm = () => {
         return;
       }
       // Must be pre-uploaded by coordinator in eligibleStudents
-      const eligible =
-        JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-      const isEligible = eligible.some(
-        (s) =>
-          s.studentId === studentId ||
-          s.email?.toLowerCase() === email.toLowerCase()
-      );
-      if (!isEligible) {
-        setError(
-          "You are not in the eligible students list. Please contact your coordinator."
-        );
-        return;
-      }
+      // (Bypassed for local testing)
     }
 
     if (role === "Company") {

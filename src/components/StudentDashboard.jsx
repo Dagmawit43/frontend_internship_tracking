@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getInternships } from "../mock/internshipApi";
 import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import ApplicationModal from "./modals/ApplicationModal";
+import companiesMock from "../mock/companies.json";
 
 // Company card (inlined)
 const CompanyCard = ({ company, onViewDetails, onApply }) => (
@@ -109,9 +111,6 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold shadow-sm">
-                  {studentName?.charAt(0)?.toUpperCase() || "S"}
-                </div>
                 <span className="text-sm font-medium text-gray-700 hidden sm:block">
                   {studentName || "Student"}
                 </span>
@@ -387,6 +386,222 @@ const VerifiedCompaniesList = ({ studentId, studentName, onApplicationSubmit }) 
             setSelectedCompany(null);
           }}
           onSubmit={handleApplicationSubmit}
+        />
+      )}
+    </div>
+  );
+};
+
+const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
+  const [internships, setInternships] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedInternship, setSelectedInternship] = useState(null);
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+
+  useEffect(() => {
+    loadInternships();
+  }, []);
+
+  const loadInternships = async () => {
+    try {
+      const data = await getInternships();
+      const localCompanies = JSON.parse(localStorage.getItem("companies")) || [];
+      const allCompanies = [...localCompanies, ...companiesMock];
+
+      // Attach company info
+      const withCompany = data.map(internship => {
+        const comp = allCompanies.find(c => c.company_id === internship.company_id || c.id === internship.company_id);
+        return {
+          ...internship,
+          companyName: comp ? comp.companyName || comp.company_name : "Unknown Company"
+        };
+      });
+
+      // Only show ACTIVE and PENDING
+      setInternships(withCompany.filter(i => i.status !== "CLOSED" && i.status !== "FULL" && i.number_interns > 0));
+    } catch (error) {
+      console.error("Error loading internships:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+      if (loading) return <div className="py-8 text-center text-gray-500">Loading internships...</div>;
+
+  const handleApplySubmit = async (applicationData) => {
+    try {
+      const studentName = JSON.parse(localStorage.getItem("student"))?.name || 
+                          JSON.parse(localStorage.getItem("student"))?.fullName || "Student";
+      
+      const applications = JSON.parse(localStorage.getItem("applications")) || [];
+      const existing = applications.find(
+        (app) =>
+          (app.studentId === studentId || app.studentName === studentName) &&
+          app.internshipId === selectedInternship.id
+      );
+
+      if (existing) {
+        alert("You have already applied to this internship.");
+        return;
+      }
+
+      const newApplication = {
+        id: Date.now(),
+        ...applicationData,
+        studentId,
+        studentName,
+        internshipId: selectedInternship.id,
+        internshipTitle: selectedInternship.title,
+        status: "Pending",
+        appliedAt: new Date().toISOString(),
+      };
+
+      applications.push(newApplication);
+      localStorage.setItem("applications", JSON.stringify(applications));
+
+      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
+      notifications.push({
+        id: Date.now(),
+        type: "info",
+        title: `Application submitted for ${selectedInternship.title} at ${applicationData.companyName}`,
+        message: "Your application is pending review",
+        date: new Date().toISOString(),
+        studentId,
+        studentName,
+      });
+      localStorage.setItem("notifications", JSON.stringify(notifications));
+
+      if (onApplicationSubmit) {
+        onApplicationSubmit(newApplication);
+      }
+
+      alert(`Successfully applied to ${selectedInternship.title}!`);
+      setIsApplyModalOpen(false);
+      setSelectedInternship(null);
+    } catch (error) {
+      console.error("Error submitting internship application:", error);
+      alert("Error submitting application. Please try again.");
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mt-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Available Internships</h2>
+        <p className="text-gray-600">Browse and apply to new internship postings</p>
+      </div>
+
+      {internships.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No active internships right now.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {internships.map(internship => (
+            <div key={internship.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30">
+              <h3 className="font-bold text-lg text-gray-900 mb-1">{internship.title}</h3>
+              <div className="flex items-center gap-2 mb-3 text-sm text-blue-700 font-medium">
+                <Building2 className="w-4 h-4" />
+                <span>{internship.companyName}</span>
+              </div>
+              <div className="space-y-2 text-sm text-gray-600 mb-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  <span>{internship.Total_hours} hrs/day • {internship.Days_in_week} days/week</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span>{internship.number_interns} Positions Available</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedInternship(internship)}
+                className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              >
+                <Eye className="w-4 h-4" />
+                View Details
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedInternship && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedInternship.title}</h2>
+                  <p className="text-gray-700 font-medium mb-1 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                    {selectedInternship.companyName}
+                  </p>
+                  <p className="text-blue-600 font-medium">{selectedInternship.start_date} to {selectedInternship.end_date}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedInternship(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <XCircle className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedInternship.description}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Required Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedInternship.required_skills?.map((skill, idx) => (
+                      <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                  <div>
+                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Commitment</h5>
+                    <p className="font-medium">{selectedInternship.Total_hours} hours/day, {selectedInternship.Days_in_week} days/week</p>
+                  </div>
+                  <div>
+                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Openings</h5>
+                    <p className="font-medium">{selectedInternship.number_interns} Positions</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3 justify-end pt-4 border-t">
+                <button 
+                  onClick={() => setSelectedInternship(null)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => setIsApplyModalOpen(true)}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Apply Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isApplyModalOpen && selectedInternship && (
+        <ApplicationModal
+          company={{ id: selectedInternship.company_id, companyName: selectedInternship.companyName }}
+          studentId={studentId}
+          isOpen={isApplyModalOpen}
+          onClose={() => setIsApplyModalOpen(false)}
+          onSubmit={handleApplySubmit}
         />
       )}
     </div>
@@ -1086,6 +1301,12 @@ const StudentDashboard = () => {
                 onApplicationSubmit={handleApplicationSubmit}
               />
             </div>
+
+            {/* Available Internships */}
+            <AvailableInternships 
+              studentId={studentData.studentId}
+              onApplicationSubmit={handleApplicationSubmit}
+            />
 
             {/* Self-Placement Section */}
             <SelfPlacementSection

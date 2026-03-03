@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { createInternship, getInternshipsByCompanyId, updateInternship } from "../mock/internshipApi";
 import { Briefcase, CheckCircle, Clock, XCircle } from "lucide-react";
 import applicationsData from "../mock/applications.json";
 import logbooksData from "../mock/logbooks.json";
@@ -26,7 +27,7 @@ const Overview = () => {
   const stats = useMemo(() => {
     const total = applicationsData.length;
     const accepted = applicationsData.filter((a) => a.status === "Accepted").length;
-    const pending = applicationsData.filter((a) => a.status === "Pending").length;
+    const pending = applicationsData.filter((a) => a.status === "Pending" && a.companyId === company?.id).length;
     const rejected = applicationsData.filter((a) => a.status === "Rejected").length;
     return { total, accepted, pending, rejected };
   }, []);
@@ -319,7 +320,15 @@ const LogbookTable = ({ logbooks, onApprove, onReject }) => (
 
 // Section components that use the above helpers
 const Applications = () => {
-  const [applications, setApplications] = useState(applicationsData);
+  const [applications, setApplications] = useState(() => {
+    // Load from local storage to get matching company applications, else fallback to mock if empty
+    const localApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const fromCompany = JSON.parse(localStorage.getItem("activeCompany") || "null");
+    const companyId = fromCompany?.company_id || fromCompany?.id;
+    return localApps.length > 0 
+      ? localApps.filter(app => app.companyId === companyId) 
+      : applicationsData.filter(app => app.companyId === companyId);
+  });
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
@@ -344,13 +353,44 @@ const Applications = () => {
     setApplications((prev) => prev.map((app) => (app.id === id ? updater(app) : app)));
   };
 
-  const handleAssign = (supervisorName) => {
+  const handleAssign = async (supervisorName) => {
     if (!selectedApp) return;
-    updateApp(selectedApp.id, (app) => ({
-      ...app,
+
+    // Decrease internship spot count
+    try {
+      if (selectedApp.internshipId) {
+        const internship = await getInternshipsByCompanyId(selectedApp.companyId).then(
+          res => res.find(i => i.id === selectedApp.internshipId)
+        );
+        
+        if (internship && internship.number_interns > 0) {
+          const newCount = internship.number_interns - 1;
+          await updateInternship(internship.id, {
+            number_interns: newCount,
+            status: newCount === 0 ? "FULL" : internship.status
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update internship spots:", e);
+    }
+
+    const updatedApp = {
+      ...selectedApp,
       status: "Accepted",
       supervisor: supervisorName || "Assigned Supervisor",
-    }));
+    };
+
+    updateApp(selectedApp.id, () => updatedApp);
+
+    // Also persist this to localStorage for other components
+    const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const index = allApps.findIndex(a => a.id === selectedApp.id);
+    if (index !== -1) {
+      allApps[index] = updatedApp;
+      localStorage.setItem("applications", JSON.stringify(allApps));
+    }
+
     setAssignModalOpen(false);
     setSelectedApp(null);
   };
@@ -665,8 +705,196 @@ const FinalEvaluation = () => {
   );
 };
 
+const InternshipPostings = () => {
+  const [internships, setInternships] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    Total_hours: "",
+    Days_in_week: "",
+    number_interns: "",
+    description: "",
+    required_skills: "",
+    start_date: "",
+    end_date: ""
+  });
+
+  const company = JSON.parse(localStorage.getItem("activeCompany") || "null") || JSON.parse(localStorage.getItem("activeCompanyUser") || "null");
+
+  useEffect(() => {
+    loadInternships();
+  }, []);
+
+  const loadInternships = async () => {
+    setLoading(true);
+    try {
+      if (company?.company_id || company?.id) {
+        const data = await getInternshipsByCompanyId(company.company_id || company.id);
+        setInternships(data);
+      }
+    } catch (error) {
+      console.error("Error loading internships:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const skillsArray = formData.required_skills.split(",").map(s => s.trim()).filter(Boolean);
+      const payload = {
+        ...formData,
+        company_id: company?.company_id || company?.id,
+        "Total_hours": Number(formData.Total_hours),
+        "Days_in_week": Number(formData.Days_in_week),
+        "number_interns": Number(formData.number_interns),
+        required_skills: skillsArray
+      };
+
+      if (editingId) {
+        await updateInternship(editingId, payload);
+      } else {
+        await createInternship(payload);
+      }
+      
+      resetForm();
+      loadInternships();
+    } catch (error) {
+      console.error("Error saving internship", error);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      Total_hours: "",
+      Days_in_week: "",
+      number_interns: "",
+      description: "",
+      required_skills: "",
+      start_date: "",
+      end_date: ""
+    });
+    setEditingId(null);
+    setIsFormOpen(false);
+  };
+
+  const handleEdit = (internship) => {
+    setFormData({
+      title: internship.title || "",
+      Total_hours: internship.Total_hours || "",
+      Days_in_week: internship.Days_in_week || "",
+      number_interns: internship.number_interns || "",
+      description: internship.description || "",
+      required_skills: (internship.required_skills || []).join(", "),
+      start_date: internship.start_date || "",
+      end_date: internship.end_date || ""
+    });
+    setEditingId(internship.id);
+    setIsFormOpen(true);
+  };
+
+  if (loading) return <div>Loading postings...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Internship Postings</h1>
+          <p className="text-sm text-gray-600">Manage your available internship programs.</p>
+        </div>
+        {!isFormOpen && (
+          <Button onClick={() => setIsFormOpen(true)}>Create Posting</Button>
+        )}
+      </div>
+
+      {isFormOpen ? (
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+          <h3 className="text-lg font-bold">{editingId ? "Edit Posting" : "New Posting"}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <input required name="title" value={formData.title} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" placeholder="e.g. Backend Developer Intern" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Number of Interns</label>
+              <input required type="number" name="number_interns" value={formData.number_interns} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Total Hours</label>
+              <input required type="number" name="Total_hours" value={formData.Total_hours} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Days in Week</label>
+              <input required type="number" name="Days_in_week" value={formData.Days_in_week} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Start Date</label>
+              <input required type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">End Date</label>
+              <input required type="date" name="end_date" value={formData.end_date} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Required Skills (comma separated)</label>
+            <input name="required_skills" value={formData.required_skills} onChange={handleInputChange} className="w-full border rounded-md px-3 py-2" placeholder="Python, Django, PostgreSQL" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Description</label>
+            <textarea required name="description" value={formData.description} onChange={handleInputChange} rows={4} className="w-full border rounded-md px-3 py-2" />
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" type="button" onClick={resetForm}>Cancel</Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {internships.length === 0 ? (
+            <p className="text-gray-500 col-span-full">No internship postings found.</p>
+          ) : (
+            internships.map(internship => (
+              <div key={internship.id} className="bg-white border rounded-lg p-4 shadow-sm relative">
+                <span className={`absolute top-4 right-4 text-xs font-bold px-2 py-1 rounded-full ${
+                  internship.status === 'ACTIVE' ? 'bg-green-100 text-green-800' 
+                  : internship.status === 'FULL' || internship.status === 'CLOSED' ? 'bg-red-100 text-red-800'
+                  : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {internship.status}
+                </span>
+                <h3 className="font-bold text-lg pr-16">{internship.title}</h3>
+                <p className="text-sm text-gray-500 mb-2">{internship.start_date} - {internship.end_date}</p>
+                <div className="flex gap-2 text-xs text-gray-600 mb-4">
+                  <span className="bg-gray-100 px-2 py-1 rounded">{internship.number_interns} Positions</span>
+                  <span className="bg-gray-100 px-2 py-1 rounded">{internship.Total_hours} hrs/day</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => handleEdit(internship)}>Edit</Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const tabs = [
   { id: "overview", label: "Overview" },
+  { id: "postings", label: "Internship Postings" },
   { id: "applications", label: "Internship Applications" },
   { id: "logbooks", label: "Weekly Logbook Approvals" },
   { id: "monthly", label: "Monthly Evaluations" },
@@ -708,6 +936,8 @@ const CompanyDashboard = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case "postings":
+        return <InternshipPostings />;
       case "applications":
         return <Applications />;
       case "logbooks":

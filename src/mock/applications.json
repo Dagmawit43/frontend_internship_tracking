@@ -1,41 +1,13 @@
 [
   {
-    "id": "app-001",
-    "student_name": "Liya Tesfaye",
+    "id": "app-1",
+    "studentId": "std-1",
+    "student_name": "John Doe",
+    "companyId": 1,
+    "companyName": "Tech Corp",
     "department": "Software Engineering",
-    "cgpa": 3.6,
-    "status": "Pending",
-    "company_id": "comp-001"
-  },
-  {
-    "id": "app-002",
-    "student_name": "Kalkidan Mekonnen",
-    "department": "Electrical Engineering",
-    "cgpa": 3.3,
+    "cgpa": "3.8",
     "status": "Accepted",
-    "company_id": "comp-001",
-    "supervisor": "Abel Girma"
-  },
-  {
-    "id": "app-003",
-    "student_name": "Abel Yohannes",
-    "department": "Mechanical Engineering",
-    "cgpa": 3.1,
-    "status": "Rejected",
-    "company_id": "comp-001",
-    "rejectionReason": "Position filled"
+    "appliedAt": "2026-03-01T10:00:00Z"
   }
 ]
-
-
-
-
-
-
-
-
-
-
-
-
-

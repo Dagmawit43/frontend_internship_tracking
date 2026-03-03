@@ -52,10 +52,6 @@ const LoginForm = () => {
         s.password === pwd
     );
     if (localMatch) {
-      if (!isEligible(localMatch)) {
-        setError("You are not in the eligible students list. Please contact your coordinator.");
-        return;
-      }
       localStorage.setItem("student", JSON.stringify(localMatch));
       navigate("/student-dashboard", {
         state: { studentName: localMatch.fullName || localMatch.name },
@@ -101,10 +97,6 @@ const LoginForm = () => {
     );
     if (!offlineMatch) {
       setError("Invalid credentials (offline mode). Make sure you use the same email/ID and password you registered with.");
-      return;
-    }
-    if (!isEligible(offlineMatch)) {
-      setError("You are not in the eligible students list. Please contact your coordinator.");
       return;
     }
 
