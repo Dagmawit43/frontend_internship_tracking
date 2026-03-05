@@ -1033,8 +1033,8 @@ const NotificationsPanel = ({ studentId, studentName }) => {
 
 const StudentDashboard = () => {
   const location = useLocation();
-  const { student } = useAuth();
-  const { studentName } = location.state || {};
+  const { user } = useAuth();
+  const { studentName, userName } = location.state || {};
   
   const [studentData, setStudentData] = useState(null);
   const [internshipStatus, setInternshipStatus] = useState("Not Applied");
@@ -1043,16 +1043,32 @@ const StudentDashboard = () => {
   const [advisor, setAdvisor] = useState(null);
   const [examiner, setExaminer] = useState(null);
 
+  const resolveDisplayName = (u) => {
+    if (!u || typeof u !== "object") return "";
+    return (
+      u?.name ||
+      u?.fullName ||
+      [u?.first_name, u?.last_name].filter(Boolean).join(" ").trim() ||
+      u?.username ||
+      ""
+    );
+  };
+
   useEffect(() => {
     // Get student data from localStorage or context
     const storedStudent = JSON.parse(localStorage.getItem("student")) || {};
-    const name = student?.name || student?.fullName || studentName || storedStudent.name || storedStudent.fullName || "Student";
-    const studentId = student?.id || student?.studentId || storedStudent.id || storedStudent.studentId || "";
-    const department = student?.department || storedStudent.department || "";
-    const college = student?.college || storedStudent.college || "Addis Ababa Science and Technology University";
-    const email = student?.email || storedStudent.email || "";
+    const name =
+      resolveDisplayName(user) ||
+      studentName ||
+      userName ||
+      resolveDisplayName(storedStudent) ||
+      "Student";
+    const studentId = user?.id || user?.studentId || user?.student_id || storedStudent.id || storedStudent.studentId || storedStudent.student_id || "";
+    const department = user?.department || storedStudent.department || "";
+    const college = user?.college || storedStudent.college || "Addis Ababa Science and Technology University";
+    const email = user?.email || storedStudent.email || "";
 
-    console.log("👨‍🎓 Student data loaded:", { name, studentId, department, email, storedStudent, student });
+    console.log("👨‍🎓 Student data loaded:", { name, studentId, department, email, storedStudent, user });
 
     setStudentData({
       name,
@@ -1070,7 +1086,7 @@ const StudentDashboard = () => {
     
     // Load notification count
     loadNotificationCount(studentId, name);
-  }, [student, studentName]);
+  }, [user, studentName, userName]);
 
   // Listen for storage changes to refresh assignments
   useEffect(() => {
@@ -1116,57 +1132,32 @@ const StudentDashboard = () => {
       // Try multiple matching strategies - be more flexible with matching
       // First try with department match, then without
       let assignment = assignments.find((a) => {
-        // Match by studentId (exact match)
-        if (studentId && a.studentId && a.studentId.toString() === studentId.toString()) {
-          return department ? a.department === department : true;
-        }
+        const sidMatch = studentId && a.studentId && 
+          a.studentId.toString().toLowerCase().trim() === studentId.toString().toLowerCase().trim();
+          
+        const emailMatch = studentEmail && a.email && 
+          a.email.toLowerCase().trim() === studentEmail.toLowerCase().trim();
+
+        const sName = (studentName || "").toLowerCase().trim();
+        const aName = (a.studentName || "").toLowerCase().trim();
+        const nameMatch = sName && aName && (aName === sName || aName.includes(sName) || sName.includes(aName));
+
+        // If ID matches, we don't care about department mismatch
+        if (sidMatch) return true;
         
-        // Match by email (case-insensitive)
-        if (studentEmail && a.email) {
-          if (a.email.toLowerCase() === studentEmail.toLowerCase()) {
-            return department ? a.department === department : true;
-          }
-        }
-        
-        // Match by studentName (case-insensitive, flexible)
-        if (studentName && a.studentName) {
-          const aName = (a.studentName || "").toLowerCase().trim();
-          const sName = (studentName || "").toLowerCase().trim();
-          if (aName === sName || aName.includes(sName) || sName.includes(aName)) {
-            return department ? a.department === department : true;
-          }
+        // If email matches, it's definitively them
+        if (emailMatch) return true;
+
+        if (nameMatch) {
+          const aDept = (a.department || "").toLowerCase().trim();
+          const sDept = (department || "").toLowerCase().trim();
+          return department ? aDept === sDept : true;
         }
         
         return false;
       });
 
-      // If no match with department, try without department requirement
-      if (!assignment) {
-        assignment = assignments.find((a) => {
-          // Match by studentId
-          if (studentId && a.studentId && a.studentId.toString() === studentId.toString()) {
-            return true;
-          }
-          
-          // Match by email
-          if (studentEmail && a.email) {
-            if (a.email.toLowerCase() === studentEmail.toLowerCase()) {
-              return true;
-            }
-          }
-          
-          // Match by studentName
-          if (studentName && a.studentName) {
-            const aName = (a.studentName || "").toLowerCase().trim();
-            const sName = (studentName || "").toLowerCase().trim();
-            if (aName === sName || aName.includes(sName) || sName.includes(aName)) {
-              return true;
-            }
-          }
-          
-          return false;
-        });
-      }
+
 
       if (assignment) {
         console.log("✅ Found assignment:", assignment);
