@@ -69,64 +69,6 @@ const LoginForm = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const normalize = (value) => String(value || "").trim().toLowerCase();
-
-  const tryLocalRealCredentials = (accountRole, credential, pwd) => {
-    const normalized = normalize(credential);
-
-    if (accountRole === "Student") {
-      const students = JSON.parse(localStorage.getItem("students") || "[]");
-      const matched = students.find((s) => {
-        const byEmail = normalize(s?.email) === normalized;
-        const byId = normalize(s?.studentId || s?.id) === normalized;
-        return (byEmail || byId) && String(s?.password || "") === String(pwd);
-      });
-
-      if (matched) {
-        localStorage.setItem("student", JSON.stringify(matched));
-        localStorage.setItem("user", JSON.stringify(matched));
-        return matched;
-      }
-      return null;
-    }
-
-    if (["Advisor", "Coordinator", "Examiner"].includes(accountRole)) {
-      const otherUsers = JSON.parse(localStorage.getItem("otherUsers") || "[]");
-      const matched = otherUsers.find((u) => {
-        const roleMatch = String(u?.role || "") === accountRole;
-        const usernameMatch = normalize(u?.username) === normalized;
-        const emailMatch = normalize(u?.email) === normalized;
-        return roleMatch && (usernameMatch || emailMatch) && String(u?.password || "") === String(pwd);
-      });
-
-      if (matched) {
-        localStorage.setItem("activeStaffUser", JSON.stringify(matched));
-        localStorage.setItem("user", JSON.stringify(matched));
-        return matched;
-      }
-      return null;
-    }
-
-    if (accountRole === "Company") {
-      const companies = JSON.parse(localStorage.getItem("companies") || "[]");
-      const matched = companies.find((c) => {
-        const emailMatch = normalize(c?.contactEmail || c?.representative_email || c?.email) === normalized;
-        const nameMatch = normalize(c?.companyName || c?.company_name) === normalized;
-        return (emailMatch || nameMatch) && String(c?.password || "") === String(pwd);
-      });
-
-      if (matched) {
-        localStorage.setItem("activeCompany", JSON.stringify(matched));
-        localStorage.setItem("activeCompanyUser", JSON.stringify(matched));
-        localStorage.setItem("user", JSON.stringify(matched));
-        return matched;
-      }
-      return null;
-    }
-
-    return null;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -158,16 +100,6 @@ const LoginForm = () => {
 
     setIsSubmitting(true);
     try {
-      // First try locally saved real accounts (created via signup/admin)
-      const localUser = tryLocalRealCredentials(accountType, credential, password);
-      if (localUser) {
-        localStorage.setItem(accountType.toLowerCase(), JSON.stringify(localUser));
-        navigate(roleRoutes[accountType], {
-          state: { userName: localUser?.name || localUser?.fullName || localUser?.username || credential },
-        });
-        return;
-      }
-
       const payload = {
         identifier: credential,
         password,
@@ -204,13 +136,7 @@ const LoginForm = () => {
           result.error?.message ||
           (typeof result.error === "string" ? result.error : "Unable to login. Check your credentials.");
 
-        // If backend is unavailable, still allow real local credentials only
-        const backendUnavailable = /timeout|network|failed to fetch|err_network/i.test(String(errMsg));
-        if (backendUnavailable) {
-          setError("Backend is currently unreachable. Use an account created from this app signup/admin, or try again shortly.");
-        } else {
-          setError(errMsg);
-        }
+        setError(errMsg);
       }
     } catch (err) {
       setError("Unable to login right now. Please check your credentials and internet connection.");
@@ -266,14 +192,14 @@ const LoginForm = () => {
                 : "Username or Email"}
             </label>
             <input
-              type={accountType === "Student" ? "email" : "text"}
+              type="text"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder={
                 accountType === "Student"
-                  ? "example@aastustudent.edu.et"
+                  ? "Enter AASTU email or Student ID"
                   : accountType === "Company"
                   ? "Enter company email or name"
                   : "Enter username or email"
