@@ -1,11 +1,10 @@
 import axios from "axios";
 
-// Base URL comes from Vite env var VITE_API_BASE_URL. If not set, fall back
-// to the deployed Render backend URL provided by the user.
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://internship-tracking-8.onrender.com";
+export const BASE_URL = "https://internship-tracker-backend-ycc5.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 70000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -24,8 +23,12 @@ const clearAuth = () => {
 
 // Attach Authorization header to requests
 api.interceptors.request.use((cfg) => {
-  const token = getAccess();
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  const accessToken = getAccess();
+  if (accessToken) {
+    cfg.headers.Authorization = `Bearer ${accessToken}`;
+    // User requested to configure axios defaults as well
+    axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+  }
   return cfg;
 });
 

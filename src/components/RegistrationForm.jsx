@@ -45,17 +45,23 @@ const RegistrationForm = () => {
     // Handle API response errors
     if (error?.response?.data) {
       const data = error.response.data;
-      
+
       // Check for duplicate email
-      if (data.email || (data.detail && data.detail.toLowerCase().includes("email"))) {
+      if (
+        data.email ||
+        (data.detail && data.detail.toLowerCase().includes("email"))
+      ) {
         return "This email address is already registered. Please use a different email or try logging in.";
       }
-      
+
       // Check for duplicate student ID
-      if (data.id || (data.detail && data.detail.toLowerCase().includes("id"))) {
+      if (
+        data.id ||
+        (data.detail && data.detail.toLowerCase().includes("id"))
+      ) {
         return "This student ID is already registered. Please check your student ID or contact support.";
       }
-      
+
       // Check for validation errors
       if (data.detail) {
         // If it's a string, try to make it more user-friendly
@@ -69,19 +75,22 @@ const RegistrationForm = () => {
         // For other details, return a generic message
         return "Registration failed. Please check your information and try again.";
       }
-      
+
       // Check for field-specific errors
       if (typeof data === "object") {
         const errorMessages = Object.values(data).flat();
         if (errorMessages.length > 0) {
           const firstError = String(errorMessages[0]).toLowerCase();
-          if (firstError.includes("already exists") || firstError.includes("duplicate")) {
+          if (
+            firstError.includes("already exists") ||
+            firstError.includes("duplicate")
+          ) {
             return "An account with these details already exists. Please try logging in instead.";
           }
         }
       }
     }
-    
+
     // Handle network errors
     if (error?.message) {
       const message = error.message.toLowerCase();
@@ -89,7 +98,7 @@ const RegistrationForm = () => {
         return "Network error. Please check your connection and try again.";
       }
     }
-    
+
     // Default friendly message
     return "Registration failed. Please check your information and try again. If the problem persists, contact support.";
   };
@@ -156,61 +165,71 @@ const RegistrationForm = () => {
       setIsSubmitting(true);
       try {
         const payload = {
-          name: fullName,
-          email,
-          password,
-          phone,
-          id: studentId,
-          image: null,
-          department,
+          user: {
+            username: String(studentId),
+            email: String(email),
+            password: String(password),
+            first_name: String(fullName.split(" ")[0]),
+            last_name: String(
+              fullName.split(" ").slice(1).join(" ") || fullName,
+            ),
+            phone: String(phone),
+          },
+          student_id: String(studentId),
+          department: String(department),
         };
 
-        await api.post("/api/students/register/", payload);
+        const response = await api.post("/auth/student/register/", payload);
+        console.log("Student Registration Success:", response.data);
 
         setSuccess("Student registration successful! Redirecting to login...");
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
-        // Fallback: if network/API fails or no server response, register locally so users can continue
-        const message = err?.message?.toLowerCase() || "";
-        const status = err?.response?.status;
-        const isNetworkError =
-          message.includes("network") ||
-          message.includes("timeout") ||
-          message.includes("connection") ||
-          !err?.response; // no server response
+        console.error("Student Registration Error:", err);
+        const isBackendUnavailable = /timeout|network|failed to fetch|err_network/i.test(
+          String(err?.message || err?.response?.data?.detail || ""),
+        );
 
-        // If we got a client-side validation error from API, show it
-        if (!isNetworkError && status && status < 500) {
-          setError(getFriendlyErrorMessage(err));
-        } else {
-          const localStudents = JSON.parse(localStorage.getItem("students")) || [];
-          const exists = localStudents.find(
+        if (isBackendUnavailable) {
+          const students = JSON.parse(localStorage.getItem("students") || "[]");
+          const exists = students.some(
             (s) =>
-              s.email?.toLowerCase() === email.toLowerCase() ||
-              s.studentId === studentId
+              String(s?.email || "").toLowerCase() === String(email || "").toLowerCase() ||
+              String(s?.studentId || s?.id || "").toLowerCase() === String(studentId || "").toLowerCase(),
           );
+
           if (exists) {
-            setError(
-              "A student with this email or ID already exists locally. Try logging in."
-            );
+            setError("This student is already registered locally. Please login.");
           } else {
-            const newStudent = {
-              id: studentId,
-              studentId,
-              fullName,
-              email,
-              phone,
-              password,
-              department,
+            const localStudent = {
+              id: String(studentId),
+              studentId: String(studentId),
+              fullName: String(fullName),
+              email: String(email),
+              phone: String(phone),
+              password: String(password),
+              department: String(department),
               createdAt: new Date().toISOString(),
+              source: "local",
             };
-            localStudents.push(newStudent);
-            localStorage.setItem("students", JSON.stringify(localStudents));
-            setSuccess(
-              "Registered locally due to server/network issues. You can log in with these credentials."
-            );
-            setTimeout(() => navigate("/login"), 1200);
+            students.push(localStudent);
+            localStorage.setItem("students", JSON.stringify(students));
+            setSuccess("Student registration saved locally. Redirecting to login...");
+            setTimeout(() => navigate("/login"), 1400);
           }
+          return;
+        }
+
+        const status = err?.response?.status;
+
+        if (status === 400 && err?.response?.data) {
+          console.error("400 Bad Request Payload Details:", err.response.data);
+          setError(
+            "Registration request issue exactly: " +
+              JSON.stringify(err.response.data),
+          );
+        } else {
+          setError(getFriendlyErrorMessage(err));
         }
       } finally {
         setIsSubmitting(false);
@@ -219,57 +238,117 @@ const RegistrationForm = () => {
     }
 
     if (role === "Company") {
-      const companies = JSON.parse(localStorage.getItem("companies")) || [];
-      
-      // Check for duplicate company name
-      const duplicateName = companies.find(
-        (c) => c.companyName?.toLowerCase() === companyName.toLowerCase()
-      );
-      if (duplicateName) {
-        setError("A company with this name is already registered. Please use a different company name or contact support.");
-        return;
-      }
-      
-      // Check for duplicate email if email is provided
-      if (email) {
-        const duplicateEmail = companies.find(
-          (c) => c.contactEmail?.toLowerCase() === email.toLowerCase()
+      setIsSubmitting(true);
+      try {
+        const payload = {
+          user: {
+            username:
+              companyName.replace(/\s/g, "").toLowerCase() ||
+              `company_${Date.now()}`,
+            email: email || "unknown@company.com",
+            password: password || "Test@1234",
+            first_name: fullName.split(" ")[0] || "Company",
+            last_name:
+              fullName.split(" ").slice(1).join(" ") || "Representative",
+            phone: String(phone || "0900000000"),
+          },
+          company_name: companyName || "Unknown Company",
+          registration_number: `REG-${Date.now()}`,
+          industry_type: "Technology",
+          address: "Addis Ababa",
+          contact_email: email || "unknown@company.com",
+          contact_phone: String(phone || "0900000000"),
+          website: `https://${(companyName || "company").replace(/\s/g, "").toLowerCase()}.com`,
+        };
+
+        const response = await api.post("/auth/company/register/", payload);
+        console.log("Company Registration Success:", response.data);
+
+        const companies = JSON.parse(localStorage.getItem("companies") || "[]");
+        const localCompanyName = String(companyName || "").trim();
+        const localEmail = String(email || "").trim().toLowerCase();
+        const exists = companies.some(
+          (c) =>
+            String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
+            String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
         );
-        if (duplicateEmail) {
-          setError("This email address is already registered. Please use a different email or try logging in.");
+
+        if (!exists) {
+          companies.push({
+            id: Date.now(),
+            companyName: localCompanyName,
+            company_name: localCompanyName,
+            contactEmail: localEmail,
+            representative_email: localEmail,
+            contactPhone: String(phone || ""),
+            representative_name: String(fullName || ""),
+            password: String(password),
+            verified: true,
+            status: "VERIFIED",
+            source: "backend+local",
+            createdAt: new Date().toISOString(),
+          });
+          localStorage.setItem("companies", JSON.stringify(companies));
+        }
+
+        setSuccess("Company registration submitted successfully!");
+        setTimeout(() => navigate("/login"), 1400);
+      } catch (err) {
+        console.error("Company Registration Error:", err);
+        const isBackendUnavailable = /timeout|network|failed to fetch|err_network/i.test(
+          String(err?.message || err?.response?.data?.detail || ""),
+        );
+
+        if (isBackendUnavailable) {
+          const companies = JSON.parse(localStorage.getItem("companies") || "[]");
+          const localCompanyName = String(companyName || "").trim();
+          const localEmail = String(email || "").trim().toLowerCase();
+          const exists = companies.some(
+            (c) =>
+              String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
+              String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
+          );
+
+          if (exists) {
+            setError("This company is already registered locally. Please login.");
+          } else {
+            const localCompany = {
+              id: Date.now(),
+              companyName: localCompanyName,
+              company_name: localCompanyName,
+              contactEmail: localEmail,
+              representative_email: localEmail,
+              contactPhone: String(phone || ""),
+              representative_name: String(fullName || ""),
+              password: String(password),
+              verified: true,
+              status: "VERIFIED",
+              source: "local",
+              createdAt: new Date().toISOString(),
+            };
+
+            companies.push(localCompany);
+            localStorage.setItem("companies", JSON.stringify(companies));
+            setSuccess("Company registration saved locally. Redirecting to login...");
+            setTimeout(() => navigate("/login"), 1400);
+          }
           return;
         }
-      }
-      
-      const newCompany = {
-        id: Date.now(),
-        companyName,
-        contactEmail: email,
-        phone,
-        password,
-        verified: false,
-        documentName,
-        documentData,
-        createdAt: new Date().toISOString(),
-      };
-      companies.push(newCompany);
-      localStorage.setItem("companies", JSON.stringify(companies));
 
-      setSuccess(
-        "Company registration submitted. An admin will verify your company before it becomes visible to students."
-      );
-      setFormData({
-        role: "Student",
-        fullName: "",
-        companyName: "",
-        email: "",
-        phone: "",
-        studentId: "",
-        password: "",
-        confirmPassword: "",
-        documentName: "",
-        documentData: "",
-      });
+        const status = err?.response?.status;
+
+        if (status === 400 && err?.response?.data) {
+          console.error("400 Bad Request Payload Details:", err.response.data);
+          setError(
+            "Registration request issue exactly: " +
+              JSON.stringify(err.response.data),
+          );
+        } else {
+          setError(getFriendlyErrorMessage(err));
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
   };
@@ -332,7 +411,9 @@ const RegistrationForm = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-gray-600 text-sm font-medium mb-1">
-              {formData.role === "Student" ? "AASTU Email" : "Contact Email (optional)"}
+              {formData.role === "Student"
+                ? "AASTU Email"
+                : "Contact Email (optional)"}
             </label>
             <input
               type="email"

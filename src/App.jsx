@@ -4,7 +4,6 @@ import LoginForm from "./components/LoginForm";
 import StudentDashboard from "./components/StudentDashboard";
 import AdminDashboard from "./components/AdminDashboard";
 import CompanyDashboard from "./components/CompanyDashboard";
-import CompanyLogin from "./components/CompanyLogin";
 import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import ExaminerDashboard from "./components/ExaminerDashboard"; // <-- added Examiner
@@ -17,7 +16,6 @@ function App() {
         <Route path="/" element={<LoginForm />} />
         <Route path="/register" element={<RegistrationForm />} />
         <Route path="/login" element={<LoginForm />} />
-        <Route path="/company/login" element={<CompanyLogin />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/company-dashboard" element={<CompanyDashboard />} />

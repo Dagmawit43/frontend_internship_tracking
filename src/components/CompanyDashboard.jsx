@@ -920,7 +920,7 @@ const CompanyDashboard = () => {
 
   useEffect(() => {
     if (!company) {
-      navigate("/company/login");
+      navigate("/login");
     } else {
       setLoading(false);
     }
