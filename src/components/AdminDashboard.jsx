@@ -310,6 +310,7 @@ const AdminDashboard = () => {
               <tr>
                 <th className="py-3 px-4 text-left font-semibold">Company Name</th>
                 <th className="py-3 px-4 text-left font-semibold">Contact</th>
+                <th className="py-3 px-4 text-left font-semibold">TIN</th>
                 <th className="py-3 px-4 text-left font-semibold">Status</th>
                 <th className="py-3 px-4 text-left font-semibold">Actions</th>
               </tr>
@@ -317,7 +318,7 @@ const AdminDashboard = () => {
             <tbody>
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="text-center py-4">
+                  <td colSpan="5" className="text-center py-4">
                     No companies found
                   </td>
                 </tr>
@@ -330,6 +331,9 @@ const AdminDashboard = () => {
                   <td className="py-2 px-4">{c.companyName}</td>
                   <td className="py-2 px-4">
                     {c.contactEmail || "-"} / {c.phone || "-"}
+                  </td>
+                  <td className="py-2 px-4">
+                    {c.tinNumber || c.tin_number || c.license_number || "-"}
                   </td>
                   <td className="py-2 px-4">
                     {c.verified ? (

@@ -7,25 +7,14 @@ const Register = () => {
     representative_name: "",
     representative_email: "",
     phone: "",
-    license_number: "",
+    tin_number: "",
     location: "",
-    registration_document: "",
   });
   const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((prev) => ({ ...prev, registration_document: reader.result }));
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e) => {
@@ -100,13 +89,15 @@ const Register = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">License Number</label>
+            <label className="text-sm font-medium text-gray-700">TIN Number</label>
             <input
-              name="license_number"
-              value={form.license_number}
+              name="tin_number"
+              value={form.tin_number}
               onChange={handleChange}
               required
+              maxLength={10}
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter 10-digit TIN"
             />
           </div>
           <div className="space-y-2">
@@ -121,14 +112,6 @@ const Register = () => {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Registration Document (UI only)</label>
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFile} className="w-full" />
-          {form.registration_document && (
-            <p className="text-xs text-gray-500">Document uploaded</p>
-          )}
-        </div>
-
         <div className="flex justify-end">
           <Button type="submit">Submit Registration</Button>
         </div>
@@ -138,6 +121,7 @@ const Register = () => {
 };
 
 export default Register;
+
 
 
 

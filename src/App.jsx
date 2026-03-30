@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import RegistrationForm from "./components/RegistrationForm";
 import LoginForm from "./components/LoginForm";
 import StudentDashboard from "./components/StudentDashboard";
-import AdminDashboard from "./components/AdminDashboard";
 import CompanyDashboard from "./components/CompanyDashboard";
 import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
@@ -17,7 +16,6 @@ function App() {
         <Route path="/register" element={<RegistrationForm />} />
         <Route path="/login" element={<LoginForm />} />
         <Route path="/student-dashboard" element={<StudentDashboard />} />
-        <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/company-dashboard" element={<CompanyDashboard />} />
         <Route path="/company/dashboard" element={<CompanyDashboard />} />
         <Route path="/coordinator-dashboard" element={<CoordinatorDashboard />} />

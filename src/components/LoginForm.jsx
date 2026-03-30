@@ -5,7 +5,6 @@ import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 
 const roleRoutes = {
-  Admin: "/admin-dashboard",
   Student: "/student-dashboard",
   Advisor: "/advisor-dashboard",
   Coordinator: "/coordinator-dashboard",
@@ -13,17 +12,11 @@ const roleRoutes = {
   Company: "/company-dashboard",
 };
 
-const adminCredentials = {
-  username: "admin",
-  password: "admin123",
-};
-
 const toCanonicalRole = (value) => {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return null;
 
   const roleMap = {
-    admin: "Admin",
     student: "Student",
     advisor: "Advisor",
     coordinator: "Coordinator",
@@ -76,20 +69,6 @@ const LoginForm = () => {
     const credential = (identifier || "").trim();
     if (!credential || !password) {
       setError("Please enter both email/username and password");
-      return;
-    }
-
-    // Admin local check
-    if (accountType === "Admin") {
-      if (
-        (credential.toLowerCase() === adminCredentials.username ||
-          credential.toLowerCase() === "admin@aastu.edu.et") &&
-        password === adminCredentials.password
-      ) {
-        navigate(roleRoutes.Admin);
-        return;
-      }
-      setError("Invalid admin credentials");
       return;
     }
 

@@ -13,10 +13,9 @@ const RegistrationForm = () => {
     phone: "",
     studentId: "",
     department: "",
+    tinNumber: "",
     password: "",
     confirmPassword: "",
-    documentName: "",
-    documentData: "",
   });
 
   const [error, setError] = useState("");
@@ -25,20 +24,6 @@ const RegistrationForm = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({
-        ...prev,
-        documentName: file.name,
-        documentData: reader.result,
-      }));
-    };
-    reader.readAsDataURL(file);
   };
 
   const getFriendlyErrorMessage = (error) => {
@@ -116,10 +101,9 @@ const RegistrationForm = () => {
       phone,
       studentId,
       department,
+      tinNumber,
       password,
       confirmPassword,
-      documentData,
-      documentName,
     } = formData;
 
     if (role === "Student") {
@@ -144,8 +128,9 @@ const RegistrationForm = () => {
         setError("Company name is required for company registration.");
         return;
       }
-      if (!documentData) {
-        setError("Please upload a verification document for your company.");
+      const tinRegex = /^\d{10}$/;
+      if (!tinRegex.test(String(tinNumber || "").trim())) {
+        setError("Please enter a valid 10-digit TIN number.");
         return;
       }
     }
@@ -253,7 +238,8 @@ const RegistrationForm = () => {
             phone: String(phone || "0900000000"),
           },
           company_name: companyName || "Unknown Company",
-          registration_number: `REG-${Date.now()}`,
+          registration_number: String(tinNumber || `REG-${Date.now()}`),
+          tin_number: String(tinNumber || ""),
           industry_type: "Technology",
           address: "Addis Ababa",
           contact_email: email || "unknown@company.com",
@@ -282,6 +268,8 @@ const RegistrationForm = () => {
             representative_email: localEmail,
             contactPhone: String(phone || ""),
             representative_name: String(fullName || ""),
+            tinNumber: String(tinNumber || ""),
+            tin_number: String(tinNumber || ""),
             password: String(password),
             verified: true,
             status: "VERIFIED",
@@ -320,6 +308,8 @@ const RegistrationForm = () => {
               representative_email: localEmail,
               contactPhone: String(phone || ""),
               representative_name: String(fullName || ""),
+              tinNumber: String(tinNumber || ""),
+              tin_number: String(tinNumber || ""),
               password: String(password),
               verified: true,
               status: "VERIFIED",
@@ -500,19 +490,18 @@ const RegistrationForm = () => {
         {formData.role === "Company" && (
           <div>
             <label className="block text-gray-600 text-sm font-medium mb-1">
-              Verification Document
+              TIN Number
             </label>
             <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleFileChange}
-              className="w-full"
+              type="text"
+              name="tinNumber"
+              value={formData.tinNumber}
+              onChange={handleChange}
+              required
+              maxLength={10}
+              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter 10-digit TIN"
             />
-            {formData.documentName && (
-              <p className="text-sm text-gray-600 mt-1">
-                Uploaded: {formData.documentName}
-              </p>
-            )}
           </div>
         )}
 
