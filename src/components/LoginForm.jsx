@@ -13,7 +13,9 @@ const roleRoutes = {
 };
 
 const toCanonicalRole = (value) => {
-  const raw = String(value || "").trim().toLowerCase();
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!raw) return null;
 
   const roleMap = {
@@ -38,13 +40,21 @@ const inferRoleFromUser = (user) => {
 
   if (explicitRole) return explicitRole;
 
-  const hasCompanyShape =
-    !!(user?.companyName || user?.company_name || user?.contactEmail || user?.contact_email || user?.industryType || user?.industry_type);
+  const hasCompanyShape = !!(
+    user?.companyName ||
+    user?.company_name ||
+    user?.contactEmail ||
+    user?.contact_email ||
+    user?.industryType ||
+    user?.industry_type
+  );
   if (hasCompanyShape) return "Company";
 
   const hasStudentShape =
     !!(user?.studentId || user?.student_id) ||
-    String(user?.email || "").toLowerCase().endsWith("@aastustudent.edu.et");
+    String(user?.email || "")
+      .toLowerCase()
+      .endsWith("@aastustudent.edu.et");
   if (hasStudentShape) return "Student";
 
   return null;
@@ -73,7 +83,9 @@ const LoginForm = () => {
     }
 
     if (!login) {
-      setError("Authentication is not initialized. Please refresh and try again.");
+      setError(
+        "Authentication is not initialized. Please refresh and try again.",
+      );
       return;
     }
 
@@ -94,7 +106,9 @@ const LoginForm = () => {
         if (detectedRole && detectedRole !== accountType) {
           auth?.logout?.();
           localStorage.removeItem(accountType.toLowerCase());
-          setError(`These credentials belong to a ${detectedRole} account. Please select ${detectedRole} as account type.`);
+          setError(
+            `These credentials belong to a ${detectedRole} account. Please select ${detectedRole} as account type.`,
+          );
           return;
         }
 
@@ -104,7 +118,10 @@ const LoginForm = () => {
             userName:
               user?.name ||
               user?.fullName ||
-              [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
+              [user?.first_name, user?.last_name]
+                .filter(Boolean)
+                .join(" ")
+                .trim() ||
               user?.username ||
               credential,
           },
@@ -113,12 +130,16 @@ const LoginForm = () => {
         const errMsg =
           result.error?.detail ||
           result.error?.message ||
-          (typeof result.error === "string" ? result.error : "Unable to login. Check your credentials.");
+          (typeof result.error === "string"
+            ? result.error
+            : "Unable to login. Check your credentials.");
 
         setError(errMsg);
       }
     } catch (err) {
-      setError("Unable to login right now. Please check your credentials and internet connection.");
+      setError(
+        "Unable to login right now. Please check your credentials and internet connection.",
+      );
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -130,22 +151,34 @@ const LoginForm = () => {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-8">
         <div className="flex flex-col items-center mb-8">
           <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center mb-4 overflow-hidden">
-            <img src={logoSrc} alt="AASTU Logo" className="w-full h-full object-cover" />
+            <img
+              src={logoSrc}
+              alt="AASTU Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <p className="text-2xl font-bold text-gray-900 text-center mb-0 tracking-wide uppercase">
             ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY
           </p>
-          <h1 className="text-2xl font-bold text-gray-900 text-center">Internship Tracking System</h1>
-          <p className="text-gray-500 text-sm mt-2">Welcome back, please sign in</p>
+          <h1 className="text-2xl font-bold text-gray-900 text-center">
+            Internship Tracking System
+          </h1>
+          <p className="text-gray-500 text-sm mt-2">
+            Welcome back, please sign in
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">{error}</div>
+            <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">
+              {error}
+            </div>
           )}
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">Account type</label>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Account type
+            </label>
             <select
               value={accountType}
               onChange={(e) => {
@@ -167,8 +200,8 @@ const LoginForm = () => {
               {accountType === "Student"
                 ? "AASTU Email"
                 : accountType === "Company"
-                ? "Company Email or Name"
-                : "Username or Email"}
+                  ? "Company Email or Name"
+                  : "Username or Email"}
             </label>
             <input
               type="text"
@@ -180,14 +213,16 @@ const LoginForm = () => {
                 accountType === "Student"
                   ? "Enter AASTU email or Student ID"
                   : accountType === "Company"
-                  ? "Enter company email or name"
-                  : "Enter username or email"
+                    ? "Enter company email or name"
+                    : "Enter username or email"
               }
             />
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
+            <label className="block text-gray-700 text-sm font-medium mb-2">
+              Password
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -218,7 +253,9 @@ const LoginForm = () => {
           <button
             type="button"
             className="w-full text-sm text-blue-600 font-semibold mt-2 hover:underline"
-            onClick={() => alert("Please contact your coordinator to reset your password.")}
+            onClick={() =>
+              alert("Please contact your coordinator to reset your password.")
+            }
           >
             Forgot password?
           </button>

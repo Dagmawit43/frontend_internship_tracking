@@ -171,20 +171,25 @@ const RegistrationForm = () => {
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
         console.error("Student Registration Error:", err);
-        const isBackendUnavailable = /timeout|network|failed to fetch|err_network/i.test(
-          String(err?.message || err?.response?.data?.detail || ""),
-        );
+        const isBackendUnavailable =
+          /timeout|network|failed to fetch|err_network/i.test(
+            String(err?.message || err?.response?.data?.detail || ""),
+          );
 
         if (isBackendUnavailable) {
           const students = JSON.parse(localStorage.getItem("students") || "[]");
           const exists = students.some(
             (s) =>
-              String(s?.email || "").toLowerCase() === String(email || "").toLowerCase() ||
-              String(s?.studentId || s?.id || "").toLowerCase() === String(studentId || "").toLowerCase(),
+              String(s?.email || "").toLowerCase() ===
+                String(email || "").toLowerCase() ||
+              String(s?.studentId || s?.id || "").toLowerCase() ===
+                String(studentId || "").toLowerCase(),
           );
 
           if (exists) {
-            setError("This student is already registered locally. Please login.");
+            setError(
+              "This student is already registered locally. Please login.",
+            );
           } else {
             const localStudent = {
               id: String(studentId),
@@ -199,7 +204,9 @@ const RegistrationForm = () => {
             };
             students.push(localStudent);
             localStorage.setItem("students", JSON.stringify(students));
-            setSuccess("Student registration saved locally. Redirecting to login...");
+            setSuccess(
+              "Student registration saved locally. Redirecting to login...",
+            );
             setTimeout(() => navigate("/login"), 1400);
           }
           return;
@@ -252,11 +259,17 @@ const RegistrationForm = () => {
 
         const companies = JSON.parse(localStorage.getItem("companies") || "[]");
         const localCompanyName = String(companyName || "").trim();
-        const localEmail = String(email || "").trim().toLowerCase();
+        const localEmail = String(email || "")
+          .trim()
+          .toLowerCase();
         const exists = companies.some(
           (c) =>
-            String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
-            String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
+            String(c?.companyName || c?.company_name || "")
+              .trim()
+              .toLowerCase() === localCompanyName.toLowerCase() ||
+            String(c?.contactEmail || c?.representative_email || c?.email || "")
+              .trim()
+              .toLowerCase() === localEmail,
         );
 
         if (!exists) {
@@ -283,22 +296,35 @@ const RegistrationForm = () => {
         setTimeout(() => navigate("/login"), 1400);
       } catch (err) {
         console.error("Company Registration Error:", err);
-        const isBackendUnavailable = /timeout|network|failed to fetch|err_network/i.test(
-          String(err?.message || err?.response?.data?.detail || ""),
-        );
+        const isBackendUnavailable =
+          /timeout|network|failed to fetch|err_network/i.test(
+            String(err?.message || err?.response?.data?.detail || ""),
+          );
 
         if (isBackendUnavailable) {
-          const companies = JSON.parse(localStorage.getItem("companies") || "[]");
+          const companies = JSON.parse(
+            localStorage.getItem("companies") || "[]",
+          );
           const localCompanyName = String(companyName || "").trim();
-          const localEmail = String(email || "").trim().toLowerCase();
+          const localEmail = String(email || "")
+            .trim()
+            .toLowerCase();
           const exists = companies.some(
             (c) =>
-              String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
-              String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
+              String(c?.companyName || c?.company_name || "")
+                .trim()
+                .toLowerCase() === localCompanyName.toLowerCase() ||
+              String(
+                c?.contactEmail || c?.representative_email || c?.email || "",
+              )
+                .trim()
+                .toLowerCase() === localEmail,
           );
 
           if (exists) {
-            setError("This company is already registered locally. Please login.");
+            setError(
+              "This company is already registered locally. Please login.",
+            );
           } else {
             const localCompany = {
               id: Date.now(),
@@ -319,7 +345,9 @@ const RegistrationForm = () => {
 
             companies.push(localCompany);
             localStorage.setItem("companies", JSON.stringify(companies));
-            setSuccess("Company registration saved locally. Redirecting to login...");
+            setSuccess(
+              "Company registration saved locally. Redirecting to login...",
+            );
             setTimeout(() => navigate("/login"), 1400);
           }
           return;

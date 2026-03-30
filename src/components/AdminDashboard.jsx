@@ -72,7 +72,7 @@ const AdminDashboard = () => {
   const handleApproveCompany = (companyId) => {
     const stored = JSON.parse(localStorage.getItem("companies")) || [];
     const updated = stored.map((co) =>
-      co.id === companyId ? { ...co, verified: true, rejected: false } : co
+      co.id === companyId ? { ...co, verified: true, rejected: false } : co,
     );
     setCompanies(updated);
     localStorage.setItem("companies", JSON.stringify(updated));
@@ -96,7 +96,7 @@ const AdminDashboard = () => {
   const handleRejectCompany = (companyId) => {
     const stored = JSON.parse(localStorage.getItem("companies")) || [];
     const updated = stored.map((co) =>
-      co.id === companyId ? { ...co, verified: false, rejected: true } : co
+      co.id === companyId ? { ...co, verified: false, rejected: true } : co,
     );
     setCompanies(updated);
     localStorage.setItem("companies", JSON.stringify(updated));
@@ -106,9 +106,8 @@ const AdminDashboard = () => {
       // Remove from users list if it was there
       setUsers((prev) =>
         prev.filter(
-          (u) =>
-            !(u.email === rejected.contactEmail && u.role === "Company")
-        )
+          (u) => !(u.email === rejected.contactEmail && u.role === "Company"),
+        ),
       );
       setSuccess(`Company ${rejected.companyName} rejected.`);
       setTimeout(() => setSuccess(""), 3000);
@@ -181,8 +180,12 @@ const AdminDashboard = () => {
     const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
     const updatedUsers = otherUsers.map((u) =>
       u.username === coordinatorPromotion.username
-        ? { ...u, role: "Coordinator", department: coordinatorPromotion.department }
-        : u
+        ? {
+            ...u,
+            role: "Coordinator",
+            department: coordinatorPromotion.department,
+          }
+        : u,
     );
     localStorage.setItem("otherUsers", JSON.stringify(updatedUsers));
 
@@ -190,13 +193,17 @@ const AdminDashboard = () => {
     setUsers((prev) =>
       prev.map((u) =>
         u.username === coordinatorPromotion.username
-          ? { ...u, role: "Coordinator", department: coordinatorPromotion.department }
-          : u
-      )
+          ? {
+              ...u,
+              role: "Coordinator",
+              department: coordinatorPromotion.department,
+            }
+          : u,
+      ),
     );
 
     setSuccess(
-      `Staff ${coordinatorPromotion.username} promoted to Coordinator for ${coordinatorPromotion.department}!`
+      `Staff ${coordinatorPromotion.username} promoted to Coordinator for ${coordinatorPromotion.department}!`,
     );
     setCoordinatorPromotion({ username: "", department: "" });
     setTimeout(() => setSuccess(""), 3000);
@@ -226,8 +233,8 @@ const AdminDashboard = () => {
         <button
           onClick={() => setActiveTab("view")}
           className={`py-2 px-4 rounded-md font-medium transition-colors ${
-            activeTab === "view" 
-              ? "bg-blue-600 text-white shadow-md" 
+            activeTab === "view"
+              ? "bg-blue-600 text-white shadow-md"
               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
@@ -271,8 +278,12 @@ const AdminDashboard = () => {
           <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
             <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="py-3 px-4 text-left font-semibold">Name / Username</th>
-                <th className="py-3 px-4 text-left font-semibold">Email / ID</th>
+                <th className="py-3 px-4 text-left font-semibold">
+                  Name / Username
+                </th>
+                <th className="py-3 px-4 text-left font-semibold">
+                  Email / ID
+                </th>
                 <th className="py-3 px-4 text-left font-semibold">Role</th>
               </tr>
             </thead>
@@ -308,7 +319,9 @@ const AdminDashboard = () => {
           <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
             <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="py-3 px-4 text-left font-semibold">Company Name</th>
+                <th className="py-3 px-4 text-left font-semibold">
+                  Company Name
+                </th>
                 <th className="py-3 px-4 text-left font-semibold">Contact</th>
                 <th className="py-3 px-4 text-left font-semibold">TIN</th>
                 <th className="py-3 px-4 text-left font-semibold">Status</th>
@@ -337,11 +350,17 @@ const AdminDashboard = () => {
                   </td>
                   <td className="py-2 px-4">
                     {c.verified ? (
-                      <span className="text-green-600 font-semibold">Verified</span>
+                      <span className="text-green-600 font-semibold">
+                        Verified
+                      </span>
                     ) : c.rejected ? (
-                      <span className="text-red-600 font-semibold">Rejected</span>
+                      <span className="text-red-600 font-semibold">
+                        Rejected
+                      </span>
                     ) : (
-                      <span className="text-yellow-600 font-semibold">Pending</span>
+                      <span className="text-yellow-600 font-semibold">
+                        Pending
+                      </span>
                     )}
                   </td>
                   <td className="py-2 px-4 space-x-2">
@@ -392,8 +411,12 @@ const AdminDashboard = () => {
               <tr>
                 <th className="py-3 px-4 text-left font-semibold">Username</th>
                 <th className="py-3 px-4 text-left font-semibold">Email</th>
-                <th className="py-3 px-4 text-left font-semibold">Department</th>
-                <th className="py-3 px-4 text-left font-semibold">Current Role</th>
+                <th className="py-3 px-4 text-left font-semibold">
+                  Department
+                </th>
+                <th className="py-3 px-4 text-left font-semibold">
+                  Current Role
+                </th>
                 <th className="py-3 px-4 text-left font-semibold">Actions</th>
               </tr>
             </thead>
@@ -464,7 +487,9 @@ const AdminDashboard = () => {
                     Promote
                   </button>
                   <button
-                    onClick={() => setCoordinatorPromotion({ username: "", department: "" })}
+                    onClick={() =>
+                      setCoordinatorPromotion({ username: "", department: "" })
+                    }
                     className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 transition-colors font-medium"
                   >
                     Cancel

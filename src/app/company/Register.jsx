@@ -27,9 +27,13 @@ const Register = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="bg-white border border-gray-200 rounded-xl shadow-md p-8 max-w-lg w-full text-center space-y-3">
-          <h2 className="text-2xl font-bold text-gray-900">Registration Submitted</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Registration Submitted
+          </h2>
           <p className="text-gray-600">Your company is pending verification.</p>
-          <p className="text-sm text-gray-500">We will notify you once verified.</p>
+          <p className="text-sm text-gray-500">
+            We will notify you once verified.
+          </p>
         </div>
       </div>
     );
@@ -42,13 +46,19 @@ const Register = () => {
         className="bg-white border border-gray-200 rounded-xl shadow-md p-8 max-w-3xl w-full space-y-6"
       >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Company Registration</h1>
-          <p className="text-gray-600 text-sm">Submit your company for verification.</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Company Registration
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Submit your company for verification.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Company Name</label>
+            <label className="text-sm font-medium text-gray-700">
+              Company Name
+            </label>
             <input
               name="company_name"
               value={form.company_name}
@@ -58,7 +68,9 @@ const Register = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Representative Name</label>
+            <label className="text-sm font-medium text-gray-700">
+              Representative Name
+            </label>
             <input
               name="representative_name"
               value={form.representative_name}
@@ -68,7 +80,9 @@ const Register = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Representative Email</label>
+            <label className="text-sm font-medium text-gray-700">
+              Representative Email
+            </label>
             <input
               type="email"
               name="representative_email"
@@ -89,7 +103,9 @@ const Register = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">TIN Number</label>
+            <label className="text-sm font-medium text-gray-700">
+              TIN Number
+            </label>
             <input
               name="tin_number"
               value={form.tin_number}
@@ -101,7 +117,9 @@ const Register = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Location</label>
+            <label className="text-sm font-medium text-gray-700">
+              Location
+            </label>
             <input
               name="location"
               value={form.location}
@@ -121,20 +139,3 @@ const Register = () => {
 };
 
 export default Register;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
