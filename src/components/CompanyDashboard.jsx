@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, LogOut, ChevronDown, Plus, Edit2, Trash2, ChevronUp, MapPin, Building2, Briefcase, GraduationCap, Clock, Layers, User, Mail, CheckCircle, XCircle, FileText } from "lucide-react";
+import { Bell, LogOut, ChevronDown, Plus, Edit2, Trash2, ChevronUp, MapPin, Building2, Briefcase, GraduationCap, Clock, Layers, User, Mail, CheckCircle, XCircle, FileText, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
@@ -547,6 +547,104 @@ const CompanyDashboard = () => {
     }
     navigate("/login");
   };
+const InternsPage = ({ companySession }) => {
+  const [interns, setInterns] = useState([]);
+  const companyId = companySession?.id || companySession?.company_id;
+
+  useEffect(() => {
+    const loadInterns = () => {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const students = JSON.parse(localStorage.getItem("students")) || [];
+      const cName = companySession?.companyName || companySession?.company_name;
+      
+      const activeInterns = allApps.filter(app => 
+        (app.companyId === companyId || app.companyName === cName) &&
+        app.finalInternshipStatus === "ACTIVE_INTERN"
+      ).map(app => {
+        const student = students.find(s => s.studentId === app.studentId || s.name === app.studentName);
+        return { ...app, studentFull: student };
+      });
+      
+      setInterns(activeInterns);
+    };
+
+    loadInterns();
+    window.addEventListener("storage", loadInterns);
+    return () => window.removeEventListener("storage", loadInterns);
+  }, [companyId, companySession]);
+
+  // Group interns by internshipTitle
+  const groupedInterns = interns.reduce((acc, intern) => {
+    const title = intern.internshipTitle || "General Internship";
+    if (!acc[title]) acc[title] = [];
+    acc[title].push(intern);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+       <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+          <div>
+             <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Your Active Interns</h2>
+             <p className="text-sm text-gray-500 font-bold uppercase tracking-widest text-[10px]">Total Active Program Members: {interns.length}</p>
+          </div>
+          <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border border-blue-100">
+             University Verified
+          </div>
+       </div>
+
+       {Object.keys(groupedInterns).length === 0 ? (
+         <div className="bg-white p-16 rounded-xl shadow-sm border border-gray-200 text-center">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+               <Users className="w-10 h-10 text-gray-200" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">No Active Internships Yet</h3>
+            <p className="text-gray-500 max-w-xs mx-auto text-sm leading-relaxed">
+              When student placements are finalized by university coordinators, they will appear here automatically.
+            </p>
+         </div>
+       ) : (
+         <div className="grid grid-cols-1 gap-10">
+            {Object.entries(groupedInterns).map(([title, studentList]) => (
+              <div key={title} className="space-y-4">
+                 <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-600 w-fit">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <h3 className="font-black text-sm uppercase tracking-widest text-gray-900">{title}</h3>
+                    <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-black uppercase">{studentList.length}</span>
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {studentList.map(intern => (
+                      <div key={intern.id} className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl transition-all border-l-4 border-l-blue-600 group">
+                         <div className="flex items-center gap-4">
+                            <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100 text-blue-600 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors capitalize">
+                               {intern.studentName?.[0] || 'S'}
+                            </div>
+                            <div>
+                               <h4 className="font-bold text-gray-900 text-lg leading-tight">{intern.studentName}</h4>
+                               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Student ID: {intern.studentId}</p>
+                            </div>
+                         </div>
+                         <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center">
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-500">
+                               <Mail className="w-3.5 h-3.5 text-blue-600" />
+                               <span className="truncate max-w-[120px]">{intern.studentFull?.email || "Academic Account"}</span>
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100 flex items-center gap-1">
+                               <div className="h-1.5 w-1.5 rounded-full bg-green-600 animate-pulse"></div>
+                               Active
+                            </span>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+            ))}
+         </div>
+       )}
+    </div>
+  );
+};
 
   const cName = session.companyName || session.company_name || "Company";
   const email = session.contactEmail || session.representative_email || session.email || "N/A";
@@ -631,13 +729,19 @@ const CompanyDashboard = () => {
            >
              Internships
            </button>
-           <button 
-             className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${view === 'applications' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-             onClick={() => setView("applications")}
-           >
-             Applied Students
-           </button>
-        </div>
+            <button 
+              className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${view === 'applications' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setView("applications")}
+            >
+              Applied Students
+            </button>
+            <button 
+              className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${view === 'interns' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setView("interns")}
+            >
+              Active Interns
+            </button>
+         </div>
 
         {/* Dynamic Content */}
         <div>
@@ -666,6 +770,8 @@ const CompanyDashboard = () => {
             <InternshipPage companySession={session} />
           ) : view === "applications" ? (
             <AppliedStudentsPage companySession={session} />
+          ) : view === "interns" ? (
+            <InternsPage companySession={session} />
           ) : null}
         </div>
       </main>

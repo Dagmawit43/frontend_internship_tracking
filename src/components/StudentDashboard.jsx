@@ -586,7 +586,130 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
   );
 };
 
-// Self placement (inlined)
+const MyInternshipView = ({ studentId, studentName }) => {
+  const [activeApp, setActiveApp] = useState(null);
+
+  useEffect(() => {
+    const loadActive = () => {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const companies = JSON.parse(localStorage.getItem("companies")) || [];
+      const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
+      
+      const found = allApps.find(app => 
+        (app.studentId === studentId || app.studentName === studentName) && 
+        app.finalInternshipStatus === "ACTIVE_INTERN"
+      );
+
+      if (found) {
+        const company = companies.find(c => c.company_id === found.companyId || c.id === found.companyId || c.companyName === found.companyName);
+        const internship = internships.find(i => i.id === found.internshipId);
+        setActiveApp({
+          ...found,
+          companyFull: company,
+          internshipFull: internship
+        });
+      } else {
+        setActiveApp(null);
+      }
+    };
+
+    loadActive();
+    window.addEventListener("storage", loadActive);
+    return () => window.removeEventListener("storage", loadActive);
+  }, [studentId, studentName]);
+
+  if (!activeApp) {
+    return (
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-16 text-center">
+        <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+           <Briefcase className="w-10 h-10 text-gray-300" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">No Active Internship Yet</h3>
+        <p className="text-gray-500 max-w-sm mx-auto">
+          Once your coordinator finalizes your internship approval, your active placement details will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white relative">
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+             <Building2 className="w-32 h-32" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mb-2">Official Placement</p>
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Intern at {activeApp.companyName}</h2>
+            <div className="mt-4 inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/30 text-xs font-black uppercase">
+              <CheckCircle className="w-4 h-4" />
+              Verified & Active
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            
+            {/* Company Deep Dive */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-600 w-fit">
+                 <Building2 className="w-5 h-5 text-blue-600" />
+                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Partner Organization</h4>
+              </div>
+              <div className="space-y-4">
+                 <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
+                 <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
+                 </div>
+                 <p className="text-gray-600 leading-relaxed italic text-sm border-l-4 border-gray-100 pl-4">
+                   "{activeApp.companyFull?.description || "A registered host organization participating in the AASTU internship tracking program."}"
+                 </p>
+              </div>
+            </div>
+
+            {/* Position Details */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-purple-600 w-fit">
+                 <Briefcase className="w-5 h-5 text-purple-600" />
+                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Role</h4>
+              </div>
+              <div className="space-y-4">
+                 <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
+                 
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                       <p className="text-[10px] font-black text-purple-700 uppercase mb-1">Timeframe</p>
+                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                       <p className="text-[10px] font-black text-purple-700 uppercase mb-1">Weekly Commitment</p>
+                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
+                    </div>
+                 </div>
+
+                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Required Skills & Focus Areas</p>
+                    <div className="flex flex-wrap gap-2">
+                       {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
+                         <span key={i} className="px-2 py-1 bg-white border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
+                           {skill}
+                         </span>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SelfPlacementSection = ({ studentId, onSubmit }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -1178,7 +1301,7 @@ const StudentDashboard = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState("browse"); // browse, applied, self-placement
+  const [activeTab, setActiveTab] = useState("my-internship"); // my-internship, browse, applied, self-placement
 
   const loadApplications = (studentId, studentName) => {
     try {
@@ -1267,32 +1390,43 @@ const StudentDashboard = () => {
         />
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-2xl">
+        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-3xl overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setActiveTab("my-internship")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "my-internship" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <User className="w-4 h-4" />
+            My Internship
+          </button>
           <button
             onClick={() => setActiveTab("browse")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
               activeTab === "browse" 
                 ? "bg-blue-600 text-white shadow-md" 
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             }`}
           >
             <Briefcase className="w-4 h-4" />
-            Internship Opportunities
+            Browse Opportunities
           </button>
           <button
             onClick={() => setActiveTab("applied")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
               activeTab === "applied" 
                 ? "bg-blue-600 text-white shadow-md" 
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             }`}
           >
             <CheckCircle className="w-4 h-4" />
-            Applied Internships
+            My Applications
           </button>
           <button
             onClick={() => setActiveTab("self-placement")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
               activeTab === "self-placement" 
                 ? "bg-blue-600 text-white shadow-md" 
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
@@ -1307,6 +1441,13 @@ const StudentDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {activeTab === "my-internship" && (
+              <MyInternshipView 
+                studentId={studentData.studentId}
+                studentName={studentData.name}
+              />
+            )}
+
             {activeTab === "browse" && (
               <AvailableInternships 
                 studentId={studentData.studentId}
