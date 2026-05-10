@@ -457,54 +457,131 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     return () => window.removeEventListener("storage", loadApplied);
   }, [studentId, studentName]);
 
-  const getStatusBadge = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'accepted': return 'bg-green-100 text-green-700 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
-      case 'active': return 'bg-blue-100 text-blue-700 border-blue-200';
-      default: return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  const handleSelectCompany = (app) => {
+    const s = app.status?.toLowerCase();
+    if (s !== 'accepted' && s !== 'accepted_by_company' && s !== 'active') {
+       alert("This application hasn't been accepted by the company yet.");
+       return;
+    }
+
+    try {
+      // 1. Check if student already has a PENDING approval or an ACTIVE internship
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const studentApps = allApps.filter(a => a.studentId === studentId || a.studentName === studentName);
+      
+      const hasPending = studentApps.some(a => a.coordinatorApprovalStatus === "PENDING");
+      const hasActive = studentApps.some(a => a.finalInternshipStatus === "ACTIVE_INTERN" || a.status === "CONFIRMED");
+
+      if (hasPending || hasActive) {
+        alert("You already selected another internship.");
+        return;
+      }
+
+      if (window.confirm(`Are you sure you want to select ${app.companyName} for your internship? This will be sent to the Coordinator for final approval.`)) {
+        // Update the specific application
+        const updatedApps = allApps.map(a => 
+          a.id === app.id ? { ...a, coordinatorApprovalStatus: "PENDING" } : a
+        );
+        localStorage.setItem("applications", JSON.stringify(updatedApps));
+        
+        alert(`Request sent! Your selection of ${app.companyName} is now pending coordinator approval.`);
+        window.location.reload(); 
+      }
+    } catch (err) {
+      console.error("Selection failed:", err);
     }
   };
 
-  if (appliedInternships.length === 0) return null;
+  const getStatusDisplay = (status, coordStatus) => {
+    const s = status?.toLowerCase();
+    const cs = coordStatus;
+
+    if (cs === "APPROVED") {
+       return { text: 'Finalized', classes: 'bg-green-600 text-white border-green-700', canSelect: false };
+    }
+    if (cs === "PENDING") {
+       return { text: 'Pending Approval', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
+    }
+    if (cs === "REJECTED") {
+       return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
+    }
+
+    if (s === 'accepted' || s === 'accepted_by_company' || s === 'active') {
+      return { 
+        text: 'Accepted', 
+        classes: 'bg-green-100 text-green-700 border-green-200',
+        canSelect: true 
+      };
+    }
+    if (s === 'rejected') {
+      return { 
+        text: 'Rejected', 
+        classes: 'bg-red-100 text-red-700 border-red-200',
+        canSelect: false 
+      };
+    }
+    return { 
+      text: 'Waiting Response', 
+      classes: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      canSelect: false 
+    };
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mt-6">
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Your Applications</h2>
-        <p className="text-gray-600">Track the status of your submitted internship applications</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Applied Internships</h2>
+        <p className="text-gray-600">Track and finalize your internship placements</p>
       </div>
 
-      <div className="space-y-4">
-        {appliedInternships.map(app => (
-          <div key={app.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-100 rounded-xl bg-gray-50/50 gap-4">
-            <div className="flex gap-4 items-center">
-              <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
-                <Briefcase className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900">{app.internshipTitle || "Internship"}</h4>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Building2 className="w-3 h-3" />
-                  <span>{app.companyName}</span>
-                  <span className="text-gray-300">•</span>
-                  <Clock className="w-3 h-3" />
-                  <span>Applied on {new Date(app.appliedAt).toLocaleDateString()}</span>
+      {appliedInternships.length === 0 ? (
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+           <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+           <p className="text-gray-500">You haven't applied to any internships yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {appliedInternships.map(app => {
+            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus);
+            return (
+              <div key={app.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border border-gray-100 rounded-xl bg-gray-50/50 gap-4 hover:border-blue-200 transition-colors">
+                <div className="flex gap-4 items-center">
+                  <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                    <Building2 className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-lg">{app.internshipTitle || "Internship"}</h4>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                      <div className="flex items-center gap-1.5 font-medium text-gray-700">
+                        <Building2 className="w-3 h-3" />
+                        <span>{app.companyName}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3" />
+                        <span>Applied on {new Date(app.appliedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                   <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border text-center w-full sm:w-auto ${statusConfig.classes}`}>
+                     {statusConfig.text}
+                   </span>
+                   {statusConfig.canSelect && (
+                     <button 
+                       onClick={() => handleSelectCompany(app)}
+                       className="px-4 py-1.5 bg-blue-600 text-white text-xs font-black uppercase rounded-full hover:bg-blue-700 transition-all shadow-md shadow-blue-100 w-full sm:w-auto whitespace-nowrap"
+                     >
+                       Select This Company
+                     </button>
+                   )}
                 </div>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0">
-               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusBadge(app.status)}`}>
-                 {app.status}
-               </span>
-               <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
-                  <Eye className="w-4 h-4" />
-               </button>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -1101,6 +1178,8 @@ const StudentDashboard = () => {
     }
   };
 
+  const [activeTab, setActiveTab] = useState("browse"); // browse, applied, self-placement
+
   const loadApplications = (studentId, studentName) => {
     try {
       const apps = JSON.parse(localStorage.getItem("applications")) || [];
@@ -1113,16 +1192,22 @@ const StudentDashboard = () => {
       if (studentApps.length === 0) {
         setInternshipStatus("Not Applied");
       } else {
-        const activeApp = studentApps.find((app) => app.status === "Active" || app.status === "accepted");
-        const pendingApp = studentApps.find((app) => app.status === "Pending" || app.status === "applied");
+        const activeApp = studentApps.find((app) => app.coordinatorApprovalStatus === "APPROVED");
+        const awaitingApproval = studentApps.find((app) => app.coordinatorApprovalStatus === "PENDING");
+        const pendingCompany = studentApps.find((app) => app.status === "Pending" || app.status === "applied" || app.status === "APPLIED");
+        const acceptedByCompany = studentApps.find((app) => app.status === "accepted" || app.status === "ACCEPTED_BY_COMPANY");
         const completedApp = studentApps.find((app) => app.status === "Completed");
 
         if (activeApp) {
           setInternshipStatus("Active");
         } else if (completedApp) {
           setInternshipStatus("Completed");
-        } else if (pendingApp) {
-          setInternshipStatus("Pending");
+        } else if (awaitingApproval) {
+          setInternshipStatus("Pending Approval");
+        } else if (acceptedByCompany) {
+          setInternshipStatus("Company Accepted");
+        } else if (pendingCompany) {
+          setInternshipStatus("Applied");
         } else {
           setInternshipStatus("Not Applied");
         }
@@ -1181,28 +1266,68 @@ const StudentDashboard = () => {
           examiner={examiner}
         />
 
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-2xl">
+          <button
+            onClick={() => setActiveTab("browse")}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "browse" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <Briefcase className="w-4 h-4" />
+            Internship Opportunities
+          </button>
+          <button
+            onClick={() => setActiveTab("applied")}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "applied" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Applied Internships
+          </button>
+          <button
+            onClick={() => setActiveTab("self-placement")}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "self-placement" 
+                ? "bg-blue-600 text-white shadow-md" 
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            Self Placement
+          </button>
+        </div>
+
         {/* Main Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Available Internships */}
-            <AvailableInternships 
-              studentId={studentData.studentId}
-              studentDepartment={studentData.department}
-              onApplicationSubmit={handleApplicationSubmit}
-            />
+            {activeTab === "browse" && (
+              <AvailableInternships 
+                studentId={studentData.studentId}
+                studentDepartment={studentData.department}
+                onApplicationSubmit={handleApplicationSubmit}
+              />
+            )}
 
-            {/* Applied Internships List */}
-            <AppliedInternshipsList 
-              studentId={studentData.studentId}
-              studentName={studentData.name}
-            />
+            {activeTab === "applied" && (
+              <AppliedInternshipsList 
+                studentId={studentData.studentId}
+                studentName={studentData.name}
+              />
+            )}
 
-            {/* Self-Placement Section */}
-            <SelfPlacementSection
-              studentId={studentData.studentId}
-              onSubmit={handleApplicationSubmit}
-            />
+            {activeTab === "self-placement" && (
+              <SelfPlacementSection
+                studentId={studentData.studentId}
+                onSubmit={handleApplicationSubmit}
+              />
+            )}
           </div>
 
           {/* Right Column - Sidebar */}

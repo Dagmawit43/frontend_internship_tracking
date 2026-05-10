@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronDown } from "lucide-react";
+import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, Clock, Layers, Search, Filter, MapPin, FileText, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
@@ -130,6 +130,298 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── Internship Students Approval Sub-view ───────────────────────────────────
+const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
+  const [pendingApps, setPendingApps] = useState([]);
+  const [selectedApp, setSelectedApp] = useState(null);
+
+  useEffect(() => {
+    const loadApps = () => {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const students = JSON.parse(localStorage.getItem("students")) || [];
+      const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
+      const companies = JSON.parse(localStorage.getItem("companies")) || [];
+      
+      const filtered = allApps.filter(app => {
+        if (app.coordinatorApprovalStatus !== "PENDING") return false;
+        
+        const student = students.find(s => s.studentId === app.studentId || s.name === app.studentName);
+        if (!student) return false;
+        
+        const sDept = String(student.department || "").trim().toLowerCase();
+        const cDept = String(coordinatorDept || "").trim().toLowerCase();
+        return sDept === cDept;
+      }).map(app => {
+        const student = students.find(s => s.studentId === app.studentId || s.name === app.studentName);
+        const internship = internships.find(i => i.id === app.internshipId);
+        const company = companies.find(c => c.company_id === app.companyId || c.id === app.companyId || c.companyName === app.companyName);
+        
+        return {
+          ...app,
+          studentFull: student,
+          internshipFull: internship,
+          companyFull: company
+        };
+      });
+      
+      setPendingApps(filtered);
+    };
+
+    loadApps();
+    window.addEventListener("storage", loadApps);
+    return () => window.removeEventListener("storage", loadApps);
+  }, [coordinatorDept]);
+
+  const handleAction = (app, action) => {
+    if (action === "REJECT" && !window.confirm("Are you sure you want to REJECT this internship placement?")) return;
+    
+    try {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const updatedApps = allApps.map(a => {
+        if (a.id === app.id) {
+          if (action === "APPROVE") {
+            return {
+              ...a,
+              coordinatorApprovalStatus: "APPROVED",
+              finalInternshipStatus: "ACTIVE_INTERN",
+              status: "ACTIVE"
+            };
+          } else {
+            return {
+              ...a,
+              coordinatorApprovalStatus: "REJECTED"
+            };
+          }
+        }
+        return a;
+      });
+      
+      localStorage.setItem("applications", JSON.stringify(updatedApps));
+      
+      if (action === "APPROVE") {
+        const students = JSON.parse(localStorage.getItem("students")) || [];
+        const updatedStudents = students.map(s => {
+          if (s.studentId === app.studentId || s.name === app.studentName) {
+            return { ...s, finalInternshipStatus: "ACTIVE_INTERN" };
+          }
+          return s;
+        });
+        localStorage.setItem("students", JSON.stringify(updatedStudents));
+      }
+
+      alert(`Application ${action === "APPROVE" ? "Approved" : "Rejected"} successfully.`);
+      setSelectedApp(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Internship Approvals</h2>
+          <p className="text-gray-500">Forensic review of student internship selections for {coordinatorDept}</p>
+        </div>
+        <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+          ← Back
+        </button>
+      </div>
+
+      {pendingApps.length === 0 ? (
+        <div className="bg-white border rounded-xl p-12 text-center shadow-sm">
+          <Briefcase className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900">No Pending Approvals</h3>
+          <p className="text-gray-500">Everything is caught up!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4">
+          {pendingApps.map(app => (
+            <div key={app.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex flex-col lg:flex-row justify-between gap-6">
+                <div className="flex gap-4">
+                  <div className="bg-blue-50 p-3 rounded-lg h-fit">
+                    <User className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{app.studentName}</h3>
+                    <p className="text-sm text-gray-500 mb-4">ID: {app.studentId}</p>
+                    
+                    <div className="flex flex-wrap gap-4">
+                       <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Building2 className="w-4 h-4 text-gray-400" />
+                          <span className="font-bold">{app.companyName}</span>
+                       </div>
+                       <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <Briefcase className="w-4 h-4 text-gray-400" />
+                          <span className="font-bold">{app.internshipTitle}</span>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 self-end lg:self-center">
+                  <button 
+                    onClick={() => setSelectedApp(app)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Review Details
+                  </button>
+                  <button 
+                    onClick={() => handleAction(app, "APPROVE")}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-shadow shadow-lg shadow-green-100 text-sm"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Fast Approve
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Forensic Detail Modal */}
+      {selectedApp && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+             {/* Header */}
+             <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
+                <div>
+                   <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Placement Forensic Review</h3>
+                   <p className="text-xs text-gray-500 font-bold">Reviewing Application ID: {selectedApp.id}</p>
+                </div>
+                <button onClick={() => setSelectedApp(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                   <XCircle className="w-6 h-6 text-gray-400" />
+                </button>
+             </div>
+
+             {/* Content */}
+             <div className="flex-1 overflow-y-auto p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                   
+                   {/* Student Information */}
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-600 w-fit">
+                         <User className="w-5 h-5 text-blue-600" />
+                         <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Student Profile</h4>
+                      </div>
+                      <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
+                         <div>
+                            <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Full Name</p>
+                            <p className="font-bold text-gray-900 text-lg">{selectedApp.studentName}</p>
+                         </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <div>
+                               <p className="text-[10px] font-black text-gray-400 uppercase">Student ID</p>
+                               <p className="text-sm font-bold">{selectedApp.studentId}</p>
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black text-gray-400 uppercase">Department</p>
+                               <p className="text-sm font-bold">{selectedApp.studentFull?.department || "N/A"}</p>
+                            </div>
+                         </div>
+                         <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase">Email Address</p>
+                            <p className="text-sm font-bold text-blue-600">{selectedApp.studentFull?.email || "N/A"}</p>
+                         </div>
+                      </div>
+                      
+                      {selectedApp.additionalDocument && (
+                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                               <div className="bg-white p-2 rounded-lg"><FileText className="w-5 h-5 text-blue-600" /></div>
+                               <div>
+                                  <p className="text-xs font-bold text-gray-900">CV / Resume Uploaded</p>
+                                  <p className="text-[10px] text-gray-500">{selectedApp.documentName || "Student_CV.pdf"}</p>
+                               </div>
+                            </div>
+                            <a 
+                              href={selectedApp.additionalDocument} 
+                              download={selectedApp.documentName || "CV.pdf"}
+                              className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+                            >
+                               View CV
+                            </a>
+                         </div>
+                      )}
+                   </div>
+
+                   {/* Internship & Company Details */}
+                   <div className="space-y-8">
+                      {/* Internship Details */}
+                      <div>
+                        <div className="flex items-center gap-3 pb-2 border-b-2 border-purple-600 w-fit mb-6">
+                           <Briefcase className="w-5 h-5 text-purple-600" />
+                           <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Details</h4>
+                        </div>
+                        <div className="space-y-4">
+                           <h5 className="text-2xl font-black text-gray-900 leading-tight">{selectedApp.internshipTitle}</h5>
+                           <p className="text-sm text-gray-600 leading-relaxed bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+                              {selectedApp.internshipFull?.description || "No description available."}
+                           </p>
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="p-3 border border-gray-100 rounded-lg">
+                                 <p className="text-[10px] font-black text-gray-400 uppercase">Duration</p>
+                                 <p className="text-xs font-bold">{selectedApp.internshipFull?.start_date} to {selectedApp.internshipFull?.end_date}</p>
+                              </div>
+                              <div className="p-3 border border-gray-100 rounded-lg">
+                                 <p className="text-[10px] font-black text-gray-400 uppercase">Commitment</p>
+                                 <p className="text-xs font-bold">{selectedApp.internshipFull?.total_hours || selectedApp.internshipFull?.Total_hours} Hrs / {selectedApp.internshipFull?.days_in_week || selectedApp.internshipFull?.Days_in_week} Days</p>
+                              </div>
+                           </div>
+                        </div>
+                      </div>
+
+                      {/* Company Profile */}
+                      <div className="pt-4 border-t border-gray-100">
+                        <div className="flex items-center gap-3 pb-2 border-b-2 border-green-600 w-fit mb-6">
+                           <Building2 className="w-5 h-5 text-green-600" />
+                           <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Company Profile</h4>
+                        </div>
+                        <div className="space-y-3">
+                           <p className="text-xl font-bold text-gray-900">{selectedApp.companyName}</p>
+                           <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <MapPin className="w-4 h-4 text-gray-400" />
+                              <span>{selectedApp.companyFull?.location || "Location not specified"}</span>
+                           </div>
+                           <p className="text-xs text-gray-500 italic">"{selectedApp.companyFull?.description || "Company has not provided a detailed description."}"</p>
+                        </div>
+                      </div>
+                   </div>
+
+                </div>
+
+                {/* Statement of Interest */}
+                <div className="mt-10 p-6 bg-yellow-50 border border-yellow-100 rounded-2xl">
+                   <h4 className="text-[10px] font-black uppercase tracking-widest text-yellow-700 mb-2">Student's Statement of Interest</h4>
+                   <p className="text-gray-800 leading-relaxed italic">"{selectedApp.reason || "No statement provided."}"</p>
+                </div>
+             </div>
+
+             {/* Footer Actions */}
+             <div className="p-6 border-t bg-gray-50 flex gap-4">
+                <button 
+                   onClick={() => handleAction(selectedApp, "REJECT")}
+                   className="flex-1 py-4 border-2 border-red-200 text-red-600 font-black uppercase tracking-widest text-xs rounded-xl hover:bg-red-50 transition-all"
+                >
+                   Decline Placement
+                </button>
+                <button 
+                   onClick={() => handleAction(selectedApp, "APPROVE")}
+                   className="flex-[2] py-4 bg-green-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-green-700 transition-all shadow-xl shadow-green-100"
+                >
+                   Final Approval & Activate Internship
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -349,6 +641,9 @@ const CoordinatorDashboard = () => {
               <button className="bg-purple-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-purple-700 transition" onClick={() => setView("examiners")}>
                 Assigned Examiners
               </button>
+              <button className="bg-green-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition" onClick={() => setView("internships")}>
+                Internship Students
+              </button>
               <button className="bg-yellow-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-yellow-700 transition" onClick={() => setView("students")}>
                 Manage Students
               </button>
@@ -362,6 +657,11 @@ const CoordinatorDashboard = () => {
           {/* STUDENTS */}
           {view === "students" && (
             <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+          )}
+
+          {/* INTERNSHIP STUDENTS */}
+          {view === "internships" && (
+            <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
           )}
 
           {/* UPLOAD */}
