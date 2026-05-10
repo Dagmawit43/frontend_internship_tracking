@@ -55,12 +55,12 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">
-            Apply to {company.companyName}
+            Apply to {company.companyName || company.company_name}
           </h2>
           <button
             onClick={onClose}
@@ -124,7 +124,7 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
           {/* Document Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Additional Document (Optional)
+              Upload CV/Resume <span className="text-red-500">*</span>
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
               <input

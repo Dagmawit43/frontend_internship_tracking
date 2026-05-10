@@ -1,68 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getInternships } from "../mock/internshipApi";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import ApplicationModal from "./modals/ApplicationModal";
 import companiesMock from "../mock/companies.json";
-
-// Company card (inlined)
-const CompanyCard = ({ company, onViewDetails, onApply }) => (
-  <div className="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-300 overflow-hidden">
-    <div className="p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-bold text-gray-900">{company.companyName}</h3>
-          </div>
-          {company.verified && (
-            <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-              <CheckCircle className="w-3 h-3" />
-              Verified Company
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2 mb-4">
-        {company.location && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <MapPin className="w-4 h-4" />
-            <span>{company.location}</span>
-          </div>
-        )}
-        {company.industryType && (
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">Industry:</span> {company.industryType}
-          </div>
-        )}
-        {company.contactEmail && (
-          <div className="text-sm text-gray-600">
-            <span className="font-medium">Email:</span> {company.contactEmail}
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button
-          onClick={() => onViewDetails(company)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-        >
-          <Eye className="w-4 h-4" />
-          View Details
-        </button>
-        <button
-          onClick={() => onApply(company)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-        >
-          Apply
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0 }) => {
@@ -232,167 +175,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
   );
 };
 
-// Verified companies (inlined)
-const VerifiedCompaniesList = ({ studentId, studentName, onApplicationSubmit }) => {
-  const [companies, setCompanies] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState("grid");
-
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem("companies")) || [];
-      const verified = stored.filter((c) => c.verified === true);
-      setCompanies(verified);
-    } catch (error) {
-      console.error("Error loading companies:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleViewDetails = (company) => {
-    setSelectedCompany(company);
-    setIsModalOpen(true);
-  };
-
-  const handleApply = (company) => {
-    setSelectedCompany(company);
-    setIsModalOpen(true);
-  };
-
-  const handleApplicationSubmit = async (applicationData) => {
-    try {
-      const applications = JSON.parse(localStorage.getItem("applications")) || [];
-      const existing = applications.find(
-        (app) =>
-          (app.studentId === studentId || app.studentName === studentName) &&
-          app.companyId === applicationData.companyId
-      );
-
-      if (existing) {
-        alert("You have already applied to this company.");
-        return;
-      }
-
-      const newApplication = {
-        id: Date.now(),
-        ...applicationData,
-        studentId,
-        studentName,
-        status: "Pending",
-        appliedAt: new Date().toISOString(),
-      };
-
-      applications.push(newApplication);
-      localStorage.setItem("applications", JSON.stringify(applications));
-
-      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      notifications.push({
-        id: Date.now(),
-        type: "info",
-        title: `Application submitted to ${applicationData.companyName}`,
-        message: "Your application is pending review",
-        date: new Date().toISOString(),
-        studentId,
-        studentName,
-      });
-      localStorage.setItem("notifications", JSON.stringify(notifications));
-
-      if (onApplicationSubmit) {
-        onApplicationSubmit(newApplication);
-      }
-
-      alert(`Successfully applied to ${applicationData.companyName}!`);
-    } catch (error) {
-      console.error("Error submitting application:", error);
-      alert("Error submitting application. Please try again.");
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <span className="ml-3 text-gray-600">Loading companies...</span>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Verified Companies</h2>
-          <p className="text-gray-600">Browse and apply to verified internship opportunities</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`p-2 rounded-lg transition-colors ${
-              viewMode === "grid" 
-                ? "bg-blue-600 text-white shadow-md" 
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
-            }`}
-          >
-            Grid
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-2 rounded-lg transition-colors ${
-              viewMode === "list" 
-                ? "bg-blue-600 text-white shadow-md" 
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
-            }`}
-          >
-            List
-          </button>
-        </div>
-      </div>
-
-      {companies.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-12 text-center">
-          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Verified Companies Available</h3>
-          <p className="text-gray-600">There are no verified companies at the moment. Check back later.</p>
-        </div>
-      ) : (
-        <div
-          className={
-            viewMode === "grid"
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "space-y-4"
-          }
-        >
-          {companies.map((company) => (
-            <CompanyCard
-              key={company.id}
-              company={company}
-              onViewDetails={handleViewDetails}
-              onApply={handleApply}
-            />
-          ))}
-        </div>
-      )}
-
-      {selectedCompany && (
-        <ApplicationModal
-          company={selectedCompany}
-          studentId={studentId}
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedCompany(null);
-          }}
-          onSubmit={handleApplicationSubmit}
-        />
-      )}
-    </div>
-  );
-};
-
-const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
+const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmit }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInternship, setSelectedInternship] = useState(null);
@@ -400,25 +183,39 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
 
   useEffect(() => {
     loadInternships();
-  }, []);
+  }, [studentDepartment]);
 
   const loadInternships = async () => {
     try {
-      const data = await getInternships();
+      const localInternships = JSON.parse(localStorage.getItem("allInternships")) || null;
+      
+      let data = [];
+      if (localInternships) {
+        data = localInternships;
+      } else {
+        data = await getInternships();
+      }
+
       const localCompanies = JSON.parse(localStorage.getItem("companies")) || [];
       const allCompanies = [...localCompanies, ...companiesMock];
 
-      // Attach company info
-      const withCompany = data.map(internship => {
-        const comp = allCompanies.find(c => c.company_id === internship.company_id || c.id === internship.company_id);
-        return {
-          ...internship,
-          companyName: comp ? comp.companyName || comp.company_name : "Unknown Company"
-        };
-      });
+      const processed = data
+        .map(internship => {
+          const comp = allCompanies.find(c => c.company_id === internship.company_id || c.id === internship.company_id || c.company_name === internship.company_name);
+          return {
+            ...internship,
+            companyName: internship.company_name || (comp ? comp.companyName || comp.company_name : "Unknown Company")
+          };
+        })
+        .filter(i => {
+          const isActive = i.status !== "CLOSED" && i.status !== "FULL";
+          const deptMatch = !studentDepartment || 
+            String(i.department).trim().toLowerCase() === String(studentDepartment).trim().toLowerCase();
+            
+          return isActive && deptMatch;
+        });
 
-      // Only show ACTIVE and PENDING
-      setInternships(withCompany.filter(i => i.status !== "CLOSED" && i.status !== "FULL" && i.number_interns > 0));
+      setInternships(processed);
     } catch (error) {
       console.error("Error loading internships:", error);
     } finally {
@@ -426,7 +223,7 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
     }
   };
 
-      if (loading) return <div className="py-8 text-center text-gray-500">Loading internships...</div>;
+  if (loading) return <div className="py-8 text-center text-gray-500">Loading internships...</div>;
 
   const handleApplySubmit = async (applicationData) => {
     try {
@@ -507,7 +304,7 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
               <div className="space-y-2 text-sm text-gray-600 mb-4">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  <span>{internship.Total_hours} hrs/day • {internship.Days_in_week} days/week</span>
+                  <span>{internship.total_hours || internship.Total_hours} hrs/day • {internship.days_in_week || internship.Days_in_week} days/week</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4" />
@@ -548,16 +345,47 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
               </div>
 
               <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                   <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-lg border border-blue-200"><Layers className="w-4 h-4 text-blue-600" /></div>
+                      <div>
+                         <p className="text-[10px] uppercase font-bold text-blue-600">Department</p>
+                         <p className="text-sm font-bold text-gray-900">{selectedInternship.department}</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-lg border border-blue-200"><MapPin className="w-4 h-4 text-blue-600" /></div>
+                      <div>
+                         <p className="text-[10px] uppercase font-bold text-blue-600">Location</p>
+                         <p className="text-sm font-bold text-gray-900">{selectedInternship.location} ({selectedInternship.internship_type})</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-lg border border-blue-200"><CheckCircle className="w-4 h-4 text-blue-600" /></div>
+                      <div>
+                         <p className="text-[10px] uppercase font-bold text-blue-600">Status</p>
+                         <p className="text-sm font-bold text-gray-900">{selectedInternship.status || "ACTIVE"}</p>
+                      </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-lg border border-blue-200"><Clock className="w-4 h-4 text-blue-600" /></div>
+                      <div>
+                         <p className="text-[10px] uppercase font-bold text-blue-600">Schedule</p>
+                         <p className="text-sm font-bold text-gray-900">{selectedInternship.days_in_week || selectedInternship.Days_in_week} days/week</p>
+                      </div>
+                   </div>
+                </div>
+
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedInternship.description}</p>
+                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedInternship.description}</p>
                 </div>
 
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Required Skills</h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedInternship.required_skills?.map((skill, idx) => (
-                      <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                      <span key={idx} className="bg-white border border-gray-200 text-gray-700 px-3 py-1 rounded-lg text-sm font-medium">
                         {skill}
                       </span>
                     ))}
@@ -566,12 +394,12 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
 
                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                   <div>
-                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Commitment</h5>
-                    <p className="font-medium">{selectedInternship.Total_hours} hours/day, {selectedInternship.Days_in_week} days/week</p>
+                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Hours</h5>
+                    <p className="font-medium text-lg">{selectedInternship.total_hours || selectedInternship.Total_hours} <span className="text-xs font-normal">hrs</span></p>
                   </div>
                   <div>
-                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Openings</h5>
-                    <p className="font-medium">{selectedInternship.number_interns} Positions</p>
+                    <h5 className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Positions</h5>
+                    <p className="font-medium text-lg">{selectedInternship.number_interns} <span className="text-xs font-normal">Openings</span></p>
                   </div>
                 </div>
               </div>
@@ -597,13 +425,86 @@ const AvailableInternships = ({ studentId, onApplicationSubmit }) => {
 
       {isApplyModalOpen && selectedInternship && (
         <ApplicationModal
-          company={{ id: selectedInternship.company_id, companyName: selectedInternship.companyName }}
+          company={{ 
+            ...selectedInternship, 
+            id: selectedInternship.company_id || selectedInternship.id,
+            companyName: selectedInternship.companyName || selectedInternship.company_name 
+          }}
           studentId={studentId}
           isOpen={isApplyModalOpen}
           onClose={() => setIsApplyModalOpen(false)}
           onSubmit={handleApplySubmit}
         />
       )}
+    </div>
+  );
+};
+
+const AppliedInternshipsList = ({ studentId, studentName }) => {
+  const [appliedInternships, setAppliedInternships] = useState([]);
+
+  useEffect(() => {
+    const loadApplied = () => {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const studentApps = allApps.filter(
+        (app) => app.studentId === studentId || app.studentName === studentName
+      );
+      setAppliedInternships(studentApps.sort((a,b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+    };
+
+    loadApplied();
+    window.addEventListener("storage", loadApplied);
+    return () => window.removeEventListener("storage", loadApplied);
+  }, [studentId, studentName]);
+
+  const getStatusBadge = (status) => {
+    switch(status?.toLowerCase()) {
+      case 'accepted': return 'bg-green-100 text-green-700 border-green-200';
+      case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
+      case 'active': return 'bg-blue-100 text-blue-700 border-blue-200';
+      default: return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    }
+  };
+
+  if (appliedInternships.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mt-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">Your Applications</h2>
+        <p className="text-gray-600">Track the status of your submitted internship applications</p>
+      </div>
+
+      <div className="space-y-4">
+        {appliedInternships.map(app => (
+          <div key={app.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border border-gray-100 rounded-xl bg-gray-50/50 gap-4">
+            <div className="flex gap-4 items-center">
+              <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm">
+                <Briefcase className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-900">{app.internshipTitle || "Internship"}</h4>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Building2 className="w-3 h-3" />
+                  <span>{app.companyName}</span>
+                  <span className="text-gray-300">•</span>
+                  <Clock className="w-3 h-3" />
+                  <span>Applied on {new Date(app.appliedAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0">
+               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusBadge(app.status)}`}>
+                 {app.status}
+               </span>
+               <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
+                  <Eye className="w-4 h-4" />
+               </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -1284,19 +1185,17 @@ const StudentDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Verified Companies List */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <VerifiedCompaniesList
-                studentId={studentData.studentId}
-                studentName={studentData.name}
-                onApplicationSubmit={handleApplicationSubmit}
-              />
-            </div>
-
             {/* Available Internships */}
             <AvailableInternships 
               studentId={studentData.studentId}
+              studentDepartment={studentData.department}
               onApplicationSubmit={handleApplicationSubmit}
+            />
+
+            {/* Applied Internships List */}
+            <AppliedInternshipsList 
+              studentId={studentData.studentId}
+              studentName={studentData.name}
             />
 
             {/* Self-Placement Section */}
