@@ -1,1088 +1,478 @@
 import React, { useState, useEffect } from "react";
+import { Bell, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Users, UserCheck, Upload, ClipboardList } from "lucide-react";
-import Sidebar from "./SideBar";
-import CreateAccounts from "./CreateACcounts";
-import UploadStudentList from "./UploadStudentLists";
-
-// Dashboard Home Component
-
-const DashboardHome = ({ stats, onStatClick }) => {
-
-  return (
-
-    <div>
-
-      <div className="mb-8">
-
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
-
-        <p className="text-gray-600">Welcome to the Department Coordinator Dashboard. Manage internship assignments and user accounts.</p>
-
-      </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-
-            {stats.map((stat) => {
-
-            const Icon = stat.icon;
-
-            return (
-
-                <div 
-                  key={stat.title} 
-                  onClick={() => onStatClick && onStatClick(stat.title)}
-                  className="bg-white p-6 rounded-lg shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow"
-                >
-
-                <div className="flex flex-row items-center justify-between pb-2">
-
-                    <h3 className="text-sm font-semibold text-gray-700">{stat.title}</h3>
-
-                    <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-
-                    <Icon className={`w-4 h-4 ${stat.color}`} />
-
-                    </div>
-
-                </div>
-
-                <div>
-
-                    <div className="text-slate-900 mb-1 text-2xl font-bold">{stat.value}</div>
-
-                    <p className="text-xs text-slate-500">{stat.description}</p>
-
-                </div>
-
-                </div>
-
-            );
-
-            })}
-
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-
-            <div className="mb-4">
-
-                <h3 className="text-lg font-semibold text-gray-900">Recent Activities</h3>
-
-                <p className="text-sm text-gray-600">Latest system activities</p>
-
-            </div>
-
-            <div>
-
-                <p className="text-sm text-gray-500 text-center py-4">No recent activities to display</p>
-
-            </div>
-
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-
-            <div className="mb-4">
-
-                <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-
-                <p className="text-sm text-gray-600">Common tasks and shortcuts</p>
-
-            </div>
-
-            <div>
-
-                <div className="space-y-3">
-
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-left">
-
-                    <UserCheck className="w-5 h-5 text-blue-600" />
-
-                    <div>
-
-                    <p className="text-sm text-slate-900">Assign Roles to Staff</p>
-
-                    <p className="text-xs text-slate-500">Assign advisor or examiner roles</p>
-
-                    </div>
-
-                </button>
-
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-left">
-
-                    <Users className="w-5 h-5 text-green-600" />
-
-                    <div>
-
-                    <p className="text-sm text-slate-900">Assign Students</p>
-
-                    <p className="text-xs text-slate-500">Match students with advisors</p>
-
-                    </div>
-
-                </button>
-
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-left">
-
-                    <Upload className="w-5 h-5 text-purple-600" />
-
-                    <div>
-
-                    <p className="text-sm text-slate-900">Upload Student List</p>
-
-                    <p className="text-xs text-slate-500">Import eligible students</p>
-
-                    </div>
-
-                </button>
-
-                </div>
-
-            </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-  );
-
-};
-
-// Assign Students Component
-const AssignStudents = () => {
-  const [students, setStudents] = useState([]);
-  const [advisors, setAdvisors] = useState([]);
-  const [examiners, setExaminers] = useState([]);
-  const [assignments, setAssignments] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedAdvisor, setSelectedAdvisor] = useState("");
-  const [selectedExaminer, setSelectedExaminer] = useState("");
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
-
-  // Get coordinator's department
-  const getCoordinatorDepartment = () => {
-    const activeStaff = JSON.parse(localStorage.getItem("activeStaffUser")) || {};
-    return activeStaff.department || "";
-  };
-
-  const coordinatorDept = getCoordinatorDepartment();
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
-    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const storedAssignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
-
-    // Filter by coordinator's department
-    const deptEligibleStudents = coordinatorDept
-      ? eligibleStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-    const deptRegisteredStudents = coordinatorDept
-      ? registeredStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-
-    // Combine and deduplicate students
-    const allDeptStudents = [...deptEligibleStudents];
-    deptRegisteredStudents.forEach((rs) => {
-      if (!allDeptStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
-        allDeptStudents.push({
-          studentId: rs.studentId || rs.id,
-          fullName: rs.fullName || rs.name,
-          email: rs.email,
-          department: rs.department,
-        });
-      }
-    });
-
-    const deptAdvisors = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Advisor" && u.department === coordinatorDept)
-      : [];
-    const deptExaminers = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Examiner" && u.department === coordinatorDept)
-      : [];
-    const deptAssignments = coordinatorDept
-      ? storedAssignments.filter((a) => a.department === coordinatorDept)
-      : [];
-
-    setStudents(allDeptStudents);
-    setAdvisors(deptAdvisors);
-    setExaminers(deptExaminers);
-    setAssignments(deptAssignments);
-  };
-
-  const handleAssign = () => {
-    setError("");
-    setSuccess("");
-
-    if (!selectedStudent) {
-      setError("Please select a student");
-      return;
+import { useAuth } from "../contexts/AuthContext";
+import logoSrc from "../assets/aastu-logo.jpg";
+
+const getValidSession = () => {
+  try {
+    // Try every key that could hold a coordinator session
+    const candidates = ["coordinator", "activeStaffUser", "user"];
+    for (const key of candidates) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw || raw === "null" || raw === "undefined") continue;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") continue;
+        // Must have at least one identifying field
+        if (parsed.fullName || parsed.name || parsed.username || parsed.email || parsed.department) {
+          return parsed;
+        }
+      } catch { continue; }
     }
-
-    if (!selectedAdvisor && !selectedExaminer) {
-      setError("Please select at least an advisor or examiner");
-      return;
-    }
-
-    const storedAssignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
-    
-    // Check if assignment already exists
-    const existingIndex = storedAssignments.findIndex(
-      (a) =>
-        (a.studentId === selectedStudent.studentId || a.email === selectedStudent.email) &&
-        a.department === coordinatorDept
-    );
-
-    const assignment = {
-      studentId: selectedStudent.studentId,
-      studentName: selectedStudent.fullName || selectedStudent.name,
-      email: selectedStudent.email,
-      department: coordinatorDept,
-      advisor: selectedAdvisor || null,
-      examiner: selectedExaminer || null,
-      assignedAt: new Date().toISOString(),
-    };
-
-    if (existingIndex >= 0) {
-      storedAssignments[existingIndex] = assignment;
-    } else {
-      storedAssignments.push(assignment);
-    }
-
-    localStorage.setItem("studentAssignments", JSON.stringify(storedAssignments));
-    setSuccess(`Successfully assigned ${selectedStudent.fullName || selectedStudent.name}!`);
-    setSelectedStudent(null);
-    setSelectedAdvisor("");
-    setSelectedExaminer("");
-    loadData();
-    setTimeout(() => setSuccess(""), 3000);
-  };
-
-  const getAssignment = (student) => {
-    return assignments.find(
-      (a) =>
-        (a.studentId === student.studentId || a.email === student.email) &&
-        a.department === coordinatorDept
-    );
-  };
-
-  if (!coordinatorDept) {
-    return (
-      <div>
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Assign Students</h2>
-          <p className="text-red-600">No department assigned to your coordinator account. Please contact admin.</p>
-        </div>
-      </div>
-    );
+    return {};
+  } catch (e) {
+    return {};
   }
+};
+
+export const getCoordinatorDepartment = () => {
+  const session = getValidSession();
+  return (session.department || "Department").toString().trim();
+};
+
+export const getCoordinatorName = () => {
+  const session = getValidSession();
+  return session.fullName || session.name || session.username || session.email || "Coordinator";
+};
+
+// ─── Student Management Sub-view ───────────────────────────────────────────
+const StudentManagementView = ({ coordinatorDept, onBack }) => {
+  const [activeStudents, setActiveStudents] = useState([]);
+  const [pendingStudents, setPendingStudents] = useState([]);
+
+  useEffect(() => {
+    // Use the passed coordinatorDept prop directly (resolved by parent from coordinator session).
+    // Do NOT re-read localStorage here — localStorage.user may hold a student's session
+    // (from the student's last login), which would corrupt the department filter.
+    // As a safety net, only accept a session with role === "Coordinator".
+    const safeSession = (() => {
+      try {
+        const raw = localStorage.getItem("coordinator");
+        if (!raw || raw === "null") return null;
+        const p = JSON.parse(raw);
+        if (p && String(p.role || "").toLowerCase() === "coordinator") return p;
+      } catch { /**/ }
+      return null;
+    })();
+    const dept = (safeSession?.department || coordinatorDept || "").trim();
+
+    const allEligible = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
+    const allRegistered = JSON.parse(localStorage.getItem("students") || "[]");
+
+    const normalize = (s) => String(s || "").trim().toLowerCase();
+
+    const deptEligible = allEligible.filter(s => normalize(s.department) === normalize(dept));
+    const deptRegistered = allRegistered.filter(s => normalize(s.department) === normalize(dept));
+
+    const registeredIds = new Set(deptRegistered.map(s => normalize(s.studentId)));
+    const pending = deptEligible.filter(s => !registeredIds.has(normalize(s.studentId)));
+
+    setActiveStudents(deptRegistered);
+    setPendingStudents(pending);
+  }, [coordinatorDept]);
+
+  // Derive display dept from session for the heading
+  const displayDept = coordinatorDept || "your department";
 
   return (
-    <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Assign Students</h2>
-        <p className="text-gray-600">
-          Assign advisors and examiners to students from your department:{" "}
-          <span className="font-semibold">{coordinatorDept}</span>
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Department Students</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Showing students in: <strong>{displayDept}</strong></p>
+        </div>
+        <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+          ← Back
+        </button>
       </div>
 
-      {success && (
-        <div className="bg-green-100 text-green-600 p-3 mb-4 rounded-md text-sm max-w-4xl">
-          {success}
-        </div>
-      )}
-      {error && (
-        <div className="bg-red-100 text-red-600 p-3 mb-4 rounded-md text-sm max-w-4xl">
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Students List */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Students ({students.length})</h3>
-          {students.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No students found in your department</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {students.map((student, index) => {
-                const assignment = getAssignment(student);
-                return (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                      selectedStudent?.studentId === student.studentId ||
-                      selectedStudent?.email === student.email
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:bg-gray-50"
-                    }`}
-                    onClick={() => {
-                      setSelectedStudent(student);
-                      const existing = getAssignment(student);
-                      setSelectedAdvisor(existing?.advisor || "");
-                      setSelectedExaminer(existing?.examiner || "");
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {student.fullName || student.name || "Unknown"}
-                        </p>
-                        <p className="text-sm text-gray-600">{student.email || student.studentId}</p>
-                      </div>
-                      {assignment && (
-                        <div className="text-xs">
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
-                            Assigned
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {assignment && (
-                      <div className="mt-2 text-xs text-gray-600">
-                        {assignment.advisor && (
-                          <p>Advisor: <span className="font-medium">{assignment.advisor}</span></p>
-                        )}
-                        {assignment.examiner && (
-                          <p>Examiner: <span className="font-medium">{assignment.examiner}</span></p>
-                        )}
-                      </div>
-                    )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Active */}
+        <div className="bg-white border rounded-lg shadow-sm border-green-200">
+          <div className="bg-green-50 px-4 py-3 border-b border-green-200 flex justify-between items-center rounded-t-lg">
+            <h3 className="font-semibold text-green-900">Active (Signed Up)</h3>
+            <span className="bg-green-200 text-green-800 text-xs px-2 py-1 rounded-full font-bold">{activeStudents.length}</span>
+          </div>
+          <div className="p-4 space-y-3">
+            {activeStudents.length === 0
+              ? <p className="text-sm text-gray-500">No students are actively registered yet.</p>
+              : activeStudents.map((s, idx) => (
+                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div>
+                    <div className="font-semibold text-sm text-gray-900">{s.fullName}</div>
+                    <div className="text-xs text-gray-500">{s.studentId} • {s.email}</div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div className="text-xs text-green-600 font-medium px-2 py-1 bg-green-100 rounded">Active</div>
+                </div>
+              ))}
+          </div>
         </div>
 
-        {/* Assignment Form */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign</h3>
-          {!selectedStudent ? (
-            <p className="text-gray-500 text-sm">Select a student to assign advisor/examiner</p>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">Student</p>
-                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded">
-                  {selectedStudent.fullName || selectedStudent.name}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Advisor ({advisors.length} available)
-                </label>
-                <select
-                  value={selectedAdvisor}
-                  onChange={(e) => setSelectedAdvisor(e.target.value)}
-                  className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 text-sm"
-                >
-                  <option value="">Select Advisor</option>
-                  {advisors.map((advisor, idx) => (
-                    <option key={idx} value={advisor.username}>
-                      {advisor.username} {advisor.email ? `(${advisor.email})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Examiner ({examiners.length} available)
-                </label>
-                <select
-                  value={selectedExaminer}
-                  onChange={(e) => setSelectedExaminer(e.target.value)}
-                  className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400 text-sm"
-                >
-                  <option value="">Select Examiner</option>
-                  {examiners.map((examiner, idx) => (
-                    <option key={idx} value={examiner.username}>
-                      {examiner.username} {examiner.email ? `(${examiner.email})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={handleAssign}
-                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-              >
-                {getAssignment(selectedStudent) ? "Update Assignment" : "Assign"}
-              </button>
-            </div>
-          )}
+        {/* Pending */}
+        <div className="bg-white border rounded-lg shadow-sm border-yellow-200">
+          <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-200 flex justify-between items-center rounded-t-lg">
+            <h3 className="font-semibold text-yellow-900">Eligible (Not Signed Up)</h3>
+            <span className="bg-yellow-200 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold">{pendingStudents.length}</span>
+          </div>
+          <div className="p-4 space-y-3">
+            {pendingStudents.length === 0
+              ? <p className="text-sm text-gray-500">All eligible students have registered.</p>
+              : pendingStudents.map((s, idx) => (
+                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div>
+                    <div className="font-semibold text-sm text-gray-900">{s.fullName}</div>
+                    <div className="text-xs text-gray-500">{s.studentId} • {s.email}</div>
+                  </div>
+                  <div className="text-xs text-yellow-600 font-medium px-2 py-1 bg-yellow-100 rounded">Pending</div>
+                </div>
+              ))}
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// List View Components
-const StudentsList = ({ coordinatorDept, onBack }) => {
-  const [students, setStudents] = useState([]);
-
-  useEffect(() => {
-    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
-
-    const deptEligibleStudents = coordinatorDept
-      ? eligibleStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-    const deptRegisteredStudents = coordinatorDept
-      ? registeredStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-
-    const allDeptStudents = [...deptEligibleStudents];
-    deptRegisteredStudents.forEach((rs) => {
-      if (!allDeptStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
-        allDeptStudents.push({
-          studentId: rs.studentId || rs.id,
-          fullName: rs.fullName || rs.name,
-          email: rs.email,
-          department: rs.department,
-        });
-      }
-    });
-
-    setStudents(allDeptStudents);
-  }, [coordinatorDept]);
-
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900">Students List</h2>
-      </div>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm text-gray-600 mb-4">
-            Department: <span className="font-semibold">{coordinatorDept}</span> ({students.length} students)
-          </p>
-          {students.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No students found in your department</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {students.map((student, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{student.fullName || student.name || "Unknown"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{student.studentId || student.id || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{student.email || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{student.department || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AssignedStudentsList = ({ coordinatorDept, onBack }) => {
-  const [assignedStudents, setAssignedStudents] = useState([]);
-
-  useEffect(() => {
-    const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
-    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-
-    // Filter assignments by department
-    const deptAssignments = coordinatorDept
-      ? assignments.filter((a) => a.department === coordinatorDept && (a.advisor || a.examiner))
-      : [];
-
-    // Combine eligible and registered students for lookup
-    const allStudents = [...eligibleStudents];
-    registeredStudents.forEach((rs) => {
-      if (!allStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
-        allStudents.push({
-          studentId: rs.studentId || rs.id,
-          fullName: rs.fullName || rs.name,
-          email: rs.email,
-          department: rs.department,
-        });
-      }
-    });
-
-    // Create a map of usernames to full names for advisors and examiners
-    const userMap = {};
-    otherUsers.forEach((user) => {
-      userMap[user.username] = user.username; // Default to username, can be enhanced with fullName if available
-    });
-
-    // Combine assignment data with student data
-    const assignedList = deptAssignments.map((assignment) => {
-      const student = allStudents.find(
-        (s) =>
-          (s.studentId === assignment.studentId || s.email === assignment.email) &&
-          s.department === coordinatorDept
-      );
-
-      return {
-        studentId: assignment.studentId || student?.studentId,
-        studentName: assignment.studentName || student?.fullName || student?.name || "Unknown",
-        email: assignment.email || student?.email,
-        department: assignment.department || student?.department,
-        advisor: assignment.advisor || null,
-        examiner: assignment.examiner || null,
-        assignedAt: assignment.assignedAt,
-      };
-    });
-
-    setAssignedStudents(assignedList);
-  }, [coordinatorDept]);
-
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900">Assigned Students List</h2>
-      </div>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm text-gray-600 mb-4">
-            Department: <span className="font-semibold">{coordinatorDept}</span> ({assignedStudents.length} assigned students)
-          </p>
-          {assignedStudents.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No assigned students found in your department</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Student ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Advisor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Examiner</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Assigned Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {assignedStudents.map((student, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{student.studentName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{student.studentId || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{student.email || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {student.advisor ? (
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">{student.advisor}</span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {student.examiner ? (
-                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">{student.examiner}</span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {student.assignedAt
-                          ? new Date(student.assignedAt).toLocaleDateString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AdvisorsList = ({ coordinatorDept, onBack }) => {
-  const [advisors, setAdvisors] = useState([]);
-
-  useEffect(() => {
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const deptAdvisors = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Advisor" && u.department === coordinatorDept)
-      : [];
-    setAdvisors(deptAdvisors);
-  }, [coordinatorDept]);
-
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900">Advisors List</h2>
-      </div>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm text-gray-600 mb-4">
-            Department: <span className="font-semibold">{coordinatorDept}</span> ({advisors.length} advisors)
-          </p>
-          {advisors.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No advisors found in your department</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {advisors.map((advisor, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{advisor.username || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.email || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.department || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{advisor.role || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ExaminersList = ({ coordinatorDept, onBack }) => {
-  const [examiners, setExaminers] = useState([]);
-
-  useEffect(() => {
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const deptExaminers = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Examiner" && u.department === coordinatorDept)
-      : [];
-    setExaminers(deptExaminers);
-  }, [coordinatorDept]);
-
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900">Examiners List</h2>
-      </div>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm text-gray-600 mb-4">
-            Department: <span className="font-semibold">{coordinatorDept}</span> ({examiners.length} examiners)
-          </p>
-          {examiners.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No examiners found in your department</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {examiners.map((examiner, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{examiner.username || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.email || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.department || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{examiner.role || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const CoordinatorsList = ({ coordinatorDept, onBack }) => {
-  const [coordinators, setCoordinators] = useState([]);
-
-  useEffect(() => {
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const deptCoordinators = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Coordinator" && u.department === coordinatorDept)
-      : [];
-    setCoordinators(deptCoordinators);
-  }, [coordinatorDept]);
-
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          ← Back
-        </button>
-        <h2 className="text-2xl font-bold text-gray-900">Coordinators List</h2>
-      </div>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm text-gray-600 mb-4">
-            Department: <span className="font-semibold">{coordinatorDept}</span> ({coordinators.length} coordinators)
-          </p>
-          {coordinators.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No coordinators found in your department</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Username</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Department</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {coordinators.map((coordinator, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{coordinator.username || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.email || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.department || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{coordinator.role || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Settings Component
-
-const Settings = () => {
-
-  return (
-
-    <div>
-
-      <div className="mb-8">
-
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Settings</h2>
-
-        <p className="text-gray-600">Manage your account settings and preferences.</p>
-
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-
-        <p className="text-gray-600">Settings page coming soon...</p>
-
-      </div>
-
-    </div>
-
-  );
-
-};
-
-// Main Coordinator Dashboard Component
-
+// ─── Main Coordinator Dashboard ─────────────────────────────────────────────
 const CoordinatorDashboard = () => {
-  const navigate = useNavigate();
-  const [currentPage, setCurrentPage] = useState("home");
-  const [selectedListView, setSelectedListView] = useState(null);
-
-  const [stats, setStats] = useState({
-
-    totalStudents: 0,
-
-    assignedStudents: 0,
-
-    advisors: 0,
-
-    coordinators: 0,
-
-    examiners: 0,
-
+  const [coordinatorDept] = useState(getCoordinatorDepartment());
+  const [coordinatorName] = useState(getCoordinatorName());
+  const [mockStaff, setMockStaff] = useState([]);
+  const [assignedAdvisors, setAssignedAdvisors] = useState(() => {
+    const dept = getCoordinatorDepartment();
+    const all = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+    return all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase());
   });
-
-  // Get coordinator's department
-  const getCoordinatorDepartment = () => {
-    const activeStaff = JSON.parse(localStorage.getItem("activeStaffUser")) || {};
-    return activeStaff.department || "";
-  };
-
-  // Load stats from localStorage (filtered by coordinator's department)
-  useEffect(() => {
-    const coordinatorDept = getCoordinatorDepartment();
-    const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-    const registeredStudents = JSON.parse(localStorage.getItem("students")) || [];
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
-
-    // Filter by department
-    const deptEligibleStudents = coordinatorDept 
-      ? eligibleStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-    const deptRegisteredStudents = coordinatorDept
-      ? registeredStudents.filter((s) => s.department === coordinatorDept)
-      : [];
-    const deptAdvisors = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Advisor" && u.department === coordinatorDept).length
-      : 0;
-    const deptCoordinators = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Coordinator" && u.department === coordinatorDept).length
-      : 0;
-    const deptExaminers = coordinatorDept
-      ? otherUsers.filter((u) => u.role === "Examiner" && u.department === coordinatorDept).length
-      : 0;
-    const deptAssignments = coordinatorDept
-      ? assignments.filter((a) => a.department === coordinatorDept && (a.advisor || a.examiner))
-      : [];
-    
-    // Combine eligible and registered students, deduplicate
-    const allDeptStudents = [...deptEligibleStudents];
-    deptRegisteredStudents.forEach((rs) => {
-      if (!allDeptStudents.find((s) => s.studentId === rs.studentId || s.email === rs.email)) {
-        allDeptStudents.push(rs);
-      }
-    });
-
-    setStats({
-      totalStudents: allDeptStudents.length,
-      assignedStudents: deptAssignments.length,
-      advisors: deptAdvisors,
-      coordinators: deptCoordinators,
-      examiners: deptExaminers,
-    });
-  }, [currentPage, selectedListView]); // Reload stats when page changes or list view changes
-
-  const statsData = [
-
-    {
-
-      title: "Total Students",
-
-      value: stats.totalStudents.toString(),
-
-      description: "Eligible for internship",
-
-      icon: Users,
-
-      color: "text-blue-600",
-
-      bgColor: "bg-blue-50",
-
-    },
-
-    {
-
-      title: "Assigned Students",
-
-      value: stats.assignedStudents.toString(),
-
-      description: "With advisors & coordinators",
-
-      icon: UserCheck,
-
-      color: "text-green-600",
-
-      bgColor: "bg-green-50",
-
-    },
-
-    {
-
-      title: "Advisors",
-
-      value: stats.advisors.toString(),
-
-      description: "Active advisors",
-
-      icon: ClipboardList,
-
-      color: "text-purple-600",
-
-      bgColor: "bg-purple-50",
-
-    },
-
-    {
-
-      title: "Coordinators",
-
-      value: stats.coordinators.toString(),
-
-      description: "Active coordinators",
-
-      icon: Upload,
-
-      color: "text-orange-600",
-
-      bgColor: "bg-orange-50",
-
-    },
-
-    {
-
-      title: "Examiners",
-
-      value: stats.examiners.toString(),
-
-      description: "Active examiners",
-
-      icon: UserCheck,
-
-      color: "text-indigo-600",
-
-      bgColor: "bg-indigo-50",
-
-    },
-
-  ];
-
-  const coordinatorDept = getCoordinatorDepartment();
-
-  const handleStatClick = (statTitle) => {
-    setSelectedListView(statTitle);
-  };
-
-  const handleBackToList = () => {
-    setSelectedListView(null);
-  };
-
-  // Reset list view when navigating away from home
-  useEffect(() => {
-    if (currentPage !== "home") {
-      setSelectedListView(null);
-    }
-  }, [currentPage]);
-
-  const renderPage = () => {
-    // If a list view is selected, show it
-    if (selectedListView) {
-      switch (selectedListView) {
-        case "Total Students":
-          return <StudentsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
-        case "Assigned Students":
-          return <AssignedStudentsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
-        case "Advisors":
-          return <AdvisorsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
-        case "Examiners":
-          return <ExaminersList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
-        case "Coordinators":
-          return <CoordinatorsList coordinatorDept={coordinatorDept} onBack={handleBackToList} />;
-        default:
-          return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
-      }
-    }
-
-    switch (currentPage) {
-
-      case "home":
-
-        return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
-
-      case "create-accounts":
-
-        return <CreateAccounts />;
-
-      case "upload-list":
-
-        return <UploadStudentList />;
-
-      case "assign-students":
-
-        return <AssignStudents />;
-
-      case "settings":
-
-        return <Settings />;
-
-      default:
-
-        return <DashboardHome stats={statsData} onStatClick={handleStatClick} />;
-
-    }
-
-  };
+  const [assignedExaminers, setAssignedExaminers] = useState(() => {
+    const dept = getCoordinatorDepartment();
+    const all = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+    return all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase());
+  });
+  const [view, setView] = useState("home");
+  const [fileError, setFileError] = useState("");
+  const [fileSuccess, setFileSuccess] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: "" });
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    // If you later store coordinator auth in localStorage, clear it here.
+    try { logout(); } catch (e) { /* ignore */ }
     navigate("/login");
   };
 
+  const addPendingInvitation = (staff, role) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem("pendingInvitations") || "[]");
+      const filtered = existing.filter(inv => inv.email !== staff.email);
+      localStorage.setItem("pendingInvitations", JSON.stringify([
+        ...filtered,
+        { email: staff.email, role, department: staff.department, status: "pending" }
+      ]));
+    } catch (e) { console.error(e); }
+  };
+
+  const showToast = (message) => {
+    setToast({ show: true, message });
+    setTimeout(() => setToast({ show: false, message: "" }), 4000);
+  };
+
+  const assignAsAdvisor = (staff) => {
+    const updatedStaff = { ...staff, status: "Advisor" };
+    
+    // 1. Update localStorage globally (safe merge)
+    const allGlobalAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+    const filteredGlobal = allGlobalAdvisors.filter(a => a.id !== updatedStaff.id && a.email !== updatedStaff.email);
+    localStorage.setItem("assignedAdvisors", JSON.stringify([...filteredGlobal, updatedStaff]));
+
+    // 2. Update local state (ui only)
+    setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
+    setAssignedAdvisors(prev => [...prev.filter(a => a.id !== updatedStaff.id), updatedStaff]);
+    
+    addPendingInvitation(staff, "Advisor");
+    showToast(`Invitation email sent to ${staff.email}. They can now register as an Advisor.`);
+  };
+
+  const assignAsExaminer = (staff) => {
+    const updatedStaff = { ...staff, status: "Examiner" };
+
+    // 1. Update localStorage globally (safe merge)
+    const allGlobalExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+    const filteredGlobal = allGlobalExaminers.filter(e => e.id !== updatedStaff.id && e.email !== updatedStaff.email);
+    localStorage.setItem("assignedExaminers", JSON.stringify([...filteredGlobal, updatedStaff]));
+
+    // 2. Update local state (ui only)
+    setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
+    setAssignedExaminers(prev => [...prev.filter(e => e.id !== updatedStaff.id), updatedStaff]);
+
+    addPendingInvitation(staff, "Examiner");
+    showToast(`Invitation email sent to ${staff.email}. They can now register as an Examiner.`);
+  };
+
+  const handleFileUpload = () => {
+    setFileError("");
+    setFileSuccess("");
+    if (!selectedFile) { setFileError("Please select a JSON file first."); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!Array.isArray(data)) { setFileError("Invalid student file format"); return; }
+        const valid = data.every(item => item.studentId && item.fullName && item.email && item.department);
+        if (!valid) { setFileError("Invalid student file format"); return; }
+        localStorage.setItem("eligibleStudents", JSON.stringify(data));
+        setFileSuccess("Eligible students uploaded successfully");
+        setSelectedFile(null);
+      } catch { setFileError("Invalid student file format"); }
+    };
+    reader.onerror = () => setFileError("Failed to read file.");
+    reader.readAsText(selectedFile);
+  };
+
+  // Populate mockStaff on mount, subtract already-assigned ones (dept-scoped)
+  useEffect(() => {
+    const dept = coordinatorDept || "Department";
+    const key = dept.toString().replace(/\s+/g, "").toLowerCase();
+
+    // Only subtract staff that belong to THIS coordinator's department
+    const currAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+    const currExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+    const deptNorm = key;
+
+    const deptAdvisors = currAdvisors.filter(a => String(a.department || "").trim().toLowerCase() === deptNorm);
+    const deptExaminers = currExaminers.filter(e => String(e.department || "").trim().toLowerCase() === deptNorm);
+
+    // Build sets for both IDs and emails — handles old generic IDs and new namespaced IDs
+    const assignedIds = new Set([
+      ...deptAdvisors.map(a => a.id),
+      ...deptExaminers.map(e => e.id),
+    ]);
+    const assignedEmails = new Set([
+      ...deptAdvisors.map(a => String(a.email || "").toLowerCase()),
+      ...deptExaminers.map(e => String(e.email || "").toLowerCase()),
+    ]);
+
+    // Use dept-namespaced IDs so each coordinator has their own independent pool
+    const staff = Array.from({ length: 10 }).map((_, i) => {
+      const idx = i + 1;
+      return {
+        id: `${key}-staff-${idx}`,
+        name: `${dept}Staff${idx}`,
+        email: `${key}staff${idx}@mock.com`,
+        department: dept,
+        status: "unassigned",
+      };
+    }).filter(s => !assignedIds.has(s.id) && !assignedEmails.has(s.email.toLowerCase()));
+
+    setMockStaff(staff);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
-          <h1 className="text-2xl font-bold text-gray-900">Coordinator Dashboard</h1>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
-          >
-            Logout
-          </button>
+    <div>
+      {/* Top Nav */}
+      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Internship Tracking System</h1>
+                <p className="text-xs text-gray-500">AASTU</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
+                <Bell className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+              >
+                Logout
+              </button>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg">
+                <span className="text-sm font-medium text-gray-700 hidden sm:block">{coordinatorName}</span>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="p-6 pt-2">{renderPage()}</div>
-      </div>
+      </nav>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed top-20 right-4 z-[100] animate-bounce-in">
+          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 border-2 border-green-400">
+            <div className="bg-white/20 p-1 rounded-full">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span className="font-bold tracking-tight">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Welcome Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-1">Welcome, {coordinatorName}</h1>
+              <div className="flex flex-wrap gap-4 text-sm md:text-base opacity-90">
+                <span>Department: <strong>{coordinatorDept}</strong></span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10">
+              <div>
+                <p className="text-xs font-medium opacity-80">Role</p>
+                <p className="text-sm font-bold">Coordinator</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+
+          {/* HOME – navigation buttons */}
+          {view === "home" && (
+            <div className="flex flex-wrap gap-4">
+              <button className="bg-blue-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-blue-700 transition" onClick={() => setView("staff")}>
+                View Staff List
+              </button>
+              <button className="bg-green-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition" onClick={() => setView("advisors")}>
+                Assigned Advisors
+              </button>
+              <button className="bg-purple-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-purple-700 transition" onClick={() => setView("examiners")}>
+                Assigned Examiners
+              </button>
+              <button className="bg-yellow-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-yellow-700 transition" onClick={() => setView("students")}>
+                Manage Students
+              </button>
+              <button className="bg-indigo-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-indigo-700 transition"
+                onClick={() => { setView("upload"); setFileError(""); setFileSuccess(""); setSelectedFile(null); }}>
+                Upload Eligible Students
+              </button>
+            </div>
+          )}
+
+          {/* STUDENTS */}
+          {view === "students" && (
+            <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+          )}
+
+          {/* UPLOAD */}
+          {view === "upload" && (
+            <div className="max-w-xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Upload Eligible Students</h2>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+              </div>
+              {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
+              {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
+              <div className="border shadow-sm rounded-lg p-6 bg-gray-50 border-gray-200 space-y-4">
+                <label className="block text-sm font-medium text-gray-700">Select JSON File</label>
+                <input
+                  type="file" accept=".json"
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <button onClick={handleFileUpload} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 font-medium transition">
+                  Upload
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STAFF LIST */}
+          {view === "staff" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+              </div>
+              {mockStaff.length === 0
+                ? <p className="text-gray-500 py-4">No unassigned staff available.</p>
+                : (
+                  <div className="space-y-3">
+                    {mockStaff.map((s) => (
+                      <div key={s.id} className="p-4 rounded-lg bg-gray-50 border border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <div className="font-semibold text-gray-900">{s.name}</div>
+                          <div className="text-sm text-gray-600">{s.email}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => assignAsAdvisor(s)} className="text-sm font-medium bg-green-100 text-green-700 px-3 py-1.5 rounded hover:bg-green-200 transition">
+                            Assign Advisor
+                          </button>
+                          <button onClick={() => assignAsExaminer(s)} className="text-sm font-medium bg-purple-100 text-purple-700 px-3 py-1.5 rounded hover:bg-purple-200 transition">
+                            Assign Examiner
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
+
+          {/* ASSIGNED ADVISORS */}
+          {view === "advisors" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+              </div>
+              {assignedAdvisors.length === 0
+                ? <p className="text-gray-500 py-4">No advisors have been assigned yet.</p>
+                : (
+                  <div className="space-y-3">
+                    {assignedAdvisors.map((s) => (
+                      <div key={s.id} className="p-4 rounded-lg bg-white border border-gray-200 flex justify-between items-center">
+                        <div>
+                          <div className="font-semibold text-gray-900">{s.name}</div>
+                          <div className="text-sm text-gray-600">{s.email}</div>
+                        </div>
+                        <div className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">{s.status}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
+
+          {/* ASSIGNED EXAMINERS */}
+          {view === "examiners" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+              </div>
+              {assignedExaminers.length === 0
+                ? <p className="text-gray-500 py-4">No examiners have been assigned yet.</p>
+                : (
+                  <div className="space-y-3">
+                    {assignedExaminers.map((s) => (
+                      <div key={s.id} className="p-4 rounded-lg bg-white border border-gray-200 flex justify-between items-center">
+                        <div>
+                          <div className="font-semibold text-gray-900">{s.name}</div>
+                          <div className="text-sm text-gray-600">{s.email}</div>
+                        </div>
+                        <div className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded">{s.status}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   );
-
 };
 
 export default CoordinatorDashboard;

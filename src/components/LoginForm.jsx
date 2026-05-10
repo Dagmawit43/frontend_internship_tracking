@@ -32,32 +32,13 @@ const toCanonicalRole = (value) => {
 const inferRoleFromUser = (user) => {
   if (!user || typeof user !== "object") return null;
 
-  const explicitRole =
+  return (
     toCanonicalRole(user?.role) ||
     toCanonicalRole(user?.role_name) ||
     toCanonicalRole(user?.user_type) ||
-    toCanonicalRole(user?.accountType);
-
-  if (explicitRole) return explicitRole;
-
-  const hasCompanyShape = !!(
-    user?.companyName ||
-    user?.company_name ||
-    user?.contactEmail ||
-    user?.contact_email ||
-    user?.industryType ||
-    user?.industry_type
+    toCanonicalRole(user?.accountType) ||
+    null
   );
-  if (hasCompanyShape) return "Company";
-
-  const hasStudentShape =
-    !!(user?.studentId || user?.student_id) ||
-    String(user?.email || "")
-      .toLowerCase()
-      .endsWith("@aastustudent.edu.et");
-  if (hasStudentShape) return "Student";
-
-  return null;
 };
 
 const LoginForm = () => {
@@ -96,6 +77,9 @@ const LoginForm = () => {
         password,
         role: accountType,
       };
+
+      console.log("Selected role:", accountType);
+      console.log("Login payload:", payload);
 
       const result = await login(payload);
 

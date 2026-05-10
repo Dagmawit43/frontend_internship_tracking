@@ -5,6 +5,7 @@ import { DEPARTMENTS } from "../constants/departments";
 
 const RegistrationForm = () => {
   const navigate = useNavigate();
+  const staffRoles = ["Coordinator", "Advisor", "Examiner"];
   const [formData, setFormData] = useState({
     role: "Student",
     fullName: "",
@@ -17,6 +18,9 @@ const RegistrationForm = () => {
     password: "",
     confirmPassword: "",
   });
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [pendingUser, setPendingUser] = useState(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -24,68 +28,6 @@ const RegistrationForm = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const getFriendlyErrorMessage = (error) => {
-    // Handle API response errors
-    if (error?.response?.data) {
-      const data = error.response.data;
-
-      // Check for duplicate email
-      if (
-        data.email ||
-        (data.detail && data.detail.toLowerCase().includes("email"))
-      ) {
-        return "This email address is already registered. Please use a different email or try logging in.";
-      }
-
-      // Check for duplicate student ID
-      if (
-        data.id ||
-        (data.detail && data.detail.toLowerCase().includes("id"))
-      ) {
-        return "This student ID is already registered. Please check your student ID or contact support.";
-      }
-
-      // Check for validation errors
-      if (data.detail) {
-        // If it's a string, try to make it more user-friendly
-        const detail = String(data.detail).toLowerCase();
-        if (detail.includes("already exists") || detail.includes("duplicate")) {
-          return "An account with these details already exists. Please try logging in instead.";
-        }
-        if (detail.includes("invalid")) {
-          return "Please check your information and try again.";
-        }
-        // For other details, return a generic message
-        return "Registration failed. Please check your information and try again.";
-      }
-
-      // Check for field-specific errors
-      if (typeof data === "object") {
-        const errorMessages = Object.values(data).flat();
-        if (errorMessages.length > 0) {
-          const firstError = String(errorMessages[0]).toLowerCase();
-          if (
-            firstError.includes("already exists") ||
-            firstError.includes("duplicate")
-          ) {
-            return "An account with these details already exists. Please try logging in instead.";
-          }
-        }
-      }
-    }
-
-    // Handle network errors
-    if (error?.message) {
-      const message = error.message.toLowerCase();
-      if (message.includes("network") || message.includes("fetch")) {
-        return "Network error. Please check your connection and try again.";
-      }
-    }
-
-    // Default friendly message
-    return "Registration failed. Please check your information and try again. If the problem persists, contact support.";
   };
 
   const handleSubmit = async (e) => {
@@ -119,8 +61,59 @@ const RegistrationForm = () => {
         setError("Department is required for student registration.");
         return;
       }
-      // Must be pre-uploaded by coordinator in eligibleStudents
-      // (Bypassed for local testing)
+
+      const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
+      const isEligible = eligibleStudents.some(
+        (s) =>
+          String(s.studentId).toLowerCase() === String(studentId).toLowerCase() &&
+          String(s.email).toLowerCase() === String(email).toLowerCase() &&
+          String(s.department).trim().toLowerCase() === String(department).trim().toLowerCase()
+      );
+
+      if (!isEligible) {
+        setError("You are not eligible to register. Please check that your Student ID, Email, and Department exactly match the official eligibility list.");
+        return;
+      }
+    }
+
+    // For staff roles we will do a fake OTP flow locally (no backend yet)
+    if (staffRoles.includes(role)) {
+      if (!email) {
+        setError("Email is required for registration.");
+        return;
+      }
+
+      // Enforce invitation-based authorization for Advisors and Examiners
+      if (role === "Advisor" || role === "Examiner") {
+        const invitations = JSON.parse(localStorage.getItem("pendingInvitations") || "[]");
+        const invitation = invitations.find(
+          inv => String(inv.email).toLowerCase() === String(email).toLowerCase() &&
+                 inv.role === role &&
+                 String(inv.department).trim().toLowerCase() === String(department).trim().toLowerCase() &&
+                 inv.status === "pending"
+        );
+
+        if (!invitation) {
+          setError("You are not authorized for this role.");
+          return;
+        }
+      }
+
+      // prepare pending user and trigger OTP step (fake)
+      const temp = {
+        id: `user-${Date.now()}`,
+        role,
+        fullName: String(fullName || ""),
+        email: String(email).toLowerCase(),
+        department: String(department || ""),
+        phone: String(phone || ""),
+        password: String(password || ""),
+        createdAt: new Date().toISOString(),
+        source: "local",
+      };
+      setPendingUser(temp);
+      setOtpSent(true);
+      return;
     }
 
     if (role === "Company") {
@@ -147,226 +140,72 @@ const RegistrationForm = () => {
     }
 
     if (role === "Student") {
-      setIsSubmitting(true);
-      try {
-        const payload = {
-          user: {
-            username: String(studentId),
-            email: String(email),
-            password: String(password),
-            first_name: String(fullName.split(" ")[0]),
-            last_name: String(
-              fullName.split(" ").slice(1).join(" ") || fullName,
-            ),
-            phone: String(phone),
-          },
-          student_id: String(studentId),
-          department: String(department),
-        };
+      const students = JSON.parse(localStorage.getItem("students") || "[]");
+      const exists = students.some(
+        (s) =>
+          String(s?.email || "").toLowerCase() === String(email || "").toLowerCase() ||
+          String(s?.studentId || s?.id || "").toLowerCase() === String(studentId || "").toLowerCase(),
+      );
 
-        const response = await api.post("/auth/student/register/", payload);
-        console.log("Student Registration Success:", response.data);
-
-        setSuccess("Student registration successful! Redirecting to login...");
-        setTimeout(() => navigate("/login"), 1400);
-      } catch (err) {
-        console.error("Student Registration Error:", err);
-        const isBackendUnavailable =
-          /timeout|network|failed to fetch|err_network/i.test(
-            String(err?.message || err?.response?.data?.detail || ""),
-          );
-
-        if (isBackendUnavailable) {
-          const students = JSON.parse(localStorage.getItem("students") || "[]");
-          const exists = students.some(
-            (s) =>
-              String(s?.email || "").toLowerCase() ===
-                String(email || "").toLowerCase() ||
-              String(s?.studentId || s?.id || "").toLowerCase() ===
-                String(studentId || "").toLowerCase(),
-          );
-
-          if (exists) {
-            setError(
-              "This student is already registered locally. Please login.",
-            );
-          } else {
-            const localStudent = {
-              id: String(studentId),
-              studentId: String(studentId),
-              fullName: String(fullName),
-              email: String(email),
-              phone: String(phone),
-              password: String(password),
-              department: String(department),
-              createdAt: new Date().toISOString(),
-              source: "local",
-            };
-            students.push(localStudent);
-            localStorage.setItem("students", JSON.stringify(students));
-            setSuccess(
-              "Student registration saved locally. Redirecting to login...",
-            );
-            setTimeout(() => navigate("/login"), 1400);
-          }
-          return;
-        }
-
-        const status = err?.response?.status;
-
-        if (status === 400 && err?.response?.data) {
-          console.error("400 Bad Request Payload Details:", err.response.data);
-          setError(
-            "Registration request issue exactly: " +
-              JSON.stringify(err.response.data),
-          );
-        } else {
-          setError(getFriendlyErrorMessage(err));
-        }
-      } finally {
-        setIsSubmitting(false);
+      if (exists) {
+        setError("This student is already registered locally. Please login.");
+        return;
       }
+
+      const localStudent = {
+        id: String(studentId) || `stu-${Date.now()}`,
+        studentId: String(studentId),
+        fullName: String(fullName),
+        email: String(email),
+        phone: String(phone),
+        password: String(password),
+        department: String(department),
+        createdAt: new Date().toISOString(),
+        source: "local",
+      };
+      students.push(localStudent);
+      localStorage.setItem("students", JSON.stringify(students));
+      setSuccess("Student registration saved locally. Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1200);
       return;
     }
 
     if (role === "Company") {
-      setIsSubmitting(true);
-      try {
-        const payload = {
-          user: {
-            username:
-              companyName.replace(/\s/g, "").toLowerCase() ||
-              `company_${Date.now()}`,
-            email: email || "unknown@company.com",
-            password: password || "Test@1234",
-            first_name: fullName.split(" ")[0] || "Company",
-            last_name:
-              fullName.split(" ").slice(1).join(" ") || "Representative",
-            phone: String(phone || "0900000000"),
-          },
-          company_name: companyName || "Unknown Company",
-          registration_number: String(tinNumber || `REG-${Date.now()}`),
-          tin_number: String(tinNumber || ""),
-          industry_type: "Technology",
-          address: "Addis Ababa",
-          contact_email: email || "unknown@company.com",
-          contact_phone: String(phone || "0900000000"),
-          website: `https://${(companyName || "company").replace(/\s/g, "").toLowerCase()}.com`,
-        };
+      const companies = JSON.parse(localStorage.getItem("companies") || "[]");
+      const localCompanyName = String(companyName || "").trim();
+      const localEmail = String(email || "").trim().toLowerCase();
+      const exists = companies.some(
+        (c) =>
+          String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
+          String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
+      );
 
-        const response = await api.post("/auth/company/register/", payload);
-        console.log("Company Registration Success:", response.data);
-
-        const companies = JSON.parse(localStorage.getItem("companies") || "[]");
-        const localCompanyName = String(companyName || "").trim();
-        const localEmail = String(email || "")
-          .trim()
-          .toLowerCase();
-        const exists = companies.some(
-          (c) =>
-            String(c?.companyName || c?.company_name || "")
-              .trim()
-              .toLowerCase() === localCompanyName.toLowerCase() ||
-            String(c?.contactEmail || c?.representative_email || c?.email || "")
-              .trim()
-              .toLowerCase() === localEmail,
-        );
-
-        if (!exists) {
-          companies.push({
-            id: Date.now(),
-            companyName: localCompanyName,
-            company_name: localCompanyName,
-            contactEmail: localEmail,
-            representative_email: localEmail,
-            contactPhone: String(phone || ""),
-            representative_name: String(fullName || ""),
-            tinNumber: String(tinNumber || ""),
-            tin_number: String(tinNumber || ""),
-            password: String(password),
-            verified: true,
-            status: "VERIFIED",
-            source: "backend+local",
-            createdAt: new Date().toISOString(),
-          });
-          localStorage.setItem("companies", JSON.stringify(companies));
-        }
-
-        setSuccess("Company registration submitted successfully!");
-        setTimeout(() => navigate("/login"), 1400);
-      } catch (err) {
-        console.error("Company Registration Error:", err);
-        const isBackendUnavailable =
-          /timeout|network|failed to fetch|err_network/i.test(
-            String(err?.message || err?.response?.data?.detail || ""),
-          );
-
-        if (isBackendUnavailable) {
-          const companies = JSON.parse(
-            localStorage.getItem("companies") || "[]",
-          );
-          const localCompanyName = String(companyName || "").trim();
-          const localEmail = String(email || "")
-            .trim()
-            .toLowerCase();
-          const exists = companies.some(
-            (c) =>
-              String(c?.companyName || c?.company_name || "")
-                .trim()
-                .toLowerCase() === localCompanyName.toLowerCase() ||
-              String(
-                c?.contactEmail || c?.representative_email || c?.email || "",
-              )
-                .trim()
-                .toLowerCase() === localEmail,
-          );
-
-          if (exists) {
-            setError(
-              "This company is already registered locally. Please login.",
-            );
-          } else {
-            const localCompany = {
-              id: Date.now(),
-              companyName: localCompanyName,
-              company_name: localCompanyName,
-              contactEmail: localEmail,
-              representative_email: localEmail,
-              contactPhone: String(phone || ""),
-              representative_name: String(fullName || ""),
-              tinNumber: String(tinNumber || ""),
-              tin_number: String(tinNumber || ""),
-              password: String(password),
-              verified: true,
-              status: "VERIFIED",
-              source: "local",
-              createdAt: new Date().toISOString(),
-            };
-
-            companies.push(localCompany);
-            localStorage.setItem("companies", JSON.stringify(companies));
-            setSuccess(
-              "Company registration saved locally. Redirecting to login...",
-            );
-            setTimeout(() => navigate("/login"), 1400);
-          }
-          return;
-        }
-
-        const status = err?.response?.status;
-
-        if (status === 400 && err?.response?.data) {
-          console.error("400 Bad Request Payload Details:", err.response.data);
-          setError(
-            "Registration request issue exactly: " +
-              JSON.stringify(err.response.data),
-          );
-        } else {
-          setError(getFriendlyErrorMessage(err));
-        }
-      } finally {
-        setIsSubmitting(false);
+      if (exists) {
+        setError("This company is already registered locally. Please login.");
+        return;
       }
+
+      const localCompany = {
+        id: Date.now(),
+        companyName: localCompanyName,
+        company_name: localCompanyName,
+        contactEmail: localEmail,
+        representative_email: localEmail,
+        contactPhone: String(phone || ""),
+        representative_name: String(fullName || ""),
+        tinNumber: String(tinNumber || ""),
+        tin_number: String(tinNumber || ""),
+        password: String(password),
+        verified: true,
+        status: "VERIFIED",
+        source: "local",
+        createdAt: new Date().toISOString(),
+      };
+
+      companies.push(localCompany);
+      localStorage.setItem("companies", JSON.stringify(companies));
+      setSuccess("Company registration saved locally. Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1200);
       return;
     }
   };
@@ -387,9 +226,7 @@ const RegistrationForm = () => {
         </div>
 
         <div>
-          <label className="block text-gray-600 text-sm font-medium mb-1">
-            Register as
-          </label>
+          <label className="block text-gray-600 text-sm font-medium mb-1">Register as</label>
           <select
             name="role"
             value={formData.role}
@@ -398,18 +235,17 @@ const RegistrationForm = () => {
           >
             <option value="Student">Student</option>
             <option value="Company">Company</option>
+            <option value="Coordinator">Coordinator</option>
+            <option value="Advisor">Advisor</option>
+            <option value="Examiner">Examiner</option>
           </select>
         </div>
 
         {error && (
-          <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">
-            {error}
-          </div>
+          <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">{error}</div>
         )}
         {success && (
-          <div className="bg-green-100 text-green-600 p-3 rounded-md text-sm">
-            {success}
-          </div>
+          <div className="bg-green-100 text-green-600 p-3 rounded-md text-sm">{success}</div>
         )}
 
         <div>
@@ -429,29 +265,20 @@ const RegistrationForm = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-gray-600 text-sm font-medium mb-1">
-              {formData.role === "Student"
-                ? "AASTU Email"
-                : "Contact Email (optional)"}
+              {formData.role === "Student" ? "AASTU Email" : "Contact Email"}
             </label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              required={formData.role === "Student"}
+              required={formData.role === "Student" || ["Coordinator", "Advisor", "Examiner"].includes(formData.role)}
               className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                formData.role === "Student"
-                  ? "example@aastu.edu.et"
-                  : "contact@company.com"
-              }
+              placeholder={formData.role === "Student" ? "example@aastustudent.edu.et" : "contact@company.com"}
             />
           </div>
-
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              Phone Number
-            </label>
+            <label className="block text-gray-600 text-sm font-medium mb-1">Phone Number</label>
             <input
               type="text"
               name="phone"
@@ -466,9 +293,7 @@ const RegistrationForm = () => {
 
         {formData.role === "Company" ? (
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              Company Name
-            </label>
+            <label className="block text-gray-600 text-sm font-medium mb-1">Company Name</label>
             <input
               type="text"
               name="companyName"
@@ -478,12 +303,10 @@ const RegistrationForm = () => {
               className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
             />
           </div>
-        ) : (
+        ) : formData.role === "Student" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-600 text-sm font-medium mb-1">
-                Student ID
-              </label>
+              <label className="block text-gray-600 text-sm font-medium mb-1">Student ID</label>
               <input
                 type="text"
                 name="studentId"
@@ -494,9 +317,7 @@ const RegistrationForm = () => {
               />
             </div>
             <div>
-              <label className="block text-gray-600 text-sm font-medium mb-1">
-                Department
-              </label>
+              <label className="block text-gray-600 text-sm font-medium mb-1">Department</label>
               <select
                 name="department"
                 value={formData.department}
@@ -506,20 +327,34 @@ const RegistrationForm = () => {
               >
                 <option value="">Select Department</option>
                 {DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
+                  <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
+          </div>
+        ) : null}
+
+        {staffRoles.includes(formData.role) && (
+          <div>
+            <label className="block text-gray-600 text-sm font-medium mb-1">Department</label>
+            <select
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              required
+              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select Department</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
           </div>
         )}
 
         {formData.role === "Company" && (
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              TIN Number
-            </label>
+            <label className="block text-gray-600 text-sm font-medium mb-1">TIN Number</label>
             <input
               type="text"
               name="tinNumber"
@@ -533,11 +368,66 @@ const RegistrationForm = () => {
           </div>
         )}
 
+        {/* OTP modal (fake) */}
+        {otpSent && pendingUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-bold mb-2">Verify Email</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                A one-time code was sent to {pendingUser.email}. (Fake for now — enter any code.)
+              </p>
+              <input
+                type="text"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                placeholder="Enter OTP"
+                className="w-full border rounded-md p-2 mb-4"
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setOtpSent(false); setPendingUser(null); setOtpCode(""); }}
+                  className="px-4 py-2 rounded-md bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const users = JSON.parse(localStorage.getItem("otherUsers") || "[]");
+                    const exists = users.some((u) => u.email === pendingUser.email);
+                    if (!exists) {
+                      users.push(pendingUser);
+                      localStorage.setItem("otherUsers", JSON.stringify(users));
+
+                      if (pendingUser.role === "Advisor" || pendingUser.role === "Examiner") {
+                        const invitations = JSON.parse(localStorage.getItem("pendingInvitations") || "[]");
+                        const updatedInvitations = invitations.map(inv =>
+                          String(inv.email).toLowerCase() === pendingUser.email.toLowerCase() && inv.role === pendingUser.role
+                            ? { ...inv, status: "accepted" }
+                            : inv
+                        );
+                        localStorage.setItem("pendingInvitations", JSON.stringify(updatedInvitations));
+                      }
+                    }
+                    setOtpSent(false);
+                    setPendingUser(null);
+                    setOtpCode("");
+                    setSuccess("Registration complete. You can now log in.");
+                    setTimeout(() => navigate("/login"), 900);
+                  }}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white"
+                >
+                  Verify
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              Password
-            </label>
+            <label className="block text-gray-600 text-sm font-medium mb-1">Password</label>
             <input
               type="password"
               name="password"
@@ -548,9 +438,7 @@ const RegistrationForm = () => {
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
-              Confirm Password
-            </label>
+            <label className="block text-gray-600 text-sm font-medium mb-1">Confirm Password</label>
             <input
               type="password"
               name="confirmPassword"

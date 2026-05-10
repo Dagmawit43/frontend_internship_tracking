@@ -10,7 +10,7 @@ const CreateAccounts = () => {
 
   // Get coordinator's department
   const getCoordinatorDepartment = () => {
-    const activeStaff = JSON.parse(localStorage.getItem("activeStaffUser")) || {};
+    const activeStaff = JSON.parse(localStorage.getItem("coordinator")) || JSON.parse(localStorage.getItem("user")) || JSON.parse(localStorage.getItem("activeStaffUser")) || {};
     return activeStaff.department || "";
   };
 
