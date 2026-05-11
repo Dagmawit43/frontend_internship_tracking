@@ -90,7 +90,7 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
 };
 
 // Welcome header (inlined)
-const WelcomeHeader = ({ studentName, department, college, internshipStatus, advisor, examiner }) => {
+const WelcomeHeader = ({ studentName, department, college, internshipStatus, advisor, examiner, examiner2 }) => {
   const getStatusConfig = (status) => {
     const statusMap = {
       "Not Applied": {
@@ -159,7 +159,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
         </div>
 
         {/* Assignment Information Row */}
-        {(advisor || examiner) && (
+        {(advisor || examiner || examiner2) && (
           <div className="border-t border-blue-500/30 pt-4">
             <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -173,8 +173,15 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
               {examiner && (
                 <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
                   <User className="w-4 h-4" />
-                  <span className="opacity-90">Examiner:</span>
+                  <span className="opacity-90">Examiner 1:</span>
                   <span className="font-semibold">{examiner}</span>
+                </div>
+              )}
+              {examiner2 && (
+                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
+                  <User className="w-4 h-4" />
+                  <span className="opacity-90">Examiner 2:</span>
+                  <span className="font-semibold">{examiner2}</span>
                 </div>
               )}
             </div>
@@ -829,14 +836,18 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                     <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                        <div>
                           <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Academic Advisor</p>
                           <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
                        </div>
                        <div>
-                          <p className="text-[10px] font-black text-purple-600 uppercase mb-1">Internal Examiner</p>
+                          <p className="text-[10px] font-black text-purple-600 uppercase mb-1">Internal Examiner 1</p>
                           <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
+                       </div>
+                       <div>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Internal Examiner 2</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
                        </div>
                     </div>
                  </div>
@@ -1350,6 +1361,7 @@ const StudentDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [advisor, setAdvisor] = useState(null);
   const [examiner, setExaminer] = useState(null);
+  const [examiner2, setExaminer2] = useState(null);
 
   const resolveDisplayName = (u) => {
     if (!u || typeof u !== "object") return "";
@@ -1434,6 +1446,7 @@ const StudentDashboard = () => {
         console.log("❌ No assignments found in localStorage");
         setAdvisor(null);
         setExaminer(null);
+        setExaminer2(null);
         return;
       }
       
@@ -1473,6 +1486,7 @@ const StudentDashboard = () => {
         // Get full names from otherUsers
         let advisorName = assignment.advisor;
         let examinerName = assignment.examiner;
+        let examiner2Name = assignment.examiner2;
         
         if (assignment.advisor) {
           const advisorUser = otherUsers.find(u => u.username === assignment.advisor && u.role === "Advisor");
@@ -1493,18 +1507,40 @@ const StudentDashboard = () => {
             console.log("⚠️ Examiner username not found in otherUsers:", assignment.examiner);
           }
         }
+
+        if (assignment.examiner2) {
+          const examiner2User = otherUsers.find(u => u.username === assignment.examiner2 && u.role === "Examiner");
+          if (examiner2User) {
+            examiner2Name = examiner2User.fullName || examiner2User.name || examiner2User.username;
+          }
+        }
         
         setAdvisor(advisorName || null);
         setExaminer(examinerName || null);
+        setExaminer2(examiner2Name || null);
       } else {
         console.log("❌ No matching assignment found");
         setAdvisor(null);
         setExaminer(null);
+        setExaminer2(null);
+      }
+
+      const apps = JSON.parse(localStorage.getItem("applications")) || [];
+      const activeIntern = apps.find(
+        (a) =>
+          (a.studentId === studentId || a.studentName === studentName) &&
+          a.finalInternshipStatus === "ACTIVE_INTERN"
+      );
+      if (activeIntern) {
+        if (activeIntern.advisorName) setAdvisor(activeIntern.advisorName);
+        if (activeIntern.examinerName) setExaminer(activeIntern.examinerName);
+        if (activeIntern.examiner2Name) setExaminer2(activeIntern.examiner2Name);
       }
     } catch (error) {
       console.error("❌ Error loading assignment:", error);
       setAdvisor(null);
       setExaminer(null);
+      setExaminer2(null);
     }
   };
 
@@ -1594,6 +1630,7 @@ const StudentDashboard = () => {
           internshipStatus={internshipStatus}
           advisor={advisor}
           examiner={examiner}
+          examiner2={examiner2}
         />
 
         {/* Tab Navigation */}

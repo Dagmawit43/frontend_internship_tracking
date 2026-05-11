@@ -480,19 +480,42 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const handleUpdateAssignment = (appId, field, name) => {
     if (!name) return;
     const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-    const updatedApps = allApps.map(app => {
-      if (app.id === appId) {
-        if (field === "advisorName" && app.examinerName === name) {
-          alert("Error: The same person cannot be both Advisor and Examiner.");
-          return app;
-        }
-        if (field === "examinerName" && app.advisorName === name) {
-          alert("Error: The same person cannot be both Advisor and Examiner.");
-          return app;
-        }
-        return { ...app, [field]: name };
+    const updatedApps = allApps.map((app) => {
+      if (app.id !== appId) return app;
+
+      const advisor = (app.advisorName || "").trim();
+      const ex1 = (app.examinerName || "").trim();
+      const ex2 = (app.examiner2Name || "").trim();
+      const next = { ...app, [field]: name };
+
+      const conflictsAdvisor =
+        field === "advisorName" &&
+        (name === ex1 || name === ex2);
+      const conflictsExaminer1 =
+        field === "examinerName" &&
+        (name === advisor || name === ex2);
+      const conflictsExaminer2 =
+        field === "examiner2Name" &&
+        (name === advisor || name === ex1);
+      const duplicateExaminers =
+        (field === "examinerName" || field === "examiner2Name") &&
+        field === "examinerName" &&
+        name === ex2;
+      const duplicateExaminers2 =
+        (field === "examinerName" || field === "examiner2Name") &&
+        field === "examiner2Name" &&
+        name === ex1;
+
+      if (conflictsAdvisor || conflictsExaminer1 || conflictsExaminer2) {
+        alert("Error: Advisor and examiners must be different people.");
+        return app;
       }
-      return app;
+      if (duplicateExaminers || duplicateExaminers2) {
+        alert("Error: The two internal examiners cannot be the same person.");
+        return app;
+      }
+
+      return next;
     });
     localStorage.setItem("applications", JSON.stringify(updatedApps));
     window.dispatchEvent(new Event("storage"));
@@ -510,7 +533,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       <div className="flex items-center justify-between mb-8">
         <div>
            <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Academic Assignments</h2>
-           <p className="text-gray-500 text-sm font-medium">Link Advisors and Examiners to {coordinatorDept} interns</p>
+           <p className="text-gray-500 text-sm font-medium">Assign one academic advisor and two internal examiners per intern in {coordinatorDept}</p>
         </div>
         <button className="text-sm font-bold text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
           ← Back to Dashboard
@@ -553,7 +576,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                      </div>
                   </div>
 
-                  <div className="flex-[2] grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">
+                  <div className="flex-[2] grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">
                      <div className="space-y-4">
                         <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                            <User className="w-3.5 h-3.5 text-blue-600" />
@@ -579,7 +602,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             defaultValue=""
                           >
                              <option value="" disabled>Select from Assigned Advisors...</option>
-                             {advisorsPool.map(s => (
+                             {advisorsPool.filter((s) => s.name !== app.examinerName && s.name !== app.examiner2Name).map(s => (
                                <option key={s.id} value={s.name}>{s.name}</option>
                              ))}
                           </select>
@@ -589,7 +612,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                      <div className="space-y-4">
                         <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                            <User className="w-3.5 h-3.5 text-purple-600" />
-                           Internal Examiner
+                           Internal Examiner 1
                         </label>
                         {app.examinerName ? (
                           <div className="relative group/slot">
@@ -612,10 +635,46 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                           >
                              <option value="" disabled>
                                {examinersPool.length > 0
-                                 ? "Select from Assigned Examiners..."
-                                 : "No examiners assigned - select from Assigned Advisors..."}
+                                 ? "Select examiner 1..."
+                                 : "No examiners pool — pick from advisors..."}
                              </option>
-                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).map(s => (
+                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examiner2Name).map(s => (
+                               <option key={s.id} value={s.name}>{s.name}</option>
+                             ))}
+                          </select>
+                        )}
+                     </div>
+
+                     <div className="space-y-4">
+                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                           <User className="w-3.5 h-3.5 text-indigo-600" />
+                           Internal Examiner 2
+                        </label>
+                        {app.examiner2Name ? (
+                          <div className="relative group/slot">
+                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-indigo-500 shadow-md">
+                                <span className="text-sm font-black text-indigo-700">{app.examiner2Name}</span>
+                                <CheckCircle className="w-5 h-5 text-indigo-500" />
+                             </div>
+                             <button 
+                               onClick={() => clearAssignment(app.id, "examiner2Name")}
+                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
+                             >
+                               <XCircle className="w-4 h-4" />
+                             </button>
+                          </div>
+                        ) : (
+                          <select 
+                            onChange={(e) => handleUpdateAssignment(app.id, "examiner2Name", e.target.value)}
+                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-indigo-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
+                            defaultValue=""
+                          >
+                             <option value="" disabled>
+                               {examinersPool.length > 0
+                                 ? "Select examiner 2..."
+                                 : "No examiners pool — pick from advisors..."}
+                             </option>
+                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examinerName).map(s => (
                                <option key={s.id} value={s.name}>{s.name}</option>
                              ))}
                           </select>
