@@ -691,10 +691,24 @@ const MyInternshipView = ({ studentId, studentName }) => {
                  </div>
 
                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
+                    <div className="grid grid-cols-2 gap-6">
+                       <div>
+                          <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Academic Advisor</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
+                       </div>
+                       <div>
+                          <p className="text-[10px] font-black text-purple-600 uppercase mb-1">Internal Examiner</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="p-4 bg-white rounded-xl border border-gray-100">
                     <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Required Skills & Focus Areas</p>
                     <div className="flex flex-wrap gap-2">
                        {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
-                         <span key={i} className="px-2 py-1 bg-white border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
+                         <span key={i} className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
                            {skill}
                          </span>
                        ))}

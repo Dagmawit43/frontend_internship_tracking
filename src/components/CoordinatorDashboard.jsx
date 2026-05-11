@@ -427,6 +427,189 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
 };
 
 // ─── Main Coordinator Dashboard ─────────────────────────────────────────────
+// ─── Active Interns Management (Advisor/Examiner Assignment) ───────────
+const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
+  const [activeInterns, setActiveInterns] = useState([]);
+  const [advisorsPool, setAdvisorsPool] = useState([]);
+  const [examinersPool, setExaminersPool] = useState([]);
+
+  useEffect(() => {
+    const loadData = () => {
+      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+      const students = JSON.parse(localStorage.getItem("students")) || [];
+      
+      const filtered = allApps.filter(app => {
+        if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
+        const student = students.find(s => s.studentId === app.studentId || s.name === app.studentName);
+        if (!student) return false;
+        return String(student.department || "").trim().toLowerCase() === String(coordinatorDept || "").trim().toLowerCase();
+      });
+      
+      setActiveInterns(filtered);
+
+      const key = coordinatorDept.toString().replace(/\s+/g, "").toLowerCase();
+      const advisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]").filter(a => String(a.department || "").trim().toLowerCase() === key);
+      const examiners = JSON.parse(localStorage.getItem("assignedExaminers") || "[]").filter(e => String(e.department || "").trim().toLowerCase() === key);
+      
+      setAdvisorsPool(advisors);
+      setExaminersPool(examiners);
+    };
+
+    loadData();
+    window.addEventListener("storage", loadData);
+    return () => window.removeEventListener("storage", loadData);
+  }, [coordinatorDept]);
+
+  const handleUpdateAssignment = (appId, field, name) => {
+    if (!name) return;
+    const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const updatedApps = allApps.map(app => {
+      if (app.id === appId) {
+        if (field === "advisorName" && app.examinerName === name) {
+          alert("Error: The same person cannot be both Advisor and Examiner.");
+          return app;
+        }
+        if (field === "examinerName" && app.advisorName === name) {
+          alert("Error: The same person cannot be both Advisor and Examiner.");
+          return app;
+        }
+        return { ...app, [field]: name };
+      }
+      return app;
+    });
+    localStorage.setItem("applications", JSON.stringify(updatedApps));
+    window.dispatchEvent(new Event("storage"));
+  };
+
+  const clearAssignment = (appId, field) => {
+    const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const updatedApps = allApps.map(app => app.id === appId ? { ...app, [field]: "" } : app);
+    localStorage.setItem("applications", JSON.stringify(updatedApps));
+    window.dispatchEvent(new Event("storage"));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+           <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Academic Assignments</h2>
+           <p className="text-gray-500 text-sm font-medium">Link Advisors and Examiners to {coordinatorDept} interns</p>
+        </div>
+        <button className="text-sm font-bold text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+          ← Back to Dashboard
+        </button>
+      </div>
+
+      {activeInterns.length === 0 ? (
+        <div className="bg-white border-2 border-dashed rounded-2xl p-20 text-center shadow-sm">
+          <GraduationCap className="w-20 h-20 text-gray-100 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-gray-900">Queue is Empty</h3>
+          <p className="text-gray-500 max-w-xs mx-auto">Students will appear here once their coordinator approval is finalized.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {activeInterns.map(app => (
+            <div key={app.id} className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all group">
+               <div className="flex flex-col xl:flex-row justify-between gap-10">
+                  <div className="flex-1 space-y-6">
+                     <div className="flex items-center gap-5">
+                        <div className="h-16 w-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                           <User className="w-8 h-8" />
+                        </div>
+                        <div>
+                           <h3 className="text-2xl font-black text-gray-900 leading-tight">{app.studentName}</h3>
+                           <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Reg ID: {app.studentId}</p>
+                        </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                           <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Affiliated Host</p>
+                           <p className="text-sm font-bold text-gray-700">{app.companyName}</p>
+                        </div>
+                        <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
+                           <p className="text-[10px] font-black text-green-600 uppercase mb-1">Status</p>
+                           <div className="flex items-center gap-2 text-sm font-bold text-green-700">
+                              <div className="h-1.5 w-1.5 rounded-full bg-green-600 animate-pulse"></div>
+                              Active Placement
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="flex-[2] grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">
+                     <div className="space-y-4">
+                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                           <User className="w-3.5 h-3.5 text-blue-600" />
+                           Academic Advisor
+                        </label>
+                        {app.advisorName ? (
+                          <div className="relative group/slot">
+                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-md">
+                                <span className="text-sm font-black text-blue-700">{app.advisorName}</span>
+                                <CheckCircle className="w-5 h-5 text-blue-500" />
+                             </div>
+                             <button 
+                               onClick={() => clearAssignment(app.id, "advisorName")}
+                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
+                             >
+                               <XCircle className="w-4 h-4" />
+                             </button>
+                          </div>
+                        ) : (
+                          <select 
+                            onChange={(e) => handleUpdateAssignment(app.id, "advisorName", e.target.value)}
+                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-blue-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
+                            defaultValue=""
+                          >
+                             <option value="" disabled>Select from Assigned Advisors...</option>
+                             {advisorsPool.map(s => (
+                               <option key={s.id} value={s.name}>{s.name}</option>
+                             ))}
+                          </select>
+                        )}
+                     </div>
+
+                     <div className="space-y-4">
+                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                           <User className="w-3.5 h-3.5 text-purple-600" />
+                           Internal Examiner
+                        </label>
+                        {app.examinerName ? (
+                          <div className="relative group/slot">
+                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-purple-500 shadow-md">
+                                <span className="text-sm font-black text-purple-700">{app.examinerName}</span>
+                                <CheckCircle className="w-5 h-5 text-purple-500" />
+                             </div>
+                             <button 
+                               onClick={() => clearAssignment(app.id, "examinerName")}
+                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
+                             >
+                               <XCircle className="w-4 h-4" />
+                             </button>
+                          </div>
+                        ) : (
+                          <select 
+                            onChange={(e) => handleUpdateAssignment(app.id, "examinerName", e.target.value)}
+                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-purple-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
+                            defaultValue=""
+                          >
+                             <option value="" disabled>Select from Assigned Examiners...</option>
+                             {examinersPool.map(s => (
+                               <option key={s.id} value={s.name}>{s.name}</option>
+                             ))}
+                          </select>
+                        )}
+                     </div>
+                  </div>
+               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CoordinatorDashboard = () => {
   const [coordinatorDept] = useState(getCoordinatorDepartment());
   const [coordinatorName] = useState(getCoordinatorName());
@@ -644,6 +827,9 @@ const CoordinatorDashboard = () => {
               <button className="bg-green-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition" onClick={() => setView("internships")}>
                 Internship Students
               </button>
+              <button className="bg-blue-800 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-blue-900 transition" onClick={() => setView("active-students")}>
+                Active Internship Students
+              </button>
               <button className="bg-yellow-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-yellow-700 transition" onClick={() => setView("students")}>
                 Manage Students
               </button>
@@ -662,6 +848,11 @@ const CoordinatorDashboard = () => {
           {/* INTERNSHIP STUDENTS */}
           {view === "internships" && (
             <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+          )}
+
+          {/* ACTIVE INTERNSHIP STUDENTS (Academic Assignment) */}
+          {view === "active-students" && (
+            <ActiveInternsManagementView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
           )}
 
           {/* UPLOAD */}
