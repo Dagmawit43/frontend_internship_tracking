@@ -3,6 +3,7 @@ import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, Gr
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 
 const getValidSession = () => {
   try {
@@ -402,6 +403,17 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
                    <h4 className="text-[10px] font-black uppercase tracking-widest text-yellow-700 mb-2">Student's Statement of Interest</h4>
                    <p className="text-gray-800 leading-relaxed italic">"{selectedApp.reason || "No statement provided."}"</p>
                 </div>
+
+                <div className="mt-8">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mb-3">
+                    Completed Internship Hosting Company Acceptance Form
+                  </h4>
+                  <InternshipAcceptanceForm
+                    initialData={selectedApp.acceptanceForm}
+                    readOnly
+                    showActions
+                  />
+                </div>
              </div>
 
              {/* Footer Actions */}
@@ -447,9 +459,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       
       setActiveInterns(filtered);
 
-      const key = coordinatorDept.toString().replace(/\s+/g, "").toLowerCase();
-      const advisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]").filter(a => String(a.department || "").trim().toLowerCase() === key);
-      const examiners = JSON.parse(localStorage.getItem("assignedExaminers") || "[]").filter(e => String(e.department || "").trim().toLowerCase() === key);
+      const normalize = (value) => String(value || "").trim().toLowerCase();
+      const dept = normalize(coordinatorDept);
+      const advisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]").filter(
+        (a) => normalize(a.department) === dept
+      );
+      const examiners = JSON.parse(localStorage.getItem("assignedExaminers") || "[]").filter(
+        (e) => normalize(e.department) === dept
+      );
       
       setAdvisorsPool(advisors);
       setExaminersPool(examiners);
@@ -593,8 +610,12 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-purple-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
                             defaultValue=""
                           >
-                             <option value="" disabled>Select from Assigned Examiners...</option>
-                             {examinersPool.map(s => (
+                             <option value="" disabled>
+                               {examinersPool.length > 0
+                                 ? "Select from Assigned Examiners..."
+                                 : "No examiners assigned - select from Assigned Advisors..."}
+                             </option>
+                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).map(s => (
                                <option key={s.id} value={s.name}>{s.name}</option>
                              ))}
                           </select>

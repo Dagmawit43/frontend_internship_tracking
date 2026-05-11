@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bell, LogOut, ChevronDown, Plus, Edit2, Trash2, ChevronUp, MapPin, Building2, Briefcase, GraduationCap, Clock, Layers, User, Mail, CheckCircle, XCircle, FileText, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import { DEPARTMENTS } from "../constants/departments";
+import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
+import InternshipLogbookForm from "./InternshipLogbookForm";
+import {
+  WEEK_STATUS,
+  STATUS_LABELS,
+  ensureWeeklyLogbookForInternship,
+  updateWeekForInternship,
+  updateWeeklyLogbookMeta,
+} from "../utils/weeklyLogbook";
 
 const getValidCompanySession = () => {
   try {
@@ -281,6 +290,7 @@ const InternshipCard = ({ data, onEdit, onDelete }) => {
 
 const AppliedStudentsPage = ({ companySession }) => {
   const [applications, setApplications] = useState([]);
+  const [selectedApplication, setSelectedApplication] = useState(null);
   const cName = companySession?.companyName || companySession?.company_name || "";
 
   useEffect(() => {
@@ -301,10 +311,19 @@ const AppliedStudentsPage = ({ companySession }) => {
     return () => window.removeEventListener("storage", loadApplications);
   }, [cName, companySession]);
 
-  const handleUpdateStatus = (appId, newStatus) => {
+  const handleUpdateStatus = (appId, acceptanceFormData) => {
+    const newStatus = acceptanceFormData.accepted ? "accepted" : acceptanceFormData.rejected ? "rejected" : "Pending";
     const allApps = JSON.parse(localStorage.getItem("applications")) || [];
     const updated = allApps.map(app => 
-      app.id === appId ? { ...app, status: newStatus, updatedAt: new Date().toISOString() } : app
+      app.id === appId
+        ? {
+            ...app,
+            acceptanceForm: acceptanceFormData,
+            status: newStatus,
+            applicationStatus: acceptanceFormData.accepted ? "COMPANY_ACCEPTED" : "COMPANY_REJECTED",
+            updatedAt: new Date().toISOString(),
+          }
+        : app
     );
     localStorage.setItem("applications", JSON.stringify(updated));
     setApplications(updated.filter(app => 
@@ -376,16 +395,10 @@ const AppliedStudentsPage = ({ companySession }) => {
                    {app.status === 'Pending' || app.status === 'applied' ? (
                      <div className="flex gap-2">
                        <button 
-                         onClick={() => handleUpdateStatus(app.id, "accepted")}
-                         className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                         onClick={() => setSelectedApplication(app)}
+                         className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
                        >
-                         <CheckCircle className="w-4 h-4" /> Accept
-                       </button>
-                       <button 
-                         onClick={() => handleUpdateStatus(app.id, "rejected")}
-                         className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
-                       >
-                         <XCircle className="w-4 h-4" /> Reject
+                         <FileText className="w-4 h-4" /> Open Acceptance Form
                        </button>
                      </div>
                    ) : (
@@ -417,8 +430,42 @@ const AppliedStudentsPage = ({ companySession }) => {
                   )}
                 </div>
               )}
+
+              {app.acceptanceForm && (
+                <div className="mt-4 p-3 border border-blue-100 rounded-lg bg-blue-50 text-sm text-blue-700">
+                  Acceptance form submitted by company:{" "}
+                  <span className="font-bold">
+                    {app.acceptanceForm.accepted ? "Accepted" : app.acceptanceForm.rejected ? "Rejected" : "Pending"}
+                  </span>
+                </div>
+              )}
             </div>
           ))}
+        </div>
+      )}
+
+      {selectedApplication && (
+        <div className="fixed inset-0 bg-black/60 z-[150] p-4 overflow-y-auto">
+          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                Acceptance Form - {selectedApplication.studentName}
+              </h3>
+              <button onClick={() => setSelectedApplication(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-700">
+                Close
+              </button>
+            </div>
+
+            <InternshipAcceptanceForm
+              initialData={selectedApplication.acceptanceForm}
+              onSubmit={(formData) => {
+                handleUpdateStatus(selectedApplication.id, formData);
+                setSelectedApplication(null);
+              }}
+              readOnly={selectedApplication.status !== "Pending" && selectedApplication.status !== "applied"}
+              showActions
+            />
+          </div>
         </div>
       )}
     </div>
@@ -549,6 +596,8 @@ const CompanyDashboard = () => {
   };
 const InternsPage = ({ companySession }) => {
   const [interns, setInterns] = useState([]);
+  const [selectedIntern, setSelectedIntern] = useState(null);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const companyId = companySession?.id || companySession?.company_id;
 
   useEffect(() => {
@@ -572,6 +621,84 @@ const InternsPage = ({ companySession }) => {
     window.addEventListener("storage", loadInterns);
     return () => window.removeEventListener("storage", loadInterns);
   }, [companyId, companySession]);
+
+  const loadStudentLogbook = (intern) => {
+    const record = ensureWeeklyLogbookForInternship({
+      studentId: intern.studentId,
+      internshipId: intern.internshipId || intern.id,
+      companyId: intern.companyId || intern.companyName || "",
+      advisorId: intern.advisorName || "",
+    });
+    setSelectedRecord(record);
+  };
+
+  const openInternDetail = (intern) => {
+    setSelectedIntern(intern);
+    loadStudentLogbook(intern);
+  };
+
+  const persistCompanySupervisorFields = useCallback((formPayload) => {
+    if (!selectedIntern || !selectedRecord) return;
+    const weekSlice = formPayload.weeks?.[0];
+    if (!weekSlice) return;
+
+    updateWeeklyLogbookMeta(
+      {
+        studentId: selectedIntern.studentId,
+        internshipId: selectedIntern.internshipId || selectedIntern.id,
+        companyId: selectedIntern.companyId || selectedIntern.companyName || "",
+        advisorId: selectedIntern.advisorName || "",
+      },
+      { supervisorName: formPayload.supervisorName || "" }
+    );
+
+    const updated = updateWeekForInternship(
+      {
+        studentId: selectedIntern.studentId,
+        internshipId: selectedIntern.internshipId || selectedIntern.id,
+        companyId: selectedIntern.companyId || selectedIntern.companyName || "",
+        advisorId: selectedIntern.advisorName || "",
+      },
+      weekSlice.weekNumber,
+      (week) => ({
+        ...week,
+        days: week.days.map((day, i) => ({
+          ...day,
+          supervisorComment: weekSlice.days[i]?.supervisorComment ?? day.supervisorComment,
+        })),
+      })
+    );
+    setSelectedRecord(updated);
+  }, [selectedIntern, selectedRecord]);
+
+  const updateCompanyDecision = (weekNumber, action) => {
+    if (!selectedIntern) return;
+    const updated = updateWeekForInternship(
+      {
+        studentId: selectedIntern.studentId,
+        internshipId: selectedIntern.internshipId || selectedIntern.id,
+        companyId: selectedIntern.companyId || selectedIntern.companyName || "",
+        advisorId: selectedIntern.advisorName || "",
+      },
+      weekNumber,
+      (week) => {
+        if (week.status !== WEEK_STATUS.PENDING_COMPANY) return week;
+        if (action === "approve") {
+          return {
+            ...week,
+            companyStatus: "APPROVED",
+            status: WEEK_STATUS.PENDING_ADVISOR,
+          };
+        }
+        return {
+          ...week,
+          companyStatus: "REJECTED",
+          status: WEEK_STATUS.REJECTED_COMPANY,
+        };
+      }
+    );
+    setSelectedRecord(updated);
+  };
 
   // Group interns by internshipTitle
   const groupedInterns = interns.reduce((acc, intern) => {
@@ -615,7 +742,12 @@ const InternsPage = ({ companySession }) => {
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {studentList.map(intern => (
-                      <div key={intern.id} className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl transition-all border-l-4 border-l-blue-600 group">
+                     <button
+                       type="button"
+                       onClick={() => openInternDetail(intern)}
+                       key={intern.id}
+                       className="text-left bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl transition-all border-l-4 border-l-blue-600 group"
+                     >
                          <div className="flex items-center gap-4">
                             <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100 text-blue-600 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors capitalize">
                                {intern.studentName?.[0] || 'S'}
@@ -635,13 +767,80 @@ const InternsPage = ({ companySession }) => {
                                Active
                             </span>
                          </div>
-                      </div>
+                     </button>
                     ))}
                  </div>
               </div>
             ))}
          </div>
        )}
+
+      {selectedIntern && selectedRecord && (
+        <div className="fixed inset-0 bg-black/60 z-[160] p-4 overflow-y-auto">
+          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{selectedIntern.studentName} - Weekly Logbook</h3>
+                <p className="text-sm text-gray-500">Internship: {selectedIntern.internshipTitle || "General Internship"}</p>
+              </div>
+              <button onClick={() => { setSelectedIntern(null); setSelectedRecord(null); }} className="text-sm font-semibold text-gray-500 hover:text-gray-700">
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedRecord.weeks.map((week) => (
+                <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center gap-3">
+                    <p className="font-black text-gray-900">Week {week.weekNumber}</p>
+                    <span className="px-2.5 py-1 rounded-full border text-[10px] font-black uppercase bg-gray-100 text-gray-700 border-gray-200">
+                      {STATUS_LABELS[week.status]}
+                    </span>
+                  </div>
+
+                  <InternshipLogbookForm
+                    key={`${selectedIntern.studentId}-w${week.weekNumber}-${week.status}`}
+                    role="company"
+                    readOnly={week.status !== WEEK_STATUS.PENDING_COMPANY}
+                    title={`Week ${week.weekNumber}`}
+                    initialData={{
+                      studentName: selectedRecord.meta?.studentName || selectedIntern.studentName || "",
+                      companyName: selectedRecord.meta?.companyName || selectedIntern.companyName || "",
+                      supervisorName: selectedRecord.meta?.supervisorName || "",
+                      safetyBrief: selectedRecord.meta?.safetyBrief || "",
+                      weeks: [week],
+                    }}
+                    onValuesChange={persistCompanySupervisorFields}
+                  />
+
+                  <div className="text-[11px] font-semibold text-gray-600">
+                    Company: {week.companyStatus} | Advisor: {week.advisorStatus}
+                  </div>
+
+                  {week.status === WEEK_STATUS.PENDING_COMPANY ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateCompanyDecision(week.weekNumber, "approve")}
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => updateCompanyDecision(week.weekNumber, "reject")}
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 font-semibold">No company action available for this status.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

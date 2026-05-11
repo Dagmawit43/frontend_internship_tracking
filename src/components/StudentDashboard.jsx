@@ -6,6 +6,16 @@ import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import ApplicationModal from "./modals/ApplicationModal";
 import companiesMock from "../mock/companies.json";
+import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
+import InternshipLogbookForm from "./InternshipLogbookForm";
+import {
+  WEEK_STATUS,
+  STATUS_LABELS,
+  canStudentEditWeek,
+  ensureWeeklyLogbookForInternship,
+  updateWeekForInternship,
+  updateWeeklyLogbookMeta,
+} from "../utils/weeklyLogbook";
 
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0 }) => {
@@ -175,7 +185,21 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
   );
 };
 
-const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmit }) => {
+const buildInitialAcceptanceForm = ({ student, internship, applicationData }) => ({
+  ...ACCEPTANCE_FORM_DEFAULTS,
+  internName: student?.name || "",
+  idNo: student?.studentId || "",
+  college: student?.college || "Addis Ababa Science and Technology University",
+  department: student?.department || "",
+  mobile: student?.phone || "",
+  startDate: internship?.start_date || "",
+  endDate: internship?.end_date || "",
+  workingDays: internship?.days_in_week || "",
+  workingHours: internship?.total_hours || "",
+  orgName: applicationData?.companyName || internship?.company_name || "",
+});
+
+const AvailableInternships = ({ studentId, studentDepartment, studentProfile, onApplicationSubmit }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedInternship, setSelectedInternship] = useState(null);
@@ -250,6 +274,12 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
         internshipId: selectedInternship.id,
         internshipTitle: selectedInternship.title,
         status: "Pending",
+        applicationStatus: "PENDING_COMPANY_REVIEW",
+        acceptanceForm: buildInitialAcceptanceForm({
+          student: studentProfile,
+          internship: selectedInternship,
+          applicationData,
+        }),
         appliedAt: new Date().toISOString(),
       };
 
@@ -442,6 +472,7 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
 
 const AppliedInternshipsList = ({ studentId, studentName }) => {
   const [appliedInternships, setAppliedInternships] = useState([]);
+  const [previewForm, setPreviewForm] = useState(null);
 
   useEffect(() => {
     const loadApplied = () => {
@@ -480,7 +511,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
       if (window.confirm(`Are you sure you want to select ${app.companyName} for your internship? This will be sent to the Coordinator for final approval.`)) {
         // Update the specific application
         const updatedApps = allApps.map(a => 
-          a.id === app.id ? { ...a, coordinatorApprovalStatus: "PENDING" } : a
+          a.id === app.id ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() } : a
         );
         localStorage.setItem("applications", JSON.stringify(updatedApps));
         
@@ -490,6 +521,12 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     } catch (err) {
       console.error("Selection failed:", err);
     }
+  };
+
+  const formatAcceptanceStatus = (app) => {
+    if (app.acceptanceForm?.accepted) return "Accepted";
+    if (app.acceptanceForm?.rejected) return "Rejected";
+    return "Pending";
   };
 
   const getStatusDisplay = (status, coordStatus) => {
@@ -560,11 +597,21 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
                         <Clock className="w-3 h-3" />
                         <span>Applied on {new Date(app.appliedAt).toLocaleDateString()}</span>
                       </div>
+                      <div className="flex items-center gap-1.5 font-semibold text-gray-700">
+                        <FileText className="w-3 h-3" />
+                        <span>Acceptance Form: {formatAcceptanceStatus(app)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                   <button
+                     onClick={() => setPreviewForm(app)}
+                     className="px-4 py-1.5 border border-gray-300 text-gray-700 text-xs font-black uppercase rounded-full hover:bg-gray-100 transition-all w-full sm:w-auto whitespace-nowrap"
+                   >
+                     View Form
+                   </button>
                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border text-center w-full sm:w-auto ${statusConfig.classes}`}>
                      {statusConfig.text}
                    </span>
@@ -582,12 +629,27 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
           })}
         </div>
       )}
+
+      {previewForm && (
+        <div className="fixed inset-0 bg-black/60 z-[180] p-4 flex items-start justify-center overflow-y-auto">
+          <div className="w-full max-w-5xl mt-8 mb-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Completed Acceptance Form - {previewForm.companyName}</h3>
+              <button onClick={() => setPreviewForm(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-700">Close</button>
+            </div>
+            <InternshipAcceptanceForm initialData={previewForm.acceptanceForm} readOnly showActions />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const MyInternshipView = ({ studentId, studentName }) => {
   const [activeApp, setActiveApp] = useState(null);
+  const [weeklyLogbook, setWeeklyLogbook] = useState(null);
+  const [selectedWeek, setSelectedWeek] = useState(null);
+  const [draftWeek, setDraftWeek] = useState(null);
 
   useEffect(() => {
     const loadActive = () => {
@@ -608,8 +670,16 @@ const MyInternshipView = ({ studentId, studentName }) => {
           companyFull: company,
           internshipFull: internship
         });
+        const logbookRecord = ensureWeeklyLogbookForInternship({
+          studentId: found.studentId,
+          internshipId: found.internshipId || found.id,
+          companyId: found.companyId || found.companyName || "",
+          advisorId: found.advisorName || "",
+        });
+        setWeeklyLogbook(logbookRecord);
       } else {
         setActiveApp(null);
+        setWeeklyLogbook(null);
       }
     };
 
@@ -617,6 +687,73 @@ const MyInternshipView = ({ studentId, studentName }) => {
     window.addEventListener("storage", loadActive);
     return () => window.removeEventListener("storage", loadActive);
   }, [studentId, studentName]);
+
+  const openWeek = (week) => {
+    setSelectedWeek(week);
+    setDraftWeek(JSON.parse(JSON.stringify(week)));
+  };
+
+  const closeWeek = () => {
+    setSelectedWeek(null);
+    setDraftWeek(null);
+  };
+
+  const handleLogbookFormSubmit = (payload) => {
+    if (!activeApp || !selectedWeek) return;
+    const weekPayload = payload?.weeks?.[0];
+    if (!weekPayload) return;
+
+    updateWeeklyLogbookMeta(
+      {
+        studentId: activeApp.studentId,
+        internshipId: activeApp.internshipId || activeApp.id,
+        companyId: activeApp.companyId || activeApp.companyName || "",
+        advisorId: activeApp.advisorName || "",
+      },
+      {
+        studentName: payload.studentName || "",
+        companyName: payload.companyName || "",
+        safetyBrief: payload.safetyBrief || "",
+      }
+    );
+
+    const mergedDays = weekPayload.days.map((d, i) => ({
+      dayNumber: selectedWeek.days[i]?.dayNumber ?? i + 1,
+      workPerformed: d.workPerformed,
+      supervisorComment: selectedWeek.days[i]?.supervisorComment ?? "",
+    }));
+
+    const updated = updateWeekForInternship(
+      {
+        studentId: activeApp.studentId,
+        internshipId: activeApp.internshipId || activeApp.id,
+        companyId: activeApp.companyId || activeApp.companyName || "",
+        advisorId: activeApp.advisorName || "",
+      },
+      selectedWeek.weekNumber,
+      (week) => ({
+        ...week,
+        days: mergedDays,
+        status: WEEK_STATUS.PENDING_COMPANY,
+        companyStatus: "PENDING",
+        advisorStatus: "PENDING",
+      })
+    );
+    setWeeklyLogbook(updated);
+    closeWeek();
+  };
+
+  const getStatusPill = (status) => {
+    const map = {
+      [WEEK_STATUS.NOT_SUBMITTED]: "bg-gray-100 text-gray-700 border-gray-200",
+      [WEEK_STATUS.PENDING_COMPANY]: "bg-yellow-100 text-yellow-700 border-yellow-200",
+      [WEEK_STATUS.REJECTED_COMPANY]: "bg-red-100 text-red-700 border-red-200",
+      [WEEK_STATUS.PENDING_ADVISOR]: "bg-blue-100 text-blue-700 border-blue-200",
+      [WEEK_STATUS.REJECTED_ADVISOR]: "bg-red-100 text-red-700 border-red-200",
+      [WEEK_STATUS.APPROVED]: "bg-green-100 text-green-700 border-green-200",
+    };
+    return map[status] || map[WEEK_STATUS.NOT_SUBMITTED];
+  };
 
   if (!activeApp) {
     return (
@@ -720,6 +857,62 @@ const MyInternshipView = ({ studentId, studentName }) => {
           </div>
         </div>
       </div>
+
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
+          <p className="text-sm text-gray-600">
+            Click any week to view details, update work log (if editable), and submit.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {(weeklyLogbook?.weeks || []).map((week) => (
+            <button
+              key={week.weekNumber}
+              onClick={() => openWeek(week)}
+              className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50 transition"
+            >
+              <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
+              <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
+                {STATUS_LABELS[week.status]}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedWeek && draftWeek && (
+        <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
+          <div className="max-w-4xl mx-auto mt-8 mb-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Week {selectedWeek.weekNumber} Logbook</h3>
+              <button onClick={closeWeek} className="text-sm font-semibold text-gray-500 hover:text-gray-700">Close</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-xs font-bold">
+              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">Status: {STATUS_LABELS[draftWeek.status]}</div>
+              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">Company: {draftWeek.companyStatus}</div>
+              <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">Advisor: {draftWeek.advisorStatus}</div>
+            </div>
+
+            <InternshipLogbookForm
+              key={selectedWeek.weekNumber}
+              role="student"
+              title={`Internship Student Logbook Form - Week ${selectedWeek.weekNumber}`}
+              readOnly={!canStudentEditWeek(draftWeek.status)}
+              submitLabel="Submit Week to Company"
+              onSubmit={handleLogbookFormSubmit}
+              initialData={{
+                studentName: weeklyLogbook?.meta?.studentName || activeApp?.studentName || studentName || "",
+                companyName: weeklyLogbook?.meta?.companyName || activeApp?.companyName || "",
+                supervisorName: weeklyLogbook?.meta?.supervisorName || "",
+                safetyBrief: weeklyLogbook?.meta?.safetyBrief || "",
+                weeks: [draftWeek],
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1466,6 +1659,7 @@ const StudentDashboard = () => {
               <AvailableInternships 
                 studentId={studentData.studentId}
                 studentDepartment={studentData.department}
+                studentProfile={studentData}
                 onApplicationSubmit={handleApplicationSubmit}
               />
             )}
