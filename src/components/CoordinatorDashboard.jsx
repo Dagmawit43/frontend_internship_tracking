@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, Clock, Layers, Search, Filter, MapPin, FileText, Eye } from "lucide-react";
+import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, Clock, Layers, Search, Filter, MapPin, FileText, Eye, BookOpen, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
+import InternshipLogbookForm from "./InternshipLogbookForm";
+import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
+import {
+  WEEK_STATUS,
+  STATUS_LABELS,
+  ensureWeeklyLogbookForInternship,
+} from "../utils/weeklyLogbook";
+import {
+  EVAL_STATUS,
+  EVAL_STATUS_LABELS,
+  getEvaluation,
+} from "../utils/monthlyEvaluations";
 
 const getValidSession = () => {
   try {
@@ -444,6 +456,9 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const [activeInterns, setActiveInterns] = useState([]);
   const [advisorsPool, setAdvisorsPool] = useState([]);
   const [examinersPool, setExaminersPool] = useState([]);
+  const [selectedIntern, setSelectedIntern] = useState(null);
+  const [internDetailTab, setInternDetailTab] = useState("logbook");
+  const [logbookRecord, setLogbookRecord] = useState(null);
 
   useEffect(() => {
     const loadData = () => {
@@ -528,6 +543,18 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     window.dispatchEvent(new Event("storage"));
   };
 
+  const openInternDetail = (app) => {
+    const record = ensureWeeklyLogbookForInternship({
+      studentId: app.studentId,
+      internshipId: app.internshipId || app.id,
+      companyId: app.companyId || app.companyName || "",
+      advisorId: app.advisorName || "",
+    });
+    setLogbookRecord(record);
+    setInternDetailTab("logbook");
+    setSelectedIntern(app);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
@@ -574,6 +601,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                            </div>
                         </div>
                      </div>
+                     <button
+                       type="button"
+                       onClick={() => openInternDetail(app)}
+                       className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-bold rounded-xl border border-blue-200 transition-colors w-fit"
+                     >
+                       <Eye className="w-4 h-4" />
+                       View Progress
+                     </button>
                   </div>
 
                   <div className="flex-[2] grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">
@@ -684,6 +719,148 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Student progress modal (read-only) ── */}
+      {selectedIntern && (
+        <div className="fixed inset-0 bg-black/60 z-[200] p-4 overflow-y-auto">
+          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{selectedIntern.studentName}</h3>
+                <p className="text-sm text-gray-500">
+                  {selectedIntern.internshipTitle || "Internship"} · {selectedIntern.companyName}
+                </p>
+                <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
+                  {selectedIntern.advisorName && <span>Advisor: <strong>{selectedIntern.advisorName}</strong></span>}
+                  {selectedIntern.examinerName && <span>Examiner 1: <strong>{selectedIntern.examinerName}</strong></span>}
+                  {selectedIntern.examiner2Name && <span>Examiner 2: <strong>{selectedIntern.examiner2Name}</strong></span>}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedIntern(null); setLogbookRecord(null); }}
+                className="text-sm font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Inner tabs */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
+              <button
+                type="button"
+                onClick={() => setInternDetailTab("logbook")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <BookOpen className="w-4 h-4" /> Weekly Logbook
+              </button>
+              <button
+                type="button"
+                onClick={() => setInternDetailTab("monthly")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <ClipboardList className="w-4 h-4" /> Monthly Evaluation
+              </button>
+            </div>
+
+            {/* Weekly Logbook tab */}
+            {internDetailTab === "logbook" && logbookRecord && (
+              <div>
+                {logbookRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No logbook weeks submitted yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {logbookRecord.weeks
+                      .filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED)
+                      .map(week => {
+                        let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                        if (week.status === WEEK_STATUS.APPROVED) badgeClass = "bg-green-100 text-green-800 border-green-200";
+                        if (week.status === WEEK_STATUS.REJECTED_ADVISOR || week.status === WEEK_STATUS.REJECTED_COMPANY) badgeClass = "bg-red-100 text-red-800 border-red-200";
+                        if (week.status === WEEK_STATUS.PENDING_COMPANY) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
+                        return (
+                          <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50/30">
+                            <div className="flex justify-between items-center gap-2">
+                              <p className="font-black text-gray-900">Week {week.weekNumber}</p>
+                              <span className={`px-2.5 py-1 rounded-full border text-xs font-black uppercase ${badgeClass}`}>
+                                {STATUS_LABELS[week.status]}
+                              </span>
+                            </div>
+                            <InternshipLogbookForm
+                              role="viewer"
+                              readOnly
+                              title={`Week ${week.weekNumber}`}
+                              initialData={{
+                                studentName: logbookRecord.meta?.studentName || selectedIntern.studentName || "",
+                                companyName: logbookRecord.meta?.companyName || selectedIntern.companyName || "",
+                                supervisorName: logbookRecord.meta?.supervisorName || "",
+                                safetyBrief: logbookRecord.meta?.safetyBrief || "",
+                                weeks: [week],
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Monthly Evaluation tab */}
+            {internDetailTab === "monthly" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {[1, 2].map(month => {
+                  const rec = getEvaluation(selectedIntern.studentId, month);
+                  const status = rec?.status || EVAL_STATUS.NOT_STARTED;
+                  const badgeMap = {
+                    [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
+                    [EVAL_STATUS.SUBMITTED]:   "bg-blue-100 text-blue-700 border-blue-200",
+                    [EVAL_STATUS.APPROVED]:    "bg-green-100 text-green-700 border-green-200",
+                    [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
+                  };
+                  return (
+                    <div key={month} className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-gray-900">Month {month} Evaluation</h4>
+                        <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[status] || badgeMap[EVAL_STATUS.NOT_STARTED]}`}>
+                          {EVAL_STATUS_LABELS[status]}
+                        </span>
+                      </div>
+                      {status === EVAL_STATUS.NOT_STARTED ? (
+                        <p className="text-sm text-gray-400">Not submitted yet by the company.</p>
+                      ) : (
+                        <>
+                          {rec?.evaluationData?.totalMarks !== undefined && (
+                            <div className="flex gap-4 text-sm">
+                              <div className="flex-1 bg-white rounded-lg border border-gray-100 p-3 text-center">
+                                <p className="text-xs text-gray-400 font-medium mb-1">Total Score</p>
+                                <p className="text-xl font-black text-gray-900">{rec.evaluationData.totalMarks}<span className="text-xs font-normal text-gray-400">/100</span></p>
+                              </div>
+                              <div className="flex-1 bg-white rounded-lg border border-gray-100 p-3 text-center">
+                                <p className="text-xs text-gray-400 font-medium mb-1">Performance</p>
+                                <p className="text-xl font-black text-green-700">{rec.evaluationData.monthlyPerformance}<span className="text-xs font-normal text-gray-400">/20</span></p>
+                              </div>
+                            </div>
+                          )}
+                          <InternshipMonthlyEvaluation
+                            key={`coord-${selectedIntern.studentId}-m${month}`}
+                            initialData={rec?.evaluationData || {}}
+                            readOnly
+                            advisorComment={rec?.advisorComment || ""}
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
