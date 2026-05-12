@@ -26,7 +26,9 @@ import {
   getAdvisorEvaluation,
   ADVISOR_EVAL_STATUS,
 } from "../utils/advisorEvaluations";
+import { getExaminerEvaluationsForStudent } from "../utils/examinerEvaluations";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
+import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0 }) => {
@@ -678,6 +680,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [docUploadSuccess, setDocUploadSuccess] = useState(false);
   const docFileInputRef = useRef(null);
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
+  const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
 
   useEffect(() => {
     const loadActive = () => {
@@ -739,6 +742,27 @@ const MyInternshipView = ({ studentId, studentName }) => {
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
   }, [studentId]);
+
+  const normEvKey = (s) => String(s || "").trim().toLowerCase();
+
+  const examinerEvalsVisible = useMemo(() => {
+    if (!activeApp) return [];
+    const all = getExaminerEvaluationsForStudent(String(studentId));
+    const e1 = normEvKey(activeApp.examinerName);
+    const e2 = normEvKey(activeApp.examiner2Name);
+    if (!e1 && !e2) return [];
+    return all.filter((r) => r.examinerKey === e1 || r.examinerKey === e2);
+  }, [activeApp, studentId, examinerEvalNonce]);
+
+  useEffect(() => {
+    const bump = () => setExaminerEvalNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    window.addEventListener("examiner-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("examiner-evaluation-updated", bump);
+    };
+  }, []);
 
   const handleDocFile = (e) => {
     const file = e.target.files?.[0];
@@ -1001,6 +1025,21 @@ const MyInternshipView = ({ studentId, studentName }) => {
               <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" title="Available" />
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setInternshipSubTab("examiner-eval")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              internshipSubTab === "examiner-eval"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Examiner evaluation
+            {examinerEvalsVisible.length > 0 && (
+              <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" title="Available" />
+            )}
+          </button>
         </div>
 
         {internshipSubTab === "logbook" && (
@@ -1151,6 +1190,44 @@ const MyInternshipView = ({ studentId, studentName }) => {
           </div>
         )}
 
+        {internshipSubTab === "examiner-eval" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Examiner evaluation</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Your internal examiner(s) submit this form. It appears here after submission.
+              </p>
+            </div>
+            {examinerEvalsVisible.length === 0 ? (
+              <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
+                No examiner evaluation has been submitted yet.
+              </div>
+            ) : (
+              examinerEvalsVisible.map((rec) => (
+                <div key={rec.id} className="space-y-2">
+                  <p className="text-sm text-gray-500">
+                    Examiner: <span className="font-semibold text-gray-800">{rec.examinerName || "Examiner"}</span>
+                    <span className="block mt-0.5">
+                      Submitted {new Date(rec.submittedAt).toLocaleString()}
+                    </span>
+                  </p>
+                  <ExaminerUniversityEvaluationForm
+                    readOnly
+                    initialData={{
+                      ...(rec.formData || {}),
+                      studentName: activeApp.studentName || studentName,
+                      idNo: activeApp.studentId || studentId,
+                      department: activeApp.department || "",
+                      organization: activeApp.companyName || "",
+                      examinerName: rec.examinerName || rec.formData?.examinerName || "",
+                    }}
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {internshipSubTab === "advisor-eval" && (
           <div className="space-y-4">
             <div className="mb-2">
@@ -1179,9 +1256,16 @@ const MyInternshipView = ({ studentId, studentName }) => {
                     ...(advisorOwnEval.formData || {}),
                     studentName: activeApp.studentName || studentName,
                     studentId: activeApp.studentId || studentId,
+                    idNo: activeApp.studentId || studentId,
                     department: activeApp.department || "",
                     companyName: activeApp.companyName || "",
+                    organization: activeApp.companyName || "",
                     internshipTitle: activeApp.internshipTitle || "",
+                    supervisorName:
+                      advisorOwnEval.formData?.supervisorName ||
+                      advisorOwnEval.advisorName ||
+                      advisorOwnEval.formData?.advisorName ||
+                      "",
                   }}
                 />
               </>

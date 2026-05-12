@@ -1,72 +1,172 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Lock } from "lucide-react";
 
-const EMPTY = {
-  studentName: "",
-  studentId: "",
-  department: "",
-  companyName: "",
-  internshipTitle: "",
-  academicProgress: "0",
-  integrationAtCompany: "0",
-  communication: "0",
-  professionalism: "0",
-  overallProgress: "0",
-  strengths: "",
-  areasForImprovement: "",
-  recommendations: "",
-  advisorSignature: "",
-};
-
-const RATING_KEYS = [
-  { key: "academicProgress", label: "Academic progress & learning outcomes" },
-  { key: "integrationAtCompany", label: "Integration at the host organization" },
-  { key: "communication", label: "Communication & reporting" },
-  { key: "professionalism", label: "Professionalism & ethics" },
-  { key: "overallProgress", label: "Overall internship progress" },
+/** REPORT SECTION (out of 20) */
+export const ADVISOR_EVAL_REPORT_ITEMS = [
+  { title: "Format", weight: 2 },
+  { title: "Organization Background", weight: 2 },
+  { title: "Activities", weight: 3 },
+  { title: "Usage of Data/Figure/Table", weight: 4 },
+  { title: "Report Content", weight: 5 },
+  { title: "Recommendation", weight: 2 },
+  { title: "Conclusion", weight: 2 },
 ];
 
-const selectClass = (readOnly) =>
-  readOnly
-    ? "border border-gray-200 rounded-lg p-2 text-sm bg-gray-50 cursor-not-allowed"
-    : "border border-gray-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none";
+/** LOGBOOK SECTION (out of 5) — each item max 1 */
+export const ADVISOR_EVAL_LOGBOOK_ITEMS = [
+  { title: "Use of Pictures and Data", weight: 1 },
+  { title: "Weekly Summary", weight: 1 },
+  { title: "Daily Detail Report", weight: 1 },
+  { title: "Improvement", weight: 1 },
+  { title: "Initiative", weight: 1 },
+];
+
+/** STUDENT PERFORMANCE (out of 10) */
+export const ADVISOR_EVAL_PERFORMANCE_ITEMS = [
+  { title: "Understanding Objectives", weight: 5 },
+  { title: "Engagement Level", weight: 3 },
+  { title: "Discipline", weight: 2 },
+];
+
+const REPORT_MAX = ADVISOR_EVAL_REPORT_ITEMS.reduce((s, i) => s + i.weight, 0);
+const LOGBOOK_MAX = ADVISOR_EVAL_LOGBOOK_ITEMS.reduce((s, i) => s + i.weight, 0);
+const PERFORMANCE_MAX = ADVISOR_EVAL_PERFORMANCE_ITEMS.reduce((s, i) => s + i.weight, 0);
+const FINAL_MAX = REPORT_MAX + LOGBOOK_MAX + PERFORMANCE_MAX;
+
+const zeroScores = (len) => Array(len).fill(0);
+
+const normalizeScores = (arr, len) => {
+  if (!Array.isArray(arr) || arr.length !== len) return zeroScores(len);
+  return arr.map((v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  });
+};
+
+const buildEmpty = () => ({
+  studentName: "",
+  idNo: "",
+  department: "",
+  organization: "",
+  supervisorName: "",
+  reportScores: zeroScores(ADVISOR_EVAL_REPORT_ITEMS.length),
+  logbookScores: zeroScores(ADVISOR_EVAL_LOGBOOK_ITEMS.length),
+  performanceScores: zeroScores(ADVISOR_EVAL_PERFORMANCE_ITEMS.length),
+});
 
 /**
- * Academic advisor internship evaluation (advisor-authored).
- * @param {object} initialData - prefill (merged with EMPTY)
- * @param {boolean} readOnly - after submit
- * @param {function} onSubmit - (formPayload) => void
+ * Internship supervisor-style advisor evaluation (Report 20 + Logbook 5 + Performance 10 = /35).
+ * @param {object} initialData
+ * @param {boolean} readOnly
+ * @param {function} onSubmit
  */
 const AdvisorStudentEvaluationForm = ({
   initialData = {},
   readOnly = false,
   onSubmit,
 }) => {
-  const [form, setForm] = useState({ ...EMPTY, ...initialData });
-
-  useEffect(() => {
-    setForm({ ...EMPTY, ...initialData });
+  const mergedInitial = useMemo(() => {
+    const empty = buildEmpty();
+    const raw = { ...empty, ...initialData };
+    raw.idNo = initialData.idNo ?? initialData.studentId ?? raw.idNo ?? "";
+    raw.organization =
+      initialData.organization ?? initialData.companyName ?? raw.organization ?? "";
+    raw.supervisorName =
+      initialData.supervisorName ??
+      initialData.advisorName ??
+      initialData.examinerName ??
+      raw.supervisorName ??
+      "";
+    raw.reportScores = normalizeScores(
+      initialData.reportScores,
+      ADVISOR_EVAL_REPORT_ITEMS.length
+    );
+    raw.logbookScores = normalizeScores(
+      initialData.logbookScores,
+      ADVISOR_EVAL_LOGBOOK_ITEMS.length
+    );
+    raw.performanceScores = normalizeScores(
+      initialData.performanceScores,
+      ADVISOR_EVAL_PERFORMANCE_ITEMS.length
+    );
+    return raw;
   }, [initialData]);
 
-  const setField = (key, value) => {
+  const [form, setForm] = useState(mergedInitial);
+
+  useEffect(() => {
+    setForm(mergedInitial);
+  }, [mergedInitial]);
+
+  const handleChange = (section, index, value) => {
     if (readOnly) return;
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const updated = [...prev[section]];
+      updated[index] = Number(value);
+      return { ...prev, [section]: updated };
+    });
   };
 
-  const totalRating = RATING_KEYS.reduce(
-    (sum, { key }) => sum + Number(form[key] || 0),
-    0
+  const setSupervisorName = (value) => {
+    if (readOnly) return;
+    setForm((prev) => ({ ...prev, supervisorName: value }));
+  };
+
+  const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+  const reportTotal = sum(form.reportScores);
+  const logbookTotal = sum(form.logbookScores);
+  const performanceTotal = sum(form.performanceScores);
+  const finalMark = (reportTotal + logbookTotal + performanceTotal).toFixed(2);
+
+  const selectClass = readOnly
+    ? "border border-gray-200 rounded p-1 text-sm bg-gray-50 cursor-not-allowed min-w-[3.5rem]"
+    : "border border-gray-300 rounded p-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none min-w-[3.5rem]";
+
+  const renderSection = (title, items, sectionKey) => (
+    <div className="mb-6">
+      <h2 className="font-bold text-lg mb-3 text-gray-900">{title}</h2>
+      {items.map((item, i) => (
+        <div
+          key={`${sectionKey}-${item.title}`}
+          className="flex flex-wrap justify-between items-center gap-2 mb-2 border border-gray-200 p-2 rounded bg-gray-50/50"
+        >
+          <span className="text-sm text-gray-800">
+            {item.title} (Max {item.weight})
+          </span>
+          <select
+            className={selectClass}
+            value={form[sectionKey][i]}
+            disabled={readOnly}
+            onChange={(e) => handleChange(sectionKey, i, e.target.value)}
+          >
+            {Array.from({ length: item.weight + 1 }, (_, n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+      ))}
+    </div>
   );
-  const maxRating = RATING_KEYS.length * 5;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (readOnly || !onSubmit) return;
-    onSubmit({ ...form, totalRating, maxRating });
+    onSubmit({
+      ...form,
+      reportScores: [...form.reportScores],
+      logbookScores: [...form.logbookScores],
+      performanceScores: [...form.performanceScores],
+      reportTotal,
+      logbookTotal,
+      performanceTotal,
+      finalMark: Number(finalMark),
+    });
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 bg-white shadow rounded-xl border border-gray-200">
       {readOnly && (
         <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 font-medium">
           <Lock className="w-4 h-4 text-gray-400 shrink-0" />
@@ -75,127 +175,76 @@ const AdvisorStudentEvaluationForm = ({
       )}
 
       <form onSubmit={handleSubmit} noValidate>
-        <h2 className="text-xl font-bold text-blue-700 mb-1 border-b border-blue-100 pb-2">
-          Academic Advisor — Internship Evaluation
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Addis Ababa Science and Technology University · Supervisor assessment of student performance during placement
-        </p>
+        <h1 className="text-2xl font-bold text-center mb-6 text-gray-900">
+          Internship Supervisor Evaluation Form
+        </h1>
 
-        <h3 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">Student & placement</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <input
-            className="border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-gray-700"
+            className="border border-gray-200 rounded p-2 text-sm bg-gray-50 text-gray-800"
+            placeholder="Student Name"
             value={form.studentName}
             readOnly
-            placeholder="Student name"
           />
           <input
-            className="border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-gray-700"
-            value={form.studentId}
+            className="border border-gray-200 rounded p-2 text-sm bg-gray-50 text-gray-800"
+            placeholder="ID No"
+            value={form.idNo}
             readOnly
-            placeholder="ID"
           />
           <input
-            className="border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-gray-700"
+            className="border border-gray-200 rounded p-2 text-sm bg-gray-50 text-gray-800"
+            placeholder="Department"
             value={form.department}
             readOnly
-            placeholder="Department"
           />
           <input
-            className="border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-gray-700"
-            value={form.companyName}
-            readOnly
+            className="border border-gray-200 rounded p-2 text-sm bg-gray-50 text-gray-800"
             placeholder="Organization"
-          />
-          <input
-            className="border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 text-gray-700 sm:col-span-2"
-            value={form.internshipTitle}
+            value={form.organization}
             readOnly
-            placeholder="Internship title"
           />
         </div>
 
-        <h3 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">
-          Performance (0–5 each)
-        </h3>
-        <div className="space-y-3 mb-6">
-          {RATING_KEYS.map(({ key, label }) => (
-            <div
-              key={key}
-              className="flex flex-wrap justify-between items-center gap-2 border-b border-gray-100 pb-2"
-            >
-              <label className="text-sm text-gray-800 font-medium">{label}</label>
-              <select
-                className={selectClass(readOnly)}
-                value={String(form[key] ?? "0")}
-                disabled={readOnly}
-                onChange={(e) => setField(key, e.target.value)}
-              >
-                {[0, 1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
+        {renderSection("1. REPORT (20)", ADVISOR_EVAL_REPORT_ITEMS, "reportScores")}
+        {renderSection("2. LOG BOOK (5)", ADVISOR_EVAL_LOGBOOK_ITEMS, "logbookScores")}
+        {renderSection(
+          "3. STUDENT PERFORMANCE (10)",
+          ADVISOR_EVAL_PERFORMANCE_ITEMS,
+          "performanceScores"
+        )}
 
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
-          <p className="text-sm font-semibold text-gray-800">
-            Rating total: {totalRating} / {maxRating}
+        <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200 text-sm text-gray-800">
+          <p>
+            <span className="font-semibold">Report Total:</span> {reportTotal} / {REPORT_MAX}
           </p>
+          <p>
+            <span className="font-semibold">Logbook Total:</span> {logbookTotal} / {LOGBOOK_MAX}
+          </p>
+          <p>
+            <span className="font-semibold">Performance Total:</span> {performanceTotal} /{" "}
+            {PERFORMANCE_MAX}
+          </p>
+          <hr className="my-2 border-gray-300" />
+          <h2 className="text-xl font-bold text-gray-900">
+            FINAL MARK: {finalMark} / {FINAL_MAX}
+          </h2>
         </div>
 
-        <h3 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-2">Narrative</h3>
-        <div className="space-y-3 mb-6">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Strengths observed</label>
-            <textarea
-              className={`w-full border rounded-lg p-2 text-sm min-h-[80px] ${readOnly ? "bg-gray-50 border-gray-200" : "border-gray-300"}`}
-              value={form.strengths}
-              readOnly={readOnly}
-              onChange={(e) => setField("strengths", e.target.value)}
-              placeholder="Describe strengths…"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Areas for improvement</label>
-            <textarea
-              className={`w-full border rounded-lg p-2 text-sm min-h-[80px] ${readOnly ? "bg-gray-50 border-gray-200" : "border-gray-300"}`}
-              value={form.areasForImprovement}
-              readOnly={readOnly}
-              onChange={(e) => setField("areasForImprovement", e.target.value)}
-              placeholder="Optional constructive feedback…"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Recommendations</label>
-            <textarea
-              className={`w-full border rounded-lg p-2 text-sm min-h-[80px] ${readOnly ? "bg-gray-50 border-gray-200" : "border-gray-300"}`}
-              value={form.recommendations}
-              readOnly={readOnly}
-              onChange={(e) => setField("recommendations", e.target.value)}
-              placeholder="Next steps, coursework, or follow-up…"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-gray-500 mb-1">Advisor name (signature)</label>
+        <div className="mt-6">
           <input
-            type="text"
-            className={`w-full border rounded-lg p-2 text-sm max-w-md ${readOnly ? "bg-gray-50 border-gray-200" : "border-gray-300"}`}
-            value={form.advisorSignature}
+            className={`w-full border rounded p-2 text-sm ${
+              readOnly ? "border-gray-200 bg-gray-50" : "border-gray-300 bg-white"
+            }`}
+            placeholder="Supervisor Name & Signature"
+            value={form.supervisorName}
             readOnly={readOnly}
-            onChange={(e) => setField("advisorSignature", e.target.value)}
-            placeholder="Printed name"
+            onChange={(e) => setSupervisorName(e.target.value)}
           />
         </div>
 
         {!readOnly && onSubmit && (
-          <div className="mt-6 pt-4 border-t border-gray-100">
+          <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm"

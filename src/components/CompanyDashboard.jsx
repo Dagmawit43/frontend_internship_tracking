@@ -31,6 +31,11 @@ import {
   getFinalEvaluation,
   submitFinalEvaluation,
 } from "../utils/finalEvaluations";
+import {
+  getAdvisorEvaluation,
+  ADVISOR_EVAL_STATUS,
+} from "../utils/advisorEvaluations";
+import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 
 // ─── session helper ───────────────────────────────────────────────────────────
 const getValidCompanySession = () => {
@@ -438,6 +443,7 @@ const InternsPage = ({ companySession }) => {
   const [finalEvalRecord, setFinalEvalRecord] = useState(null);
   /** True after "Start Final Evaluation" so the form shows while status is still NOT_STARTED */
   const [finalEvalDraftOpen, setFinalEvalDraftOpen] = useState(false);
+  const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
   const companyId = companySession?.id || companySession?.company_id;
 
   const emptyFinalFormData = () => ({
@@ -468,6 +474,21 @@ const InternsPage = ({ companySession }) => {
     window.addEventListener("storage", load);
     return () => window.removeEventListener("storage", load);
   }, [companyId, companySession]);
+
+  useEffect(() => {
+    const bump = () => setAdvisorEvalNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    window.addEventListener("advisor-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("advisor-evaluation-updated", bump);
+    };
+  }, []);
+
+  const internAdvisorEval = useMemo(() => {
+    if (!selectedIntern) return null;
+    return getAdvisorEvaluation(selectedIntern.studentId);
+  }, [selectedIntern, advisorEvalNonce]);
 
   // Auto-reminders: which interns have evaluations not yet submitted
   const reminders = useMemo(() => {
@@ -659,15 +680,21 @@ const InternsPage = ({ companySession }) => {
             </div>
 
             {/* Inner tabs */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
-              <button type="button" onClick={() => { setInternDetailTab("logbook"); setOpenEvalMonth(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl mb-6">
+              <button type="button" onClick={() => { setInternDetailTab("logbook"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 <FileText className="w-4 h-4" /> Weekly Logbook
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 <ClipboardList className="w-4 h-4" /> Monthly Evaluation
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 <ClipboardList className="w-4 h-4" /> Final Evaluation
+              </button>
+              <button type="button" onClick={() => { setInternDetailTab("advisor-eval"); setOpenEvalMonth(null); setFinalEvalDraftOpen(false); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "advisor-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <GraduationCap className="w-4 h-4" /> Advisor evaluation
+                {internAdvisorEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                  <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Submitted by advisor" />
+                )}
               </button>
             </div>
 
@@ -848,6 +875,46 @@ const InternsPage = ({ companySession }) => {
                 </div>
               );
             })()}
+
+            {internDetailTab === "advisor-eval" && selectedIntern && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  The university academic advisor&apos;s evaluation for this intern (read only).
+                </p>
+                {!internAdvisorEval ||
+                internAdvisorEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
+                    The academic advisor has not submitted their evaluation for this student yet.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      Submitted {new Date(internAdvisorEval.submittedAt).toLocaleString()}
+                      {internAdvisorEval.advisorName && (
+                        <span className="block mt-1 font-semibold text-gray-800">
+                          Advisor: {internAdvisorEval.advisorName}
+                        </span>
+                      )}
+                    </p>
+                    <AdvisorStudentEvaluationForm
+                      readOnly
+                      initialData={{
+                        ...(internAdvisorEval.formData || {}),
+                        studentName: selectedIntern.studentName || "",
+                        idNo: selectedIntern.studentId || "",
+                        department: selectedIntern.department || "",
+                        organization: selectedIntern.companyName || "",
+                        supervisorName:
+                          internAdvisorEval.formData?.supervisorName ||
+                          internAdvisorEval.advisorName ||
+                          internAdvisorEval.formData?.advisorName ||
+                          "",
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

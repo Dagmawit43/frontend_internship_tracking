@@ -51,6 +51,8 @@ import {
   submitAdvisorEvaluation,
   ADVISOR_EVAL_STATUS,
 } from "../utils/advisorEvaluations";
+import { getExaminerEvaluationsForStudent } from "../utils/examinerEvaluations";
+import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 const normStr = (s) => String(s || "").trim().toLowerCase();
 
@@ -293,6 +295,7 @@ const AdvisorDashboard = () => {
   const [selectedDocQueue, setSelectedDocQueue] = useState(null); // { doc, studentApp }
   const [internshipDocsNonce, setInternshipDocsNonce] = useState(0);
   const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
+  const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [docQueueComment, setDocQueueComment] = useState("");
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
@@ -345,9 +348,16 @@ const AdvisorDashboard = () => {
     const bump = () => {
       setInternshipDocsNonce((n) => n + 1);
       setAdvisorEvalNonce((n) => n + 1);
+      setExaminerEvalNonce((n) => n + 1);
     };
     window.addEventListener("storage", bump);
     return () => window.removeEventListener("storage", bump);
+  }, []);
+
+  useEffect(() => {
+    const bumpExaminer = () => setExaminerEvalNonce((n) => n + 1);
+    window.addEventListener("examiner-evaluation-updated", bumpExaminer);
+    return () => window.removeEventListener("examiner-evaluation-updated", bumpExaminer);
   }, []);
 
   const pendingWeeksCount = useMemo(() => {
@@ -414,15 +424,23 @@ const AdvisorDashboard = () => {
   const advisorEvalFormInitial = useMemo(() => {
     if (!selectedStudent) return {};
     const rec = selectedAdvisorEval;
+    const advisorLabel =
+      session?.fullName || session?.name || session?.username || "";
     return {
       ...(rec?.formData || {}),
       studentName: selectedStudent.studentName || "",
       studentId: selectedStudent.studentId || "",
+      idNo: selectedStudent.studentId || "",
       department: selectedStudent.department || "",
       companyName: selectedStudent.companyName || "",
+      organization: selectedStudent.companyName || "",
       internshipTitle: selectedStudent.internshipTitle || "",
+      supervisorName:
+        rec?.formData?.supervisorName ||
+        rec?.formData?.advisorName ||
+        advisorLabel,
     };
-  }, [selectedStudent, selectedAdvisorEval]);
+  }, [selectedStudent, selectedAdvisorEval, session]);
 
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
@@ -438,7 +456,7 @@ const AdvisorDashboard = () => {
     return n;
   }, [assignedStudents]);
 
-  const openStudent = (studentApp) => {
+  const openStudent = (studentApp, initialDetailTab = "logbook") => {
     const record = ensureWeeklyLogbookForInternship({
       studentId: studentApp.studentId,
       internshipId: studentApp.internshipId || studentApp.id,
@@ -447,7 +465,7 @@ const AdvisorDashboard = () => {
     });
     setSelectedStudent(studentApp);
     setSelectedLogbook(record);
-    setStudentDetailTab("logbook");
+    setStudentDetailTab(initialDetailTab);
   };
 
   const handleAdvisorDecision = (weekNumber, action) => {
@@ -581,7 +599,7 @@ const AdvisorDashboard = () => {
           statSecondary={pendingWeeksCount}
         />
 
-        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-5xl overflow-x-auto scrollbar-hide">
+        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-7xl overflow-x-auto scrollbar-hide">
           <button
             type="button"
             onClick={() => setActiveTab("students")}
@@ -646,6 +664,26 @@ const AdvisorDashboard = () => {
                 {pendingAdvisorDocuments.length}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advisor-my-evals")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "advisor-my-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4 shrink-0" />
+            My evaluations
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advisor-examiner-evals")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "advisor-examiner-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4 shrink-0" />
+            Examiner evaluations
           </button>
         </div>
 
@@ -909,6 +947,158 @@ const AdvisorDashboard = () => {
                 )}
               </div>
             )}
+
+            {activeTab === "advisor-my-evals" && (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
+                  <p className="text-gray-600">
+                    Your advisor-authored internship evaluations for each assigned student. Open a student from My Students to submit or change (until submitted).
+                  </p>
+                </div>
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : (
+                  <div className="space-y-8">
+                    {assignedStudents.map((app) => {
+                      const ev = getAdvisorEvaluation(app.studentId);
+                      const submitted = ev?.status === ADVISOR_EVAL_STATUS.SUBMITTED;
+                      return (
+                        <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/30 space-y-3">
+                          <div className="flex flex-wrap justify-between items-start gap-3">
+                            <div>
+                              <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                              <p className="text-sm text-gray-500">{app.companyName} · {app.internshipTitle || "Internship"}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab("students");
+                                openStudent(app, "advisor-eval");
+                              }}
+                              className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
+                            >
+                              {submitted ? "View in student" : "Open to submit"}
+                            </button>
+                          </div>
+                          {submitted ? (
+                            <AdvisorStudentEvaluationForm
+                              readOnly
+                              initialData={{
+                                ...(ev.formData || {}),
+                                studentName: app.studentName || "",
+                                idNo: app.studentId || "",
+                                department: app.department || "",
+                                organization: app.companyName || "",
+                                internshipTitle: app.internshipTitle || "",
+                                supervisorName:
+                                  ev.formData?.supervisorName || ev.advisorName || ev.formData?.advisorName || "",
+                              }}
+                            />
+                          ) : (
+                            <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                              You have not submitted your evaluation for this student yet. Use &quot;Open to submit&quot; to complete the form.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "advisor-examiner-evals" && (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Examiner evaluations</h2>
+                  <p className="text-gray-600">
+                    Internal examiner 1 and examiner 2 submissions for each student (read only).
+                  </p>
+                </div>
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : (
+                  <div className="space-y-10" key={examinerEvalNonce}>
+                    {assignedStudents.map((app) => {
+                      const allEv = getExaminerEvaluationsForStudent(app.studentId);
+                      const k1 = normStr(app.examinerName);
+                      const k2 = normStr(app.examiner2Name);
+                      const ev1 = k1 ? allEv.find((e) => e.examinerKey === k1) : null;
+                      const ev2 = k2 ? allEv.find((e) => e.examinerKey === k2) : null;
+                      return (
+                        <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4 bg-gray-50/20">
+                          <h3 className="font-bold text-lg text-gray-900 border-b border-gray-100 pb-2">
+                            {app.studentName}
+                            <span className="block text-sm font-normal text-gray-500 mt-1">{app.companyName}</span>
+                          </h3>
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                                Examiner 1{app.examinerName ? ` — ${app.examinerName}` : ""}
+                              </h4>
+                              {!app.examinerName ? (
+                                <p className="text-sm text-gray-500">No examiner 1 assigned on this application.</p>
+                              ) : !ev1 ? (
+                                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                  Examiner 1 has not submitted an evaluation yet.
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="text-xs text-gray-500">
+                                    Submitted {new Date(ev1.submittedAt).toLocaleString()}
+                                  </p>
+                                  <ExaminerUniversityEvaluationForm
+                                    readOnly
+                                    initialData={{
+                                      ...(ev1.formData || {}),
+                                      studentName: app.studentName || "",
+                                      idNo: app.studentId || "",
+                                      department: app.department || "",
+                                      organization: app.companyName || "",
+                                      examinerName: ev1.examinerName || ev1.formData?.examinerName || "",
+                                    }}
+                                  />
+                                </>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                                Examiner 2{app.examiner2Name ? ` — ${app.examiner2Name}` : ""}
+                              </h4>
+                              {!app.examiner2Name ? (
+                                <p className="text-sm text-gray-500">No examiner 2 assigned on this application.</p>
+                              ) : !ev2 ? (
+                                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                                  Examiner 2 has not submitted an evaluation yet.
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="text-xs text-gray-500">
+                                    Submitted {new Date(ev2.submittedAt).toLocaleString()}
+                                  </p>
+                                  <ExaminerUniversityEvaluationForm
+                                    readOnly
+                                    initialData={{
+                                      ...(ev2.formData || {}),
+                                      studentName: app.studentName || "",
+                                      idNo: app.studentId || "",
+                                      department: app.department || "",
+                                      organization: app.companyName || "",
+                                      examinerName: ev2.examinerName || ev2.formData?.examinerName || "",
+                                    }}
+                                  />
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -955,6 +1145,10 @@ const AdvisorDashboard = () => {
                 <li className="flex gap-3">
                   <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
                   Monthly evaluations submitted by the company appear in the <strong className="text-gray-800">Monthly Evaluations</strong> tab for your review.
+                </li>
+                <li className="flex gap-3">
+                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  Use <strong className="text-gray-800">My evaluations</strong> and <strong className="text-gray-800">Examiner evaluations</strong> (next to Document queue) to review submissions across all students.
                 </li>
                 <li className="flex gap-3">
                   <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />

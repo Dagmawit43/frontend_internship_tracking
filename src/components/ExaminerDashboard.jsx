@@ -1,24 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
-  CheckCircle, ClipboardList, Eye, X,
+  CheckCircle, ClipboardList, X, FileText,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  getDocumentsByStudentId,
+  getExaminerEvaluation,
+  submitExaminerEvaluation,
+} from "../utils/examinerEvaluations";
+import {
+  getDocumentsForExaminerStudents,
   examinerDecideInternshipDocument,
   examinerCanReviewDocument,
   ROLE_DOC_STATUS,
 } from "../utils/internshipDocuments";
+import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayName }) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
 
   const reload = () => {
-    const list = getDocumentsByStudentId(studentId).filter((d) =>
+    const list = getDocumentsForExaminerStudents(examinerIdentity, [studentId]).filter((d) =>
       examinerCanReviewDocument(d, examinerIdentity)
     );
     setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
@@ -121,8 +126,78 @@ const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayNam
   );
 };
 
+const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, onDecided }) => {
+  const [comment, setComment] = useState("");
+  const pending = doc.examinerStatus === ROLE_DOC_STATUS.PENDING;
+
+  const decide = (action) => {
+    examinerDecideInternshipDocument(doc.id, action, comment, displayName || examinerIdentity);
+    onDecided?.();
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/40 space-y-3">
+      <div className="flex flex-wrap justify-between gap-2 items-start">
+        <div>
+          <h4 className="font-bold text-gray-900">{doc.title}</h4>
+          <p className="text-xs text-gray-500 mt-1">
+            {studentApp?.studentName || doc.studentName} · {studentApp?.companyName || ""}
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Submitted {new Date(doc.submittedAt).toLocaleString()} · Advisor: {doc.advisorStatus}
+          </p>
+          {doc.description && <p className="text-sm text-gray-600 mt-2">{doc.description}</p>}
+        </div>
+        <a
+          href={doc.fileData}
+          download={doc.fileName}
+          className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+        >
+          Download
+        </a>
+      </div>
+      {pending ? (
+        <div className="pt-2 space-y-2 border-t border-gray-100">
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+            placeholder="Optional comment for the student"
+          />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={() => decide("approve")}
+              className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4" /> Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => decide("reject")}
+              className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-600">
+          Your status: <strong>{doc.examinerStatus}</strong>
+          {doc.examinerComment && (
+            <span className="block mt-1">
+              <strong>Comment:</strong> {doc.examinerComment}
+            </span>
+          )}
+        </p>
+      )}
+    </div>
+  );
+};
+
 // ─── Top Nav ──────────────────────────────────────────────────────────────────
-const StaffTopNavigation = ({ displayName, roleLabel }) => {
+const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -144,6 +219,12 @@ const StaffTopNavigation = ({ displayName, roleLabel }) => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button type="button" className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
+              <Bell className="w-5 h-5" />
+              {notificationCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </button>
             <button
               type="button"
               onClick={handleLogout}
@@ -216,9 +297,11 @@ const ExaminerDashboard = () => {
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [examinerDetailTab, setExaminerDetailTab] = useState("overview");
+  const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
+  const [mainTab, setMainTab] = useState("students");
+  const [studentModalTab, setStudentModalTab] = useState("eval");
+  const [docQueueNonce, setDocQueueNonce] = useState(0);
 
-  // Auth check
   useEffect(() => {
     const s = JSON.parse(localStorage.getItem("user"));
     if (!s || s.role !== "Examiner") {
@@ -228,12 +311,10 @@ const ExaminerDashboard = () => {
     setSession(s);
   }, [navigate]);
 
-  // Derive examiner identity after session loads
   const examinerIdentity = session
     ? String(session.fullName || session.name || session.username || "").trim().toLowerCase()
     : "";
 
-  // Load assigned students
   useEffect(() => {
     if (!examinerIdentity) return;
     const load = () => {
@@ -251,7 +332,47 @@ const ExaminerDashboard = () => {
     return () => window.removeEventListener("storage", load);
   }, [examinerIdentity]);
 
-  // Loading state
+  useEffect(() => {
+    const bump = () => {
+      setExaminerEvalNonce((n) => n + 1);
+      setDocQueueNonce((n) => n + 1);
+    };
+    window.addEventListener("storage", bump);
+    window.addEventListener("examiner-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("examiner-evaluation-updated", bump);
+    };
+  }, []);
+
+  const assignedStudentIds = useMemo(() => assignedStudents.map((a) => a.studentId), [assignedStudents]);
+
+  const pendingExaminerDocuments = useMemo(() => {
+    if (!examinerIdentity) return [];
+    return getDocumentsForExaminerStudents(examinerIdentity, assignedStudentIds).filter(
+      (d) => d.examinerStatus === ROLE_DOC_STATUS.PENDING
+    );
+  }, [examinerIdentity, assignedStudentIds, docQueueNonce]);
+
+  const examinerOwnEval = useMemo(() => {
+    if (!selectedStudent || !examinerIdentity) return null;
+    return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity);
+  }, [selectedStudent, examinerIdentity, examinerEvalNonce]);
+
+  const examinerEvalFormInitial = useMemo(() => {
+    if (!selectedStudent || !session) return {};
+    const rec = examinerOwnEval;
+    const dn = session.fullName || session.name || session.username || "Examiner";
+    return {
+      ...(rec?.formData || {}),
+      studentName: selectedStudent.studentName || "",
+      idNo: selectedStudent.studentId || "",
+      department: selectedStudent.department || "",
+      organization: selectedStudent.companyName || "",
+      examinerName: rec?.formData?.examinerName || dn,
+    };
+  }, [selectedStudent, examinerOwnEval, session]);
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -264,105 +385,175 @@ const ExaminerDashboard = () => {
   }
 
   const displayName = session.fullName || session.name || session.username || "Examiner";
-  const department  = session.department || "";
+  const department = session.department || "";
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <StaffTopNavigation displayName={displayName} roleLabel="Internal Examiner" />
+      <StaffTopNavigation
+        displayName={displayName}
+        roleLabel="Internal Examiner"
+        notificationCount={pendingExaminerDocuments.length}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <WelcomeHeader
           name={displayName}
           department={department}
           roleLabel="Internal Examiner"
-          subtitle="View the list of students assigned to you as internal examiner."
+          subtitle="Review assigned students, submit examiner evaluations, and clear your document queue."
           statPrimary={assignedStudents.length}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Student list */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
-                <p className="text-gray-600">Active placements where you are the internal examiner.</p>
+        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-3xl">
+          <button
+            type="button"
+            onClick={() => setMainTab("students")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
+              mainTab === "students" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <User className="w-4 h-4" />
+            Assigned students
+          </button>
+          <button
+            type="button"
+            onClick={() => setMainTab("doc-queue")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
+              mainTab === "doc-queue" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Document queue
+            {pendingExaminerDocuments.length > 0 && (
+              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {pendingExaminerDocuments.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {mainTab === "students" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
+                  <p className="text-gray-600">Active placements where you are the internal examiner.</p>
+                </div>
+
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No students are assigned to you as examiner yet.</p>
+                    <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                      When a coordinator assigns you on an active internship application, students will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {assignedStudents.map((app) => (
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={() => {
+                          setStudentModalTab("eval");
+                          setSelectedStudent(app);
+                        }}
+                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30 hover:border-blue-200"
+                      >
+                        <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
+                        <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 font-medium">
+                          <Briefcase className="w-4 h-4" />
+                          <span>{app.internshipTitle || "Internship"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Building2 className="w-4 h-4" />
+                          <span>{app.companyName}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3 font-medium">Click for evaluation &amp; documents</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Assigned students</span>
+                  <span className="text-lg font-bold text-gray-900">{assignedStudents.length}</span>
+                </div>
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-sm text-gray-600">Pending documents</span>
+                  <span className="text-lg font-bold text-amber-600">{pendingExaminerDocuments.length}</span>
+                </div>
               </div>
 
-              {assignedStudents.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                  <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No students are assigned to you as examiner yet.</p>
-                  <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                    When a coordinator assigns you on an active internship application, students will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {assignedStudents.map((app) => (
-                    <button
-                      key={app.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedStudent(app);
-                        setExaminerDetailTab("overview");
-                      }}
-                      className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30 hover:border-blue-200"
-                    >
-                      <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                      <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 font-medium">
-                        <Briefcase className="w-4 h-4" />
-                        <span>{app.internshipTitle || "Internship"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Building2 className="w-4 h-4" />
-                        <span>{app.companyName}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-3 font-medium">Click to view student details</p>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                  Your role
+                </h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Open a student to fill the examiner evaluation and review their internship documents. Use{" "}
+                  <strong className="text-gray-800">Document queue</strong> for all pending files across students.
+                </p>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Assigned students</span>
-                <span className="text-lg font-bold text-gray-900">{assignedStudents.length}</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-blue-600" />
-                Your role
-              </h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                As an internal examiner you can view the list of students assigned to you.
-                Logbook reviews and approvals are handled by the academic advisor.
+        {mainTab === "doc-queue" && (
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 max-w-4xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
+              <p className="text-gray-600">
+                Student uploads that need your approval (advisor approves separately).
               </p>
             </div>
+            {assignedStudents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No students assigned.</div>
+            ) : pendingExaminerDocuments.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No documents waiting for your review.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pendingExaminerDocuments.map((doc) => {
+                  const studentApp = assignedStudents.find((a) => String(a.studentId) === String(doc.studentId));
+                  return (
+                    <ExaminerDocQueueRow
+                      key={doc.id}
+                      doc={doc}
+                      studentApp={studentApp}
+                      examinerIdentity={examinerIdentity}
+                      displayName={displayName}
+                      onDecided={() => setDocQueueNonce((n) => n + 1)}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Student detail modal */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
-          <div className="max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">{selectedStudent.studentName}</h3>
-                <p className="text-sm text-gray-500 mt-1">Student profile & documents</p>
+                <p className="text-sm text-gray-500 mt-1">Examiner workspace</p>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedStudent(null);
-                  setExaminerDetailTab("overview");
+                  setStudentModalTab("eval");
                 }}
                 className="self-start p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
@@ -370,70 +561,55 @@ const ExaminerDashboard = () => {
               </button>
             </div>
 
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
+            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl mb-6">
               <button
                 type="button"
-                onClick={() => setExaminerDetailTab("overview")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${examinerDetailTab === "overview" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                onClick={() => setStudentModalTab("eval")}
+                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
+                  studentModalTab === "eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                <User className="w-4 h-4" /> Overview
+                <ClipboardList className="w-4 h-4" />
+                Examiner evaluation
               </button>
               <button
                 type="button"
-                onClick={() => setExaminerDetailTab("documents")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${examinerDetailTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                onClick={() => setStudentModalTab("documents")}
+                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
+                  studentModalTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
               >
-                <ClipboardList className="w-4 h-4" /> Documents
+                <FileText className="w-4 h-4" />
+                Documents
               </button>
             </div>
 
-            {examinerDetailTab === "overview" && (
-            <div className="space-y-4 text-sm">
-              <div className="flex items-start gap-3">
-                <Briefcase className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Internship title</p>
-                  <p className="text-gray-900 font-semibold">{selectedStudent.internshipTitle || "—"}</p>
-                </div>
+            {studentModalTab === "eval" && (
+              <div>
+                {examinerOwnEval?.submittedAt && (
+                  <p className="text-sm text-gray-500 mb-4">
+                    Last submitted {new Date(examinerOwnEval.submittedAt).toLocaleString()} — you can update and submit again.
+                  </p>
+                )}
+                <ExaminerUniversityEvaluationForm
+                  key={`${selectedStudent.studentId}-${examinerOwnEval?.updatedAt || "new"}`}
+                  initialData={examinerEvalFormInitial}
+                  onSubmit={(formPayload) => {
+                    submitExaminerEvaluation({
+                      studentId: selectedStudent.studentId,
+                      studentName: selectedStudent.studentName,
+                      examinerKey: examinerIdentity,
+                      examinerName: displayName,
+                      advisorName: selectedStudent.advisorName || "",
+                      formData: formPayload,
+                    });
+                    setExaminerEvalNonce((n) => n + 1);
+                  }}
+                />
               </div>
-              <div className="flex items-start gap-3">
-                <Building2 className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Company</p>
-                  <p className="text-gray-900 font-semibold">{selectedStudent.companyName || "—"}</p>
-                </div>
-              </div>
-              {selectedStudent.department && (
-                <div className="flex items-start gap-3">
-                  <ClipboardList className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Department</p>
-                    <p className="text-gray-900 font-semibold">{selectedStudent.department}</p>
-                  </div>
-                </div>
-              )}
-              {selectedStudent.advisorName && (
-                <div className="flex items-start gap-3">
-                  <User className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Academic advisor</p>
-                    <p className="text-gray-900 font-semibold">{selectedStudent.advisorName}</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-3">
-                <Eye className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Status</p>
-                  <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">
-                    Active Intern
-                  </span>
-                </div>
-              </div>
-            </div>
             )}
 
-            {examinerDetailTab === "documents" && examinerIdentity && (
+            {studentModalTab === "documents" && examinerIdentity && (
               <ExaminerStudentDocumentsPanel
                 studentId={selectedStudent.studentId}
                 examinerIdentity={examinerIdentity}
