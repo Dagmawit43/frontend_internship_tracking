@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
@@ -6,14 +6,120 @@ import {
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import { useAuth } from "../contexts/AuthContext";
-import InternshipEvaluationForm from "./InternshipEvaluationForm";
 import {
-  FINAL_EVAL_STATUS,
-  FINAL_EVAL_STATUS_LABELS,
-  getAllFinalEvaluations,
-  getPendingExaminerFinalEvaluations,
-  examinerDecideFinalEvaluation,
-} from "../utils/finalEvaluations";
+  getDocumentsByStudentId,
+  examinerDecideInternshipDocument,
+  examinerCanReviewDocument,
+  ROLE_DOC_STATUS,
+} from "../utils/internshipDocuments";
+
+const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayName }) => {
+  const [docs, setDocs] = useState([]);
+  const [commentByDoc, setCommentByDoc] = useState({});
+
+  const reload = () => {
+    const list = getDocumentsByStudentId(studentId).filter((d) =>
+      examinerCanReviewDocument(d, examinerIdentity)
+    );
+    setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
+  };
+
+  useEffect(() => {
+    reload();
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, [studentId, examinerIdentity]);
+
+  const decide = (docId, action) => {
+    examinerDecideInternshipDocument(
+      docId,
+      action,
+      commentByDoc[docId] || "",
+      displayName || examinerIdentity
+    );
+    reload();
+  };
+
+  if (docs.length === 0) {
+    return (
+      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No internship documents from this student for you to review yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Review uploads from this student. The academic advisor also reviews each file independently.
+      </p>
+      {docs.map((doc) => {
+        const pending = doc.examinerStatus === ROLE_DOC_STATUS.PENDING;
+        return (
+          <div key={doc.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/40 space-y-3">
+            <div className="flex flex-wrap justify-between gap-2 items-start">
+              <div>
+                <h4 className="font-bold text-gray-900">{doc.title}</h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(doc.submittedAt).toLocaleString()} · Advisor: {doc.advisorStatus}
+                </p>
+                {doc.description && <p className="text-sm text-gray-600 mt-2">{doc.description}</p>}
+              </div>
+              <a
+                href={doc.fileData}
+                download={doc.fileName}
+                className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+              >
+                Download
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[10px] font-black uppercase px-2 py-1 rounded-full border bg-white text-gray-700 border-gray-200">
+                Your status: {doc.examinerStatus}
+              </span>
+            </div>
+            {pending ? (
+              <div className="pt-2 space-y-2 border-t border-gray-100">
+                <textarea
+                  value={commentByDoc[doc.id] || ""}
+                  onChange={(e) => setCommentByDoc((prev) => ({ ...prev, [doc.id]: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                  placeholder="Optional comment for the student"
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => decide(doc.id, "approve")}
+                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => decide(doc.id, "reject")}
+                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 pt-1">
+                {doc.examinerComment && (
+                  <span className="block">
+                    <strong>Your comment:</strong> {doc.examinerComment}
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // ─── Top Nav ──────────────────────────────────────────────────────────────────
 const StaffTopNavigation = ({ displayName, roleLabel }) => {
@@ -110,6 +216,7 @@ const ExaminerDashboard = () => {
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [examinerDetailTab, setExaminerDetailTab] = useState("overview");
 
   // Auth check
   useEffect(() => {
@@ -195,7 +302,10 @@ const ExaminerDashboard = () => {
                     <button
                       key={app.id}
                       type="button"
-                      onClick={() => setSelectedStudent(app)}
+                      onClick={() => {
+                        setSelectedStudent(app);
+                        setExaminerDetailTab("overview");
+                      }}
                       className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30 hover:border-blue-200"
                     >
                       <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
@@ -242,21 +352,42 @@ const ExaminerDashboard = () => {
       {/* Student detail modal */}
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
-          <div className="max-w-lg mx-auto my-16 bg-white rounded-xl shadow-xl border border-gray-200 p-6">
-            <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-4">
+          <div className="max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">{selectedStudent.studentName}</h3>
-                <p className="text-sm text-gray-500 mt-1">Student profile</p>
+                <p className="text-sm text-gray-500 mt-1">Student profile & documents</p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedStudent(null)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                onClick={() => {
+                  setSelectedStudent(null);
+                  setExaminerDetailTab("overview");
+                }}
+                className="self-start p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
+              <button
+                type="button"
+                onClick={() => setExaminerDetailTab("overview")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${examinerDetailTab === "overview" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <User className="w-4 h-4" /> Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setExaminerDetailTab("documents")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${examinerDetailTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <ClipboardList className="w-4 h-4" /> Documents
+              </button>
+            </div>
+
+            {examinerDetailTab === "overview" && (
             <div className="space-y-4 text-sm">
               <div className="flex items-start gap-3">
                 <Briefcase className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
@@ -300,6 +431,15 @@ const ExaminerDashboard = () => {
                 </div>
               </div>
             </div>
+            )}
+
+            {examinerDetailTab === "documents" && examinerIdentity && (
+              <ExaminerStudentDocumentsPanel
+                studentId={selectedStudent.studentId}
+                examinerIdentity={examinerIdentity}
+                displayName={displayName}
+              />
+            )}
           </div>
         </div>
       )}

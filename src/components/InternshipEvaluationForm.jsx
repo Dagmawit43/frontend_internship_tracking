@@ -1,65 +1,70 @@
 import React, { useState, useEffect } from "react";
 import { Lock, CheckCircle } from "lucide-react";
 
-const EMPTY_FORM = {
-  // Section A: Professional Competence (30 points)
-  sectionA: [0, 0, 0, 0, 0, 0], // 6 items, 5 points each
-  // Section B: Personal Attributes (30 points)
-  sectionB: [0, 0, 0, 0, 0, 0], // 6 items, 5 points each
-  additionalComment: "",
-  supervisorSignatureName: "",
+const LEN_A = 5;
+const LEN_B = 7;
+
+const emptyForm = () => ({
+  studentName: "",
+  idNo: "",
+  department: "",
+  organization: "",
+  duration: "",
+  sectionA: Array(LEN_A).fill(0),
+  sectionB: Array(LEN_B).fill(0),
+  comments: "",
+  jobOffer: "",
+  supervisorName: "",
+  position: "",
+});
+
+/** Merge stored / legacy (6+6) shapes into the current 5+7 form. */
+const normalizeInitial = (initialData) => {
+  const base = emptyForm();
+  if (!initialData || typeof initialData !== "object") return base;
+
+  let sectionA = Array.isArray(initialData.sectionA) ? [...initialData.sectionA] : [...base.sectionA];
+  let sectionB = Array.isArray(initialData.sectionB) ? [...initialData.sectionB] : [...base.sectionB];
+  while (sectionA.length < LEN_A) sectionA.push(0);
+  sectionA = sectionA.slice(0, LEN_A);
+  while (sectionB.length < LEN_B) sectionB.push(0);
+  sectionB = sectionB.slice(0, LEN_B);
+
+  return {
+    ...base,
+    ...initialData,
+    studentName: initialData.studentName ?? "",
+    idNo: initialData.idNo ?? initialData.studentId ?? "",
+    department: initialData.department ?? "",
+    organization: initialData.organization ?? initialData.companyName ?? "",
+    duration: initialData.duration ?? "",
+    sectionA,
+    sectionB,
+    comments: initialData.comments ?? initialData.additionalComment ?? "",
+    jobOffer: initialData.jobOffer ?? "",
+    supervisorName:
+      initialData.supervisorName ?? initialData.supervisorSignatureName ?? "",
+    position: initialData.position ?? "",
+  };
 };
 
 const SECTION_A_LABELS = [
-  "Technical Skills and Knowledge",
-  "Problem-Solving Ability",
-  "Quality of Work",
-  "Initiative and Creativity",
-  "Adaptability to New Tasks",
-  "Project Management Skills",
+  "Knowledge about task",
+  "Problem solving",
+  "Quality of work",
+  "Punctuality",
+  "Initiative",
 ];
 
 const SECTION_B_LABELS = [
-  "Punctuality and Attendance",
-  "Professionalism and Ethics",
-  "Communication Skills",
-  "Teamwork and Collaboration",
-  "Leadership Potential",
-  "Overall Attitude and Motivation",
+  "Dedication",
+  "Cooperation",
+  "Discipline",
+  "Responsibility",
+  "Socialization",
+  "Communication",
+  "Decision Making",
 ];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const SectionTitle = ({ title, points }) => (
-  <h2 className="text-xl font-bold text-blue-700 mb-4 mt-6 border-b border-blue-100 pb-2">
-    {title} <span className="text-sm text-gray-500">({points} points)</span>
-  </h2>
-);
-
-const ScoreField = ({ label, value, onChange, index, section, readOnly }) => (
-  <div className="space-y-2">
-    <label className="block text-sm font-semibold text-gray-700">{label}</label>
-    <div className="flex items-center gap-2">
-      {[0, 1, 2, 3, 4, 5].map((score) => (
-        <button
-          key={score}
-          type="button"
-          onClick={() => !readOnly && onChange(section, index, score)}
-          className={`w-10 h-10 rounded-lg border flex items-center justify-center text-sm font-bold transition-all ${
-            value === score
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-          } ${readOnly ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-          disabled={readOnly}
-        >
-          {score}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 /**
  * Props:
@@ -84,177 +89,210 @@ const InternshipEvaluationForm = ({
   onAdvisorAction,
   onExaminerAction,
 }) => {
-  const [formData, setFormData] = useState({ ...EMPTY_FORM, ...initialData });
+  const [form, setForm] = useState(() => normalizeInitial(initialData));
   const [advisorComment, setAdvisorComment] = useState(existingAdvisorComment);
   const [examinerComment, setExaminerComment] = useState(existingExaminerComment);
 
-  // Sync if parent passes new initialData
   useEffect(() => {
-    setFormData({ ...EMPTY_FORM, ...initialData });
+    setForm(normalizeInitial(initialData));
     setAdvisorComment(existingAdvisorComment);
     setExaminerComment(existingExaminerComment);
   }, [initialData, existingAdvisorComment, existingExaminerComment]);
 
-  const handleScoreChange = (section, index, score) => {
+  const handleRating = (section, index, value) => {
     if (readOnly) return;
-    setFormData((prev) => ({
-      ...prev,
-      [section]: prev[section].map((val, i) => (i === index ? score : val)),
-    }));
+    const updated = [...form[section]];
+    updated[index] = Number(value);
+    setForm({ ...form, [section]: updated });
   };
 
-  const handleChange = (e) => {
+  const setField = (key, value) => {
     if (readOnly) return;
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const totalA = formData.sectionA.reduce((a, b) => a + b, 0);
-  const totalB = formData.sectionB.reduce((a, b) => a + b, 0);
-  const total = totalA + totalB; // out of 60
+  const totalA = form.sectionA.reduce((a, b) => a + b, 0);
+  const totalB = form.sectionB.reduce((a, b) => a + b, 0);
+  const total = totalA + totalB;
   const finalMark = ((total / 60) * 20).toFixed(2);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit?.({ ...formData, total, finalMark: Number(finalMark) });
+    onSubmit?.({ ...form, total, finalMark: Number(finalMark) });
   };
 
+  const inputClass = readOnly
+    ? "border border-gray-200 p-2 rounded bg-gray-50 text-gray-600 cursor-not-allowed"
+    : "border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none";
+
+  const selectClass = readOnly
+    ? "border border-gray-200 rounded p-2 bg-gray-50 cursor-not-allowed"
+    : "border border-gray-300 rounded p-2";
+
   return (
-    <div className="bg-white rounded-xl">
+    <div className="max-w-4xl mx-auto p-6 bg-white shadow rounded-xl">
       {readOnly && (
         <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 font-medium">
-          <Lock className="w-4 h-4 text-gray-400" />
+          <Lock className="w-4 h-4 text-gray-400 shrink-0" />
           This evaluation is locked and read-only.
         </div>
       )}
 
       <form onSubmit={handleSubmit} noValidate>
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-xl font-bold text-gray-900">
-            Final Internship Supervisor Evaluation
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Addis Ababa Science and Technology University
-          </p>
-        </div>
+        <h2 className="text-xl font-bold mb-4 text-gray-900">
+          Internship Industry Supervisor Evaluation
+        </h2>
 
-        {/* Section A: Professional Competence */}
-        <SectionTitle title="Professional Competence" points="30" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {SECTION_A_LABELS.map((label, index) => (
-            <ScoreField
-              key={`a-${index}`}
-              label={label}
-              value={formData.sectionA[index]}
-              onChange={handleScoreChange}
-              index={index}
-              section="sectionA"
-              readOnly={readOnly}
-            />
-          ))}
-        </div>
-
-        {/* Section B: Personal Attributes */}
-        <SectionTitle title="Personal Attributes" points="30" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {SECTION_B_LABELS.map((label, index) => (
-            <ScoreField
-              key={`b-${index}`}
-              label={label}
-              value={formData.sectionB[index]}
-              onChange={handleScoreChange}
-              index={index}
-              section="sectionB"
-              readOnly={readOnly}
-            />
-          ))}
-        </div>
-
-        {/* Results Box */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 my-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="text-sm font-semibold text-gray-600 mb-1">Section A (Professional)</p>
-              <p className="text-2xl font-bold text-blue-700">{totalA} / 30</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-gray-600 mb-1">Section B (Personal)</p>
-              <p className="text-2xl font-bold text-blue-700">{totalB} / 30</p>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-blue-200">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-base font-bold text-gray-800">Total Score</p>
-                <p className="text-sm text-gray-600">Sum of all sections</p>
-              </div>
-              <p className="text-3xl font-black text-gray-900">{total} / 60</p>
-            </div>
-            <div className="flex justify-between items-center mt-3">
-              <div>
-                <p className="text-base font-bold text-gray-800">Final Internship Mark</p>
-                <p className="text-sm text-gray-600">Converted to 20-point scale</p>
-              </div>
-              <p className="text-3xl font-black text-green-700">{finalMark} / 20</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Comment */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Additional Comment</label>
-          <textarea
-            name="additionalComment"
-            value={formData.additionalComment}
-            onChange={handleChange}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <input
+            placeholder="Student Name"
+            className={inputClass}
+            value={form.studentName}
             readOnly={readOnly}
-            rows={4}
-            className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
-            }`}
-            placeholder="Write additional comments about the intern's overall performance..."
+            onChange={(e) => setField("studentName", e.target.value)}
+          />
+          <input
+            placeholder="ID No"
+            className={inputClass}
+            value={form.idNo}
+            readOnly={readOnly}
+            onChange={(e) => setField("idNo", e.target.value)}
+          />
+          <input
+            placeholder="Department"
+            className={inputClass}
+            value={form.department}
+            readOnly={readOnly}
+            onChange={(e) => setField("department", e.target.value)}
+          />
+          <input
+            placeholder="Organization"
+            className={inputClass}
+            value={form.organization}
+            readOnly={readOnly}
+            onChange={(e) => setField("organization", e.target.value)}
+          />
+          <input
+            placeholder="Duration (e.g. June–Aug 2026)"
+            className={`${inputClass} sm:col-span-2`}
+            value={form.duration}
+            readOnly={readOnly}
+            onChange={(e) => setField("duration", e.target.value)}
           />
         </div>
 
-        {/* Signature */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Company Supervisor Name (Signature)
-            </label>
-            <input
-              type="text"
-              name="supervisorSignatureName"
-              value={formData.supervisorSignatureName}
-              onChange={handleChange}
-              readOnly={readOnly}
-              className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
-              }`}
-            />
+        <h3 className="font-semibold mb-2 text-gray-800">
+          Section A - Job Performance
+        </h3>
+        {SECTION_A_LABELS.map((item, i) => (
+          <div key={i} className="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <label className="text-sm text-gray-700">{item}</label>
+            <select
+              className={selectClass}
+              value={String(form.sectionA[i])}
+              disabled={readOnly}
+              onChange={(e) => handleRating("sectionA", i, e.target.value)}
+            >
+              {[0, 1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
+        ))}
+
+        <h3 className="font-semibold mt-4 mb-2 text-gray-800">
+          Section B - Soft Skills
+        </h3>
+        {SECTION_B_LABELS.map((item, i) => (
+          <div key={i} className="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <label className="text-sm text-gray-700">{item}</label>
+            <select
+              className={selectClass}
+              value={String(form.sectionB[i])}
+              disabled={readOnly}
+              onChange={(e) => handleRating("sectionB", i, e.target.value)}
+            >
+              {[0, 1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+
+        <h3 className="font-semibold mt-4 mb-2 text-gray-800">
+          Section C - Comments
+        </h3>
+        <textarea
+          className={`border w-full p-2 rounded min-h-[100px] ${readOnly ? "bg-gray-50 cursor-not-allowed" : "border-gray-300"}`}
+          placeholder="Supervisor comments..."
+          value={form.comments}
+          readOnly={readOnly}
+          onChange={(e) => setField("comments", e.target.value)}
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="text-sm text-gray-700">Job Offer?</label>
+          <select
+            className={selectClass}
+            value={form.jobOffer}
+            disabled={readOnly}
+            onChange={(e) => setField("jobOffer", e.target.value)}
+          >
+            <option value="">Select</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
         </div>
 
-        {/* Advisor comment (read-only display for company/examiner view) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+          <input
+            placeholder="Supervisor name"
+            className={inputClass}
+            value={form.supervisorName}
+            readOnly={readOnly}
+            onChange={(e) => setField("supervisorName", e.target.value)}
+          />
+          <input
+            placeholder="Position / title"
+            className={inputClass}
+            value={form.position}
+            readOnly={readOnly}
+            onChange={(e) => setField("position", e.target.value)}
+          />
+        </div>
+
+        <div className="mt-6 p-4 bg-gray-100 rounded-lg space-y-1">
+          <p className="font-medium text-gray-800">
+            Total Score: {total} / 60
+          </p>
+          <p className="text-green-800 font-semibold">
+            Final mark (out of 20): {finalMark}
+          </p>
+        </div>
+
         {existingAdvisorComment && !advisorView && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Advisor Comment</p>
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">
+              Advisor Comment
+            </p>
             <p className="text-sm text-gray-700">{existingAdvisorComment}</p>
           </div>
         )}
 
-        {/* Examiner comment (read-only display for company/advisor view) */}
         {existingExaminerComment && !examinerView && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-            <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">Examiner Comment</p>
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+            <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">
+              Examiner Comment
+            </p>
             <p className="text-sm text-gray-700">{existingExaminerComment}</p>
           </div>
         )}
 
-        {/* ── Company submit button ── */}
         {!readOnly && !advisorView && !examinerView && onSubmit && (
-          <div className="mt-4">
+          <div className="mt-6">
             <button
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
@@ -264,7 +302,6 @@ const InternshipEvaluationForm = ({
           </div>
         )}
 
-        {/* ── Advisor approve / reject panel ── */}
         {advisorView && onAdvisorAction && (
           <div className="mt-6 border-t border-gray-200 pt-6 space-y-4">
             <h3 className="text-base font-bold text-gray-900">Advisor Decision</h3>
@@ -283,7 +320,9 @@ const InternshipEvaluationForm = ({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
-                onClick={() => onAdvisorAction({ action: "approve", comment: advisorComment })}
+                onClick={() =>
+                  onAdvisorAction({ action: "approve", comment: advisorComment })
+                }
                 className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 shadow-sm"
               >
                 <CheckCircle className="w-4 h-4" />
@@ -291,7 +330,9 @@ const InternshipEvaluationForm = ({
               </button>
               <button
                 type="button"
-                onClick={() => onAdvisorAction({ action: "reject", comment: advisorComment })}
+                onClick={() =>
+                  onAdvisorAction({ action: "reject", comment: advisorComment })
+                }
                 className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
               >
                 Reject — Return to Company
@@ -300,7 +341,6 @@ const InternshipEvaluationForm = ({
           </div>
         )}
 
-        {/* ── Examiner approve / reject panel ── */}
         {examinerView && onExaminerAction && (
           <div className="mt-6 border-t border-gray-200 pt-6 space-y-4">
             <h3 className="text-base font-bold text-gray-900">Examiner Decision</h3>
@@ -319,7 +359,9 @@ const InternshipEvaluationForm = ({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
-                onClick={() => onExaminerAction({ action: "approve", comment: examinerComment })}
+                onClick={() =>
+                  onExaminerAction({ action: "approve", comment: examinerComment })
+                }
                 className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 shadow-sm"
               >
                 <CheckCircle className="w-4 h-4" />
@@ -327,7 +369,9 @@ const InternshipEvaluationForm = ({
               </button>
               <button
                 type="button"
-                onClick={() => onExaminerAction({ action: "reject", comment: examinerComment })}
+                onClick={() =>
+                  onExaminerAction({ action: "reject", comment: examinerComment })
+                }
                 className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
               >
                 Reject — Return to Advisor

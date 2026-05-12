@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getInternships } from "../mock/internshipApi";
 import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe } from "lucide-react";
@@ -16,6 +16,12 @@ import {
   updateWeekForInternship,
   updateWeeklyLogbookMeta,
 } from "../utils/weeklyLogbook";
+import {
+  getDocumentsByStudentId,
+  submitInternshipDocument,
+  getStudentDocumentSummary,
+  ROLE_DOC_STATUS,
+} from "../utils/internshipDocuments";
 
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0 }) => {
@@ -657,6 +663,14 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [draftWeek, setDraftWeek] = useState(null);
+  const [internshipSubTab, setInternshipSubTab] = useState("logbook");
+  const [documents, setDocuments] = useState([]);
+  const [docTitle, setDocTitle] = useState("");
+  const [docDescription, setDocDescription] = useState("");
+  const [docFile, setDocFile] = useState(null);
+  const [docFileName, setDocFileName] = useState("");
+  const [docSubmitting, setDocSubmitting] = useState(false);
+  const docFileInputRef = useRef(null);
 
   useEffect(() => {
     const loadActive = () => {
@@ -694,6 +708,61 @@ const MyInternshipView = ({ studentId, studentName }) => {
     window.addEventListener("storage", loadActive);
     return () => window.removeEventListener("storage", loadActive);
   }, [studentId, studentName]);
+
+  const refreshDocuments = () => {
+    setDocuments(getDocumentsByStudentId(String(studentId)));
+  };
+
+  useEffect(() => {
+    refreshDocuments();
+    window.addEventListener("storage", refreshDocuments);
+    return () => window.removeEventListener("storage", refreshDocuments);
+  }, [studentId]);
+
+  const handleDocFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setDocFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => setDocFile(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleDocumentSubmit = (e) => {
+    e.preventDefault();
+    if (!activeApp || !docFile) {
+      alert("Please choose a file to upload.");
+      return;
+    }
+    setDocSubmitting(true);
+    try {
+      submitInternshipDocument({
+        studentId: activeApp.studentId,
+        studentName: activeApp.studentName || studentName,
+        title: docTitle || docFileName || "Internship document",
+        description: docDescription,
+        fileName: docFileName || "document",
+        fileData: docFile,
+        advisorName: activeApp.advisorName || "",
+        examinerName: activeApp.examinerName || "",
+        examiner2Name: activeApp.examiner2Name || "",
+      });
+      setDocTitle("");
+      setDocDescription("");
+      setDocFile(null);
+      setDocFileName("");
+      if (docFileInputRef.current) docFileInputRef.current.value = "";
+      refreshDocuments();
+    } finally {
+      setDocSubmitting(false);
+    }
+  };
+
+  const rolePill = (status) => {
+    if (status === ROLE_DOC_STATUS.APPROVED) return "bg-green-100 text-green-800 border-green-200";
+    if (status === ROLE_DOC_STATUS.REJECTED) return "bg-red-100 text-red-800 border-red-200";
+    return "bg-amber-100 text-amber-800 border-amber-200";
+  };
 
   const openWeek = (week) => {
     setSelectedWeek(week);
@@ -870,26 +939,168 @@ const MyInternshipView = ({ studentId, studentName }) => {
       </div>
 
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-        <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
-          <p className="text-sm text-gray-600">
-            Click any week to view details, update work log (if editable), and submit.
-          </p>
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-100 pb-4">
+          <button
+            type="button"
+            onClick={() => setInternshipSubTab("logbook")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              internshipSubTab === "logbook"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            Weekly logbook
+          </button>
+          <button
+            type="button"
+            onClick={() => setInternshipSubTab("documents")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              internshipSubTab === "documents"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            Document upload
+          </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {(weeklyLogbook?.weeks || []).map((week) => (
-            <button
-              key={week.weekNumber}
-              onClick={() => openWeek(week)}
-              className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50 transition"
-            >
-              <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
-              <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
-                {STATUS_LABELS[week.status]}
-              </span>
-            </button>
-          ))}
-        </div>
+
+        {internshipSubTab === "logbook" && (
+          <>
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
+              <p className="text-sm text-gray-600">
+                Click any week to view details, update work log (if editable), and submit.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {(weeklyLogbook?.weeks || []).map((week) => (
+                <button
+                  key={week.weekNumber}
+                  type="button"
+                  onClick={() => openWeek(week)}
+                  className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50 transition"
+                >
+                  <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
+                  <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
+                    {STATUS_LABELS[week.status]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {internshipSubTab === "documents" && (
+          <div className="space-y-8">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">Internship documents</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Upload reports or evidence for your advisor and internal examiner. They are notified and each must approve your submission.
+              </p>
+              <form onSubmit={handleDocumentSubmit} className="space-y-4 max-w-xl border border-gray-100 rounded-xl p-5 bg-gray-50/50">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Document title</label>
+                  <input
+                    type="text"
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                    placeholder="e.g. Mid-internship report"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (optional)</label>
+                  <textarea
+                    value={docDescription}
+                    onChange={(e) => setDocDescription(e.target.value)}
+                    rows={2}
+                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                    placeholder="Short description for your reviewers"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">File</label>
+                  <input
+                    ref={docFileInputRef}
+                    type="file"
+                    onChange={handleDocFile}
+                    className="w-full text-sm"
+                  />
+                  {docFileName && <p className="text-xs text-gray-500 mt-1">Selected: {docFileName}</p>}
+                </div>
+                <button
+                  type="submit"
+                  disabled={docSubmitting || !docFile}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {docSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  Submit to advisor & examiner
+                </button>
+              </form>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">Your submissions</h4>
+              {documents.length === 0 ? (
+                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
+                  No documents uploaded yet.
+                </p>
+              ) : (
+                <ul className="space-y-4">
+                  {documents.map((d) => {
+                    const summary = getStudentDocumentSummary(d);
+                    const tone =
+                      summary.tone === "green"
+                        ? "border-green-200 bg-green-50/40"
+                        : summary.tone === "red"
+                          ? "border-red-200 bg-red-50/30"
+                          : summary.tone === "amber"
+                            ? "border-amber-200 bg-amber-50/30"
+                            : "border-gray-200 bg-white";
+                    return (
+                      <li key={d.id} className={`rounded-xl border p-4 ${tone}`}>
+                        <div className="flex flex-wrap justify-between gap-2 items-start">
+                          <div>
+                            <p className="font-bold text-gray-900">{d.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Submitted {new Date(d.submittedAt).toLocaleString()}
+                            </p>
+                            {d.description && (
+                              <p className="text-sm text-gray-600 mt-2">{d.description}</p>
+                            )}
+                          </div>
+                          <a
+                            href={d.fileData}
+                            download={d.fileName}
+                            className="text-xs font-bold text-blue-600 hover:underline shrink-0"
+                          >
+                            Download
+                          </a>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.advisorStatus)}`}>
+                            Advisor: {d.advisorStatus}
+                          </span>
+                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.examinerStatus)}`}>
+                            Examiner: {d.examinerStatus}
+                          </span>
+                        </div>
+                        {(d.advisorComment || d.examinerComment) && (
+                          <div className="mt-3 text-xs text-gray-600 space-y-1">
+                            {d.advisorComment && <p><span className="font-bold">Advisor:</span> {d.advisorComment}</p>}
+                            {d.examinerComment && <p><span className="font-bold">Examiner:</span> {d.examinerComment}</p>}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedWeek && draftWeek && (

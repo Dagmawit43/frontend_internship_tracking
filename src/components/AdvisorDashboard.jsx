@@ -11,6 +11,7 @@ import {
   CheckCircle,
   ClipboardList,
   Clock,
+  FileText,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import { useAuth } from "../contexts/AuthContext";
@@ -34,9 +35,116 @@ import {
   FINAL_EVAL_STATUS,
   FINAL_EVAL_STATUS_LABELS,
   getAllFinalEvaluations,
-  getPendingAdvisorFinalEvaluations,
+  getFinalEvaluation,
   advisorDecideFinalEvaluation,
 } from "../utils/finalEvaluations";
+import {
+  getDocumentsByStudentId,
+  getDocumentsForAdvisorStudents,
+  advisorDecideInternshipDocument,
+  ROLE_DOC_STATUS,
+} from "../utils/internshipDocuments";
+
+const normStr = (s) => String(s || "").trim().toLowerCase();
+
+const AdvisorStudentDocumentsPanel = ({ studentId, advisorIdentity }) => {
+  const [docs, setDocs] = useState([]);
+  const [commentByDoc, setCommentByDoc] = useState({});
+
+  const reload = () => {
+    const list = getDocumentsByStudentId(studentId).filter(
+      (d) => normStr(d.advisorName) === normStr(advisorIdentity)
+    );
+    setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
+  };
+
+  useEffect(() => {
+    reload();
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, [studentId, advisorIdentity]);
+
+  const decide = (docId, action) => {
+    advisorDecideInternshipDocument(docId, action, commentByDoc[docId] || "");
+    reload();
+  };
+
+  if (docs.length === 0) {
+    return (
+      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+        <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No internship documents from this student for you to review yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Review files the student uploaded. Your decision is independent of the internal examiner&apos;s.
+      </p>
+      {docs.map((doc) => {
+        const pending = doc.advisorStatus === ROLE_DOC_STATUS.PENDING;
+        return (
+          <div key={doc.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/40 space-y-3">
+            <div className="flex flex-wrap justify-between gap-2 items-start">
+              <div>
+                <h4 className="font-bold text-gray-900">{doc.title}</h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(doc.submittedAt).toLocaleString()} · Examiner: {doc.examinerStatus}
+                </p>
+                {doc.description && <p className="text-sm text-gray-600 mt-2">{doc.description}</p>}
+              </div>
+              <a
+                href={doc.fileData}
+                download={doc.fileName}
+                className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+              >
+                Download
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[10px] font-black uppercase px-2 py-1 rounded-full border bg-white text-gray-700 border-gray-200">
+                Your status: {doc.advisorStatus}
+              </span>
+            </div>
+            {pending ? (
+              <div className="pt-2 space-y-2 border-t border-gray-100">
+                <textarea
+                  value={commentByDoc[doc.id] || ""}
+                  onChange={(e) => setCommentByDoc((prev) => ({ ...prev, [doc.id]: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-lg p-2 text-sm"
+                  placeholder="Optional comment for the student"
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => decide(doc.id, "approve")}
+                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => decide(doc.id, "reject")}
+                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 pt-1">
+                {doc.advisorComment && <span className="block"><strong>Your comment:</strong> {doc.advisorComment}</span>}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -175,6 +283,9 @@ const AdvisorDashboard = () => {
   // Final evaluations state
   const [finalEvals, setFinalEvals] = useState([]);
   const [selectedFinalEval, setSelectedFinalEval] = useState(null); // { eval, studentApp }
+  const [selectedDocQueue, setSelectedDocQueue] = useState(null); // { doc, studentApp }
+  const [internshipDocsNonce, setInternshipDocsNonce] = useState(0);
+  const [docQueueComment, setDocQueueComment] = useState("");
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
@@ -220,6 +331,12 @@ const AdvisorDashboard = () => {
       window.removeEventListener("storage", refreshFinalEvals);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const bump = () => setInternshipDocsNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    return () => window.removeEventListener("storage", bump);
   }, []);
 
   const pendingWeeksCount = useMemo(() => {
@@ -270,6 +387,13 @@ const AdvisorDashboard = () => {
     const studentIds = new Set(assignedStudents.map(a => a.studentId));
     return finalEvals.filter(e => studentIds.has(e.studentId));
   }, [finalEvals, assignedStudents]);
+
+  const pendingAdvisorDocuments = useMemo(() => {
+    const ids = assignedStudents.map((a) => a.studentId);
+    return getDocumentsForAdvisorStudents(advisorIdentity, ids).filter(
+      (d) => d.advisorStatus === ROLE_DOC_STATUS.PENDING
+    );
+  }, [advisorIdentity, assignedStudents, internshipDocsNonce]);
 
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
@@ -379,6 +503,13 @@ const AdvisorDashboard = () => {
     window.dispatchEvent(new Event("storage"));
   };
 
+  const handleAdvisorDocumentQueueDecision = (action) => {
+    if (!selectedDocQueue?.doc) return;
+    advisorDecideInternshipDocument(selectedDocQueue.doc.id, action, docQueueComment || "");
+    setSelectedDocQueue(null);
+    setDocQueueComment("");
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -395,7 +526,7 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length} />
+      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <StaffWelcomeHeader
@@ -407,7 +538,7 @@ const AdvisorDashboard = () => {
           statSecondary={pendingWeeksCount}
         />
 
-        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-2xl overflow-x-auto scrollbar-hide">
+        <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-5xl overflow-x-auto scrollbar-hide">
           <button
             type="button"
             onClick={() => setActiveTab("students")}
@@ -455,6 +586,21 @@ const AdvisorDashboard = () => {
             {pendingFinalEvals.length > 0 && (
               <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
                 {pendingFinalEvals.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("documents")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "documents" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <FileText className="w-4 h-4 shrink-0" />
+            Document queue
+            {pendingAdvisorDocuments.length > 0 && (
+              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {pendingAdvisorDocuments.length}
               </span>
             )}
           </button>
@@ -661,6 +807,58 @@ const AdvisorDashboard = () => {
                 )}
               </div>
             )}
+
+            {activeTab === "documents" && (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
+                  <p className="text-gray-600">
+                    Internship files uploaded by your students that need your approval (examiner approves separately).
+                  </p>
+                </div>
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : pendingAdvisorDocuments.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No documents waiting for your review.</p>
+                    <p className="text-sm text-gray-400 mt-2">When a student uploads a file from My Internship, it will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingAdvisorDocuments.map((doc) => {
+                      const studentApp = assignedStudents.find(
+                        (a) => String(a.studentId) === String(doc.studentId)
+                      );
+                      return (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => {
+                            setDocQueueComment("");
+                            setSelectedDocQueue({ doc, studentApp });
+                          }}
+                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-amber-200 hover:bg-amber-50/30 transition flex justify-between items-center gap-4"
+                        >
+                          <div>
+                            <p className="font-bold text-gray-900">{doc.title}</p>
+                            <p className="text-sm text-gray-500">
+                              {studentApp?.studentName || doc.studentName} · {studentApp?.companyName || ""}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              Submitted {new Date(doc.submittedAt).toLocaleString()} · Examiner: {doc.examinerStatus}
+                            </p>
+                          </div>
+                          <span className="shrink-0 px-3 py-1 rounded-full text-xs font-black uppercase bg-amber-100 text-amber-900 border border-amber-200">
+                            Pending
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -678,6 +876,10 @@ const AdvisorDashboard = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Pending monthly evals</span>
                   <span className="text-lg font-bold text-yellow-600">{pendingMonthlyEvals.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Pending documents</span>
+                  <span className="text-lg font-bold text-amber-600">{pendingAdvisorDocuments.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Approved weeks (all time)</span>
@@ -703,6 +905,10 @@ const AdvisorDashboard = () => {
                 <li className="flex gap-3">
                   <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
                   Monthly evaluations submitted by the company appear in the <strong className="text-gray-800">Monthly Evaluations</strong> tab for your review.
+                </li>
+                <li className="flex gap-3">
+                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  Student uploads appear in the <strong className="text-gray-800">Document queue</strong> tab until you approve or reject them.
                 </li>
               </ul>
             </div>
@@ -759,6 +965,13 @@ const AdvisorDashboard = () => {
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Final Evaluation
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentDetailTab("documents")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-2 sm:px-4 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <FileText className="w-4 h-4 shrink-0" /> Documents
               </button>
             </div>
 
@@ -960,6 +1173,13 @@ const AdvisorDashboard = () => {
                 })()}
               </div>
             )}
+
+            {studentDetailTab === "documents" && (
+              <AdvisorStudentDocumentsPanel
+                studentId={selectedStudent.studentId}
+                advisorIdentity={advisorIdentity}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1034,6 +1254,79 @@ const AdvisorDashboard = () => {
                   : undefined
               }
             />
+          </div>
+        </div>
+      )}
+
+      {selectedDocQueue?.doc && (
+        <div className="fixed inset-0 bg-black/60 z-[190] p-4 overflow-y-auto">
+          <div className="max-w-2xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 border-b border-gray-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {selectedDocQueue.studentApp?.studentName || selectedDocQueue.doc.studentName} — Document review
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedDocQueue.doc.title} · Submitted {new Date(selectedDocQueue.doc.submittedAt).toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Examiner status: {selectedDocQueue.doc.examinerStatus} (separate approval)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDocQueue(null);
+                  setDocQueueComment("");
+                }}
+                className="self-start px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium"
+              >
+                Close
+              </button>
+            </div>
+
+            {selectedDocQueue.doc.description && (
+              <p className="text-sm text-gray-700 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                {selectedDocQueue.doc.description}
+              </p>
+            )}
+
+            <div className="mb-6">
+              <a
+                href={selectedDocQueue.doc.fileData}
+                download={selectedDocQueue.doc.fileName}
+                className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline"
+              >
+                <FileText className="w-4 h-4" /> Download {selectedDocQueue.doc.fileName}
+              </a>
+            </div>
+
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <label className="block text-xs font-bold text-gray-500 uppercase">Optional comment for the student</label>
+              <textarea
+                value={docQueueComment}
+                onChange={(e) => setDocQueueComment(e.target.value)}
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg p-3 text-sm"
+                placeholder="Feedback (optional)"
+              />
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleAdvisorDocumentQueueDecision("approve")}
+                  className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4" /> Approve document
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdvisorDocumentQueueDecision("reject")}
+                  className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                >
+                  Reject document
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
