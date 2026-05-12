@@ -11,6 +11,7 @@ import { DEPARTMENTS } from "../constants/departments";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
+import InternshipEvaluationForm from "./InternshipEvaluationForm";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -24,6 +25,12 @@ import {
   getEvaluation,
   submitEvaluation,
 } from "../utils/monthlyEvaluations";
+import {
+  FINAL_EVAL_STATUS,
+  FINAL_EVAL_STATUS_LABELS,
+  getFinalEvaluation,
+  submitFinalEvaluation,
+} from "../utils/finalEvaluations";
 
 // ─── session helper ───────────────────────────────────────────────────────────
 const getValidCompanySession = () => {
@@ -428,6 +435,7 @@ const InternsPage = ({ companySession }) => {
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [openEvalMonth, setOpenEvalMonth] = useState(null);
   const [evalRecords, setEvalRecords] = useState({ 1: null, 2: null });
+  const [finalEvalRecord, setFinalEvalRecord] = useState(null);
   const companyId = companySession?.id || companySession?.company_id;
 
   useEffect(() => {
@@ -466,6 +474,9 @@ const InternsPage = ({ companySession }) => {
     const record = ensureWeeklyLogbookForInternship({ studentId: intern.studentId, internshipId: intern.internshipId || intern.id, companyId: intern.companyId || intern.companyName || "", advisorId: intern.advisorName || "" });
     setSelectedRecord(record);
     loadEvalRecords(intern);
+    // Load final evaluation
+    const finalEval = getFinalEvaluation(intern.studentId);
+    setFinalEvalRecord(finalEval);
   };
 
   const persistCompanySupervisorFields = useCallback((formPayload) => {
@@ -506,6 +517,36 @@ const InternsPage = ({ companySession }) => {
     window.dispatchEvent(new Event("storage"));
     loadEvalRecords(selectedIntern);
     setOpenEvalMonth(null);
+  };
+
+  const handleFinalEvalSubmit = (formData) => {
+    const record = submitFinalEvaluation({
+      studentId: selectedIntern.studentId,
+      studentName: selectedIntern.studentName,
+      companyName: selectedIntern.companyName,
+      formData: formData,
+      total: formData.total,
+      finalMark: formData.finalMark,
+    });
+
+    // Update local state
+    setFinalEvalRecord(record);
+
+    // Notify the student
+    const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+    notifications.push({
+      id: Date.now(),
+      type: "info",
+      title: "Final Evaluation Submitted",
+      message: `Your final internship evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for approval.`,
+      date: new Date().toISOString(),
+      studentId: selectedIntern.studentId,
+      studentName: selectedIntern.studentName,
+      read: false,
+    });
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    window.dispatchEvent(new Event("storage"));
   };
 
   const evalStatusBadge = (status) => ({
@@ -606,6 +647,9 @@ const InternsPage = ({ companySession }) => {
               <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 <ClipboardList className="w-4 h-4" /> Monthly Evaluation
               </button>
+              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                <ClipboardList className="w-4 h-4" /> Final Evaluation
+              </button>
             </div>
 
             {/* Weekly Logbook tab */}
@@ -683,11 +727,116 @@ const InternsPage = ({ companySession }) => {
                           key={`${selectedIntern.studentId}-m${openEvalMonth}-${status}`}
                           initialData={prefill}
                           readOnly={isReadOnly}
-                          advisorComment={rec?.advisorComment || ""}
+                          existingAdvisorComment={rec?.advisorComment || ""}
                           onSubmit={isReadOnly ? undefined : (data) => handleEvalSubmit(openEvalMonth, data)}
                         />
                       );
                     })()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Final Evaluation tab */}
+            {internDetailTab === "final" && (
+              <div>
+                {finalEvalRecord ? (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-900">Final Internship Evaluation</h3>
+                      <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${
+                        finalEvalRecord.status === FINAL_EVAL_STATUS.NOT_STARTED ? "bg-gray-100 text-gray-600 border-gray-200" :
+                        finalEvalRecord.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL ? "bg-blue-100 text-blue-700 border-blue-200" :
+                        finalEvalRecord.status === FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR ? "bg-green-100 text-green-700 border-green-200" :
+                        finalEvalRecord.status === FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL ? "bg-yellow-100 text-yellow-700 border-yellow-200" :
+                        finalEvalRecord.status === FINAL_EVAL_STATUS.FINAL_APPROVED ? "bg-green-100 text-green-700 border-green-200" :
+                        "bg-red-100 text-red-700 border-red-200"
+                      }`}>
+                        {FINAL_EVAL_STATUS_LABELS[finalEvalRecord.status]}
+                      </span>
+                    </div>
+
+                    {finalEvalRecord.status === FINAL_EVAL_STATUS.NOT_STARTED ? (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">Final evaluation not started yet.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Create empty evaluation record for editing
+                            const emptyEval = {
+                              ...finalEvalRecord,
+                              formData: {
+                                sectionA: [0, 0, 0, 0, 0, 0],
+                                sectionB: [0, 0, 0, 0, 0, 0],
+                                additionalComment: "",
+                                supervisorSignatureName: "",
+                              },
+                            };
+                            setFinalEvalRecord(emptyEval);
+                          }}
+                          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+                        >
+                          Start Final Evaluation
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {finalEvalRecord.total !== undefined && (
+                          <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-gray-600 mb-1">Total Score</p>
+                                <p className="text-2xl font-bold text-blue-700">{finalEvalRecord.total} / 60</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-gray-600 mb-1">Final Mark</p>
+                                <p className="text-2xl font-bold text-green-700">{finalEvalRecord.finalMark} / 20</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <InternshipEvaluationForm
+                          key={`final-${selectedIntern.studentId}`}
+                          initialData={finalEvalRecord.formData || {}}
+                          readOnly={finalEvalRecord.status !== FINAL_EVAL_STATUS.NOT_STARTED && finalEvalRecord.status !== FINAL_EVAL_STATUS.REJECTED}
+                          advisorComment={finalEvalRecord.advisorComment || ""}
+                          examinerComment={finalEvalRecord.examinerComment || ""}
+                          onSubmit={
+                            (finalEvalRecord.status === FINAL_EVAL_STATUS.NOT_STARTED || finalEvalRecord.status === FINAL_EVAL_STATUS.REJECTED)
+                              ? handleFinalEvalSubmit
+                              : undefined
+                          }
+                        />
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                      <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">Final evaluation not started yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Create empty evaluation record with proper structure
+                          const emptyEval = {
+                            status: FINAL_EVAL_STATUS.NOT_STARTED,
+                            formData: {
+                              sectionA: [0, 0, 0, 0, 0, 0],
+                              sectionB: [0, 0, 0, 0, 0, 0],
+                              additionalComment: "",
+                              supervisorSignatureName: "",
+                            },
+                          };
+                          setFinalEvalRecord(emptyEval);
+                        }}
+                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+                      >
+                        Start Final Evaluation
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

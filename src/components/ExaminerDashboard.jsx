@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
@@ -6,6 +6,14 @@ import {
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import { useAuth } from "../contexts/AuthContext";
+import InternshipEvaluationForm from "./InternshipEvaluationForm";
+import {
+  FINAL_EVAL_STATUS,
+  FINAL_EVAL_STATUS_LABELS,
+  getAllFinalEvaluations,
+  getPendingExaminerFinalEvaluations,
+  examinerDecideFinalEvaluation,
+} from "../utils/finalEvaluations";
 
 // ─── Top Nav ──────────────────────────────────────────────────────────────────
 const StaffTopNavigation = ({ displayName, roleLabel }) => {

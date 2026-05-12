@@ -16,6 +16,7 @@ import logoSrc from "../assets/aastu-logo.jpg";
 import { useAuth } from "../contexts/AuthContext";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
+import InternshipEvaluationForm from "./InternshipEvaluationForm";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -26,8 +27,16 @@ import {
   EVAL_STATUS,
   EVAL_STATUS_LABELS,
   getAllEvaluations,
+  getEvaluation,
   advisorDecideEvaluation,
 } from "../utils/monthlyEvaluations";
+import {
+  FINAL_EVAL_STATUS,
+  FINAL_EVAL_STATUS_LABELS,
+  getAllFinalEvaluations,
+  getPendingAdvisorFinalEvaluations,
+  advisorDecideFinalEvaluation,
+} from "../utils/finalEvaluations";
 
 const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -162,8 +171,13 @@ const AdvisorDashboard = () => {
   // Monthly evaluations state
   const [monthlyEvals, setMonthlyEvals] = useState([]);
   const [selectedEval, setSelectedEval] = useState(null); // { eval, studentApp }
+  
+  // Final evaluations state
+  const [finalEvals, setFinalEvals] = useState([]);
+  const [selectedFinalEval, setSelectedFinalEval] = useState(null); // { eval, studentApp }
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
+  const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
 
   useEffect(() => {
     const activeSession = JSON.parse(localStorage.getItem("user"));
@@ -198,8 +212,13 @@ const AdvisorDashboard = () => {
   // Load monthly evals whenever assigned students change or storage updates
   useEffect(() => {
     refreshMonthlyEvals();
+    refreshFinalEvals();
     window.addEventListener("storage", refreshMonthlyEvals);
-    return () => window.removeEventListener("storage", refreshMonthlyEvals);
+    window.addEventListener("storage", refreshFinalEvals);
+    return () => {
+      window.removeEventListener("storage", refreshMonthlyEvals);
+      window.removeEventListener("storage", refreshFinalEvals);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -236,6 +255,21 @@ const AdvisorDashboard = () => {
       return byAdvisor || byStudent;
     });
   }, [monthlyEvals, assignedStudents, advisorIdentity]);
+
+  // Final evaluations pending advisor approval
+  const pendingFinalEvals = useMemo(() => {
+    const studentIds = new Set(assignedStudents.map(a => a.studentId));
+    return finalEvals.filter(e => {
+      const byStudent = studentIds.has(e.studentId);
+      return byStudent && e.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL;
+    });
+  }, [finalEvals, assignedStudents]);
+
+  // All final evaluations for this advisor's students
+  const allMyFinalEvals = useMemo(() => {
+    const studentIds = new Set(assignedStudents.map(a => a.studentId));
+    return finalEvals.filter(e => studentIds.has(e.studentId));
+  }, [finalEvals, assignedStudents]);
 
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
@@ -319,6 +353,32 @@ const AdvisorDashboard = () => {
     window.dispatchEvent(new Event("storage"));
   };
 
+  const handleAdvisorFinalDecision = ({ action, comment }) => {
+    if (!selectedFinalEval) return;
+    advisorDecideFinalEvaluation(selectedFinalEval.eval.studentId, action, comment);
+
+    // Notify the student
+    const studentApp = selectedFinalEval.studentApp;
+    const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+    notifications.push({
+      id: Date.now(),
+      type: action === "approve" ? "success" : "error",
+      title: action === "approve" ? "Final Evaluation Approved" : "Final Evaluation Rejected",
+      message: action === "approve"
+        ? `Your final internship evaluation has been approved by your advisor and sent to examiner for final review${comment ? `: "${comment}"` : "."}`
+        : `Your final internship evaluation was rejected by your advisor${comment ? `: "${comment}"` : ". Please contact your company to revise it."}`,
+      date: new Date().toISOString(),
+      studentId: selectedFinalEval.eval.studentId,
+      studentName: studentApp?.studentName || "",
+      read: false,
+    });
+    localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    refreshFinalEvals();
+    setSelectedFinalEval(null);
+    window.dispatchEvent(new Event("storage"));
+  };
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -335,7 +395,7 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length} />
+      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <StaffWelcomeHeader
@@ -380,6 +440,21 @@ const AdvisorDashboard = () => {
             {pendingMonthlyEvals.length > 0 && (
               <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
                 {pendingMonthlyEvals.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("final")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "final" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Final Evaluations
+            {pendingFinalEvals.length > 0 && (
+              <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {pendingFinalEvals.length}
               </span>
             )}
           </button>
@@ -525,6 +600,67 @@ const AdvisorDashboard = () => {
                 )}
               </div>
             )}
+
+            {activeTab === "final" && (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Final Evaluations</h2>
+                  <p className="text-gray-600">Company-submitted final internship evaluations — pending your approval.</p>
+                </div>
+
+                {allMyFinalEvals.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No final evaluations submitted yet.</p>
+                    <p className="text-sm text-gray-400 mt-2">When a company submits a final evaluation for one of your students, it will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {allMyFinalEvals.map(ev => {
+                      const studentApp = assignedStudents.find(a => a.studentId === ev.studentId);
+                      const isPendingAdvisor = ev.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL;
+                      const isApprovedByAdvisor = ev.status === FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR;
+                      const isPendingExaminer = ev.status === FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL;
+                      const isFinalApproved = ev.status === FINAL_EVAL_STATUS.FINAL_APPROVED;
+                      const isRejected = ev.status === FINAL_EVAL_STATUS.REJECTED;
+
+                      let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                      if (isApprovedByAdvisor) badgeClass = "bg-green-100 text-green-800 border-green-200";
+                      if (isPendingExaminer) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
+                      if (isFinalApproved) badgeClass = "bg-green-100 text-green-800 border-green-200";
+                      if (isRejected) badgeClass = "bg-red-100 text-red-800 border-red-200";
+
+                      return (
+                        <button
+                          key={ev.id}
+                          type="button"
+                          onClick={() => setSelectedFinalEval({ eval: ev, studentApp })}
+                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/40 transition flex justify-between items-center gap-4"
+                        >
+                          <div>
+                            <p className="font-bold text-gray-900">{studentApp?.studentName || ev.studentId}</p>
+                            <p className="text-sm text-gray-500">
+                              {studentApp?.companyName || ""}
+                            </p>
+                            {ev.total !== undefined && (
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                Score: {ev.total}/60 · Final Mark: {ev.finalMark}/20
+                              </p>
+                            )}
+                            {ev.advisorComment && (
+                              <p className="text-xs text-blue-600 mt-0.5 italic">Your comment: {ev.advisorComment}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-black uppercase border ${badgeClass}`}>
+                            {FINAL_EVAL_STATUS_LABELS[ev.status]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -616,6 +752,13 @@ const AdvisorDashboard = () => {
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Monthly Evaluation
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentDetailTab("final")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <ClipboardList className="w-4 h-4" /> Final Evaluation
               </button>
             </div>
 
@@ -748,13 +891,73 @@ const AdvisorDashboard = () => {
                             key={`adv-${selectedStudent.studentId}-m${month}`}
                             initialData={rec?.evaluationData || {}}
                             readOnly
-                            advisorComment={rec?.advisorComment || ""}
+                            existingAdvisorComment={rec?.advisorComment || ""}
                           />
                         </>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* ── Final Evaluation tab ── */}
+            {studentDetailTab === "final" && (
+              <div className="space-y-6">
+                {(() => {
+                  const finalEval = getFinalEvaluation(selectedStudent.studentId);
+                  if (!finalEval) {
+                    return (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No final evaluation submitted yet by the company.</p>
+                      </div>
+                    );
+                  }
+
+                  const badgeMap = {
+                    [FINAL_EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
+                    [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-blue-100 text-blue-700 border-blue-200",
+                    [FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR]: "bg-green-100 text-green-700 border-green-200",
+                    [FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL]: "bg-yellow-100 text-yellow-700 border-yellow-200",
+                    [FINAL_EVAL_STATUS.FINAL_APPROVED]: "bg-green-100 text-green-700 border-green-200",
+                    [FINAL_EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
+                  };
+
+                  return (
+                    <div className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-gray-900">Final Internship Evaluation</h4>
+                        <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[finalEval.status] || badgeMap[FINAL_EVAL_STATUS.NOT_STARTED]}`}>
+                          {FINAL_EVAL_STATUS_LABELS[finalEval.status]}
+                        </span>
+                      </div>
+
+                      {finalEval.total !== undefined && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 mb-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-gray-600 mb-1">Total Score</p>
+                              <p className="text-2xl font-bold text-blue-700">{finalEval.total} / 60</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-gray-600 mb-1">Final Mark</p>
+                              <p className="text-2xl font-bold text-green-700">{finalEval.finalMark} / 20</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <InternshipEvaluationForm
+                        key={`adv-final-${selectedStudent.studentId}`}
+                        initialData={finalEval.formData || {}}
+                        readOnly
+                        advisorComment={finalEval.advisorComment || ""}
+                        examinerComment={finalEval.examinerComment || ""}
+                      />
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -790,6 +993,44 @@ const AdvisorDashboard = () => {
               onAdvisorAction={
                 selectedEval.eval.status === EVAL_STATUS.SUBMITTED
                   ? handleAdvisorMonthlyDecision
+                  : undefined
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {selectedFinalEval && (
+        <div className="fixed inset-0 bg-black/60 z-[190] p-4 overflow-y-auto">
+          <div className="max-w-4xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 border-b border-gray-100 pb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  {selectedFinalEval.studentApp?.studentName || selectedFinalEval.eval.studentId} — Final Internship Evaluation
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedFinalEval.studentApp?.companyName || ""} · Submitted {new Date(selectedFinalEval.eval.submittedAt).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedFinalEval(null)}
+                className="self-start px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium"
+              >
+                Close
+              </button>
+            </div>
+
+            <InternshipEvaluationForm
+              key={selectedFinalEval.eval.id}
+              initialData={selectedFinalEval.eval.formData || {}}
+              readOnly={selectedFinalEval.eval.status !== FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL}
+              advisorView={selectedFinalEval.eval.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL}
+              advisorComment={selectedFinalEval.eval.advisorComment || ""}
+              examinerComment={selectedFinalEval.eval.examinerComment || ""}
+              onAdvisorAction={
+                selectedFinalEval.eval.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL
+                  ? handleAdvisorFinalDecision
                   : undefined
               }
             />

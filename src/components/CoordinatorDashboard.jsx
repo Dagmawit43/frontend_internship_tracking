@@ -851,7 +851,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             key={`coord-${selectedIntern.studentId}-m${month}`}
                             initialData={rec?.evaluationData || {}}
                             readOnly
-                            advisorComment={rec?.advisorComment || ""}
+                            existingAdvisorComment={rec?.advisorComment || ""}
                           />
                         </>
                       )}
