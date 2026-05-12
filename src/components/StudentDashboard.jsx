@@ -22,6 +22,11 @@ import {
   getStudentDocumentSummary,
   ROLE_DOC_STATUS,
 } from "../utils/internshipDocuments";
+import {
+  getAdvisorEvaluation,
+  ADVISOR_EVAL_STATUS,
+} from "../utils/advisorEvaluations";
+import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0 }) => {
@@ -672,6 +677,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [docSubmitting, setDocSubmitting] = useState(false);
   const [docUploadSuccess, setDocUploadSuccess] = useState(false);
   const docFileInputRef = useRef(null);
+  const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
 
   useEffect(() => {
     const loadActive = () => {
@@ -718,6 +724,20 @@ const MyInternshipView = ({ studentId, studentName }) => {
     refreshDocuments();
     window.addEventListener("storage", refreshDocuments);
     return () => window.removeEventListener("storage", refreshDocuments);
+  }, [studentId]);
+
+  useEffect(() => {
+    const loadAdvisorEval = () => {
+      setAdvisorOwnEval(getAdvisorEvaluation(studentId));
+    };
+    loadAdvisorEval();
+    const onUpdate = () => loadAdvisorEval();
+    window.addEventListener("storage", onUpdate);
+    window.addEventListener("advisor-evaluation-updated", onUpdate);
+    return () => {
+      window.removeEventListener("storage", onUpdate);
+      window.removeEventListener("advisor-evaluation-updated", onUpdate);
+    };
   }, [studentId]);
 
   const handleDocFile = (e) => {
@@ -966,6 +986,21 @@ const MyInternshipView = ({ studentId, studentName }) => {
             <Upload className="w-4 h-4" />
             Document upload
           </button>
+          <button
+            type="button"
+            onClick={() => setInternshipSubTab("advisor-eval")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              internshipSubTab === "advisor-eval"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Advisor evaluation
+            {advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+              <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" title="Available" />
+            )}
+          </button>
         </div>
 
         {internshipSubTab === "logbook" && (
@@ -1115,6 +1150,45 @@ const MyInternshipView = ({ studentId, studentName }) => {
             </div>
           </div>
         )}
+
+        {internshipSubTab === "advisor-eval" && (
+          <div className="space-y-4">
+            <div className="mb-2">
+              <h3 className="text-xl font-bold text-gray-900">Advisor evaluation</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Your academic advisor&apos;s assessment of your internship. It appears here once they submit it.
+              </p>
+            </div>
+            {!advisorOwnEval || advisorOwnEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
+              <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
+                Your advisor has not submitted their evaluation yet. You will be notified when it is ready.
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500">
+                  Submitted {new Date(advisorOwnEval.submittedAt).toLocaleString()}
+                  {advisorOwnEval.advisorName && (
+                    <span className="block mt-1 font-semibold text-gray-800">
+                      Advisor: {advisorOwnEval.advisorName}
+                    </span>
+                  )}
+                </p>
+                <AdvisorStudentEvaluationForm
+                  readOnly
+                  initialData={{
+                    ...(advisorOwnEval.formData || {}),
+                    studentName: activeApp.studentName || studentName,
+                    studentId: activeApp.studentId || studentId,
+                    department: activeApp.department || "",
+                    companyName: activeApp.companyName || "",
+                    internshipTitle: activeApp.internshipTitle || "",
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
+
       </div>
 
       {selectedWeek && draftWeek && (
