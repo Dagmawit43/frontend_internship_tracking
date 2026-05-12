@@ -42,6 +42,7 @@ import {
   getDocumentsByStudentId,
   getDocumentsForAdvisorStudents,
   advisorDecideInternshipDocument,
+  documentBelongsToAdvisor,
   ROLE_DOC_STATUS,
 } from "../utils/internshipDocuments";
 
@@ -52,8 +53,8 @@ const AdvisorStudentDocumentsPanel = ({ studentId, advisorIdentity }) => {
   const [commentByDoc, setCommentByDoc] = useState({});
 
   const reload = () => {
-    const list = getDocumentsByStudentId(studentId).filter(
-      (d) => normStr(d.advisorName) === normStr(advisorIdentity)
+    const list = getDocumentsByStudentId(studentId).filter((d) =>
+      documentBelongsToAdvisor(d, normStr(advisorIdentity))
     );
     setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
   };

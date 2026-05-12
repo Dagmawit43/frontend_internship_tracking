@@ -8,6 +8,69 @@ export const ROLE_DOC_STATUS = {
 
 const norm = (s) => String(s || "").trim().toLowerCase();
 
+/** Active placement for a student (used to resolve advisor/examiner names). */
+export const getActiveInternApplication = (studentId) => {
+  try {
+    const apps = JSON.parse(localStorage.getItem("applications") || "[]");
+    const sid = String(studentId ?? "");
+    return (
+      apps.find(
+        (a) =>
+          String(a.studentId ?? "") === sid &&
+          a.finalInternshipStatus === "ACTIVE_INTERN"
+      ) || null
+    );
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * True if `identityLower` matches `fieldValue`, or both match the same otherUsers row
+ * (handles coordinator display name vs advisor login username).
+ */
+export const identityMatchesStaffField = (fieldValue, identityLower) => {
+  const id = norm(identityLower);
+  const fv = norm(fieldValue);
+  if (!id) return false;
+  if (fv && fv === id) return true;
+
+  let others = [];
+  try {
+    others = JSON.parse(localStorage.getItem("otherUsers") || "[]");
+  } catch {
+    others = [];
+  }
+
+  for (const u of others) {
+    const aliases = [u.fullName, u.name, u.username, u.email]
+      .map(norm)
+      .filter(Boolean);
+    if (!aliases.includes(id)) continue;
+    if (!fv) return false;
+    if (aliases.includes(fv)) return true;
+  }
+  return false;
+};
+
+export const documentBelongsToAdvisor = (doc, advisorIdentity) =>
+  identityMatchesStaffField(
+    doc.advisorName ||
+      getActiveInternApplication(doc.studentId)?.advisorName ||
+      "",
+    advisorIdentity
+  );
+
+export const documentBelongsToExaminer = (doc, examinerIdentity) => {
+  const app = getActiveInternApplication(doc.studentId);
+  const e1 = doc.examinerName || app?.examinerName || "";
+  const e2 = doc.examiner2Name || app?.examiner2Name || "";
+  return (
+    identityMatchesStaffField(e1, examinerIdentity) ||
+    identityMatchesStaffField(e2, examinerIdentity)
+  );
+};
+
 export const getAllInternshipDocuments = () => {
   try {
     return JSON.parse(localStorage.getItem(KEY) || "[]");
@@ -65,6 +128,7 @@ export const submitInternshipDocument = ({
   examinerName,
   examiner2Name,
 }) => {
+  const app = getActiveInternApplication(studentId);
   const all = getAllInternshipDocuments();
   const doc = {
     id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -74,9 +138,9 @@ export const submitInternshipDocument = ({
     description: (description || "").trim(),
     fileName: fileName || "file",
     fileData,
-    advisorName: advisorName || "",
-    examinerName: examinerName || "",
-    examiner2Name: examiner2Name || "",
+    advisorName: (advisorName || app?.advisorName || "").trim(),
+    examinerName: (examinerName || app?.examinerName || "").trim(),
+    examiner2Name: (examiner2Name || app?.examiner2Name || "").trim(),
     advisorStatus: ROLE_DOC_STATUS.PENDING,
     examinerStatus: ROLE_DOC_STATUS.PENDING,
     advisorComment: "",
@@ -134,11 +198,8 @@ export const advisorDecideInternshipDocument = (docId, action, comment = "") => 
   return all[i];
 };
 
-export const examinerCanReviewDocument = (doc, examinerIdentity) => {
-  const id = norm(examinerIdentity);
-  if (!id) return false;
-  return norm(doc.examinerName) === id || norm(doc.examiner2Name) === id;
-};
+export const examinerCanReviewDocument = (doc, examinerIdentity) =>
+  documentBelongsToExaminer(doc, examinerIdentity);
 
 export const examinerDecideInternshipDocument = (
   docId,
@@ -178,19 +239,15 @@ export const examinerDecideInternshipDocument = (
 };
 
 export const getDocumentsForAdvisorStudents = (advisorIdentity, studentIds) => {
-  const id = norm(advisorIdentity);
-  const set = new Set(studentIds);
+  const set = new Set(studentIds.map((x) => String(x)));
   return getAllInternshipDocuments().filter(
-    (d) => set.has(d.studentId) && norm(d.advisorName) === id
+    (d) => set.has(String(d.studentId)) && documentBelongsToAdvisor(d, advisorIdentity)
   );
 };
 
 export const getDocumentsForExaminerStudents = (examinerIdentity, studentIds) => {
-  const id = norm(examinerIdentity);
-  const set = new Set(studentIds);
+  const set = new Set(studentIds.map((x) => String(x)));
   return getAllInternshipDocuments().filter(
-    (d) =>
-      set.has(d.studentId) &&
-      (norm(d.examinerName) === id || norm(d.examiner2Name) === id)
+    (d) => set.has(String(d.studentId)) && documentBelongsToExaminer(d, examinerIdentity)
   );
 };

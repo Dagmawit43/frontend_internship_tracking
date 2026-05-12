@@ -670,6 +670,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [docFile, setDocFile] = useState(null);
   const [docFileName, setDocFileName] = useState("");
   const [docSubmitting, setDocSubmitting] = useState(false);
+  const [docUploadSuccess, setDocUploadSuccess] = useState(false);
   const docFileInputRef = useRef(null);
 
   useEffect(() => {
@@ -753,6 +754,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
       setDocFileName("");
       if (docFileInputRef.current) docFileInputRef.current.value = "";
       refreshDocuments();
+      setDocUploadSuccess(true);
+      window.setTimeout(() => setDocUploadSuccess(false), 4000);
     } finally {
       setDocSubmitting(false);
     }
@@ -998,6 +1001,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
               <p className="text-sm text-gray-600 mb-4">
                 Upload reports or evidence for your advisor and internal examiner. They are notified and each must approve your submission.
               </p>
+              {docUploadSuccess && (
+                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                  Submitted — your file was sent to your assigned advisor and examiner for review.
+                </div>
+              )}
               <form onSubmit={handleDocumentSubmit} className="space-y-4 max-w-xl border border-gray-100 rounded-xl p-5 bg-gray-50/50">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Document title</label>
@@ -1034,8 +1042,14 @@ const MyInternshipView = ({ studentId, studentName }) => {
                   disabled={docSubmitting || !docFile}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {docSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  Submit to advisor & examiner
+                  {docSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : docUploadSuccess ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  {docSubmitting ? "Submitting…" : docUploadSuccess ? "Submitted" : "Submit to advisor & examiner"}
                 </button>
               </form>
             </div>
