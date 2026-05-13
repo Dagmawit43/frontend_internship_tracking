@@ -51,7 +51,7 @@ import {
   submitAdvisorEvaluation,
   ADVISOR_EVAL_STATUS,
 } from "../utils/advisorEvaluations";
-import { getExaminerEvaluationsForStudent } from "../utils/examinerEvaluations";
+import { getExaminerEvaluationForAdvisorSlot } from "../utils/examinerEvaluations";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 const normStr = (s) => String(s || "").trim().toLowerCase();
@@ -442,6 +442,20 @@ const AdvisorDashboard = () => {
     };
   }, [selectedStudent, selectedAdvisorEval, session]);
 
+  const selectedStudentExaminerEvals = useMemo(() => {
+    if (!selectedStudent) return { ev1: null, ev2: null };
+    return {
+      ev1: getExaminerEvaluationForAdvisorSlot(
+        selectedStudent.studentId,
+        selectedStudent.examinerName
+      ),
+      ev2: getExaminerEvaluationForAdvisorSlot(
+        selectedStudent.studentId,
+        selectedStudent.examiner2Name
+      ),
+    };
+  }, [selectedStudent, examinerEvalNonce]);
+
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
     for (const app of assignedStudents) {
@@ -599,7 +613,7 @@ const AdvisorDashboard = () => {
           statSecondary={pendingWeeksCount}
         />
 
-        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-7xl overflow-x-auto scrollbar-hide">
+        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 w-full">
           <button
             type="button"
             onClick={() => setActiveTab("students")}
@@ -609,6 +623,41 @@ const AdvisorDashboard = () => {
           >
             <User className="w-4 h-4" />
             My Students
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("documents")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "documents" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <FileText className="w-4 h-4 shrink-0" />
+            Document queue
+            {pendingAdvisorDocuments.length > 0 && (
+              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                {pendingAdvisorDocuments.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advisor-my-evals")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "advisor-my-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4 shrink-0" />
+            My evaluations
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("advisor-examiner-evals")}
+            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
+              activeTab === "advisor-examiner-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4 shrink-0" />
+            Examiner evaluations
           </button>
           <button
             type="button"
@@ -649,41 +698,6 @@ const AdvisorDashboard = () => {
                 {pendingFinalEvals.length}
               </span>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("documents")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "documents" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-            }`}
-          >
-            <FileText className="w-4 h-4 shrink-0" />
-            Document queue
-            {pendingAdvisorDocuments.length > 0 && (
-              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingAdvisorDocuments.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("advisor-my-evals")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "advisor-my-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4 shrink-0" />
-            My evaluations
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("advisor-examiner-evals")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "advisor-examiner-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4 shrink-0" />
-            Examiner evaluations
           </button>
         </div>
 
@@ -1021,11 +1035,8 @@ const AdvisorDashboard = () => {
                 ) : (
                   <div className="space-y-10" key={examinerEvalNonce}>
                     {assignedStudents.map((app) => {
-                      const allEv = getExaminerEvaluationsForStudent(app.studentId);
-                      const k1 = normStr(app.examinerName);
-                      const k2 = normStr(app.examiner2Name);
-                      const ev1 = k1 ? allEv.find((e) => e.examinerKey === k1) : null;
-                      const ev2 = k2 ? allEv.find((e) => e.examinerKey === k2) : null;
+                      const ev1 = getExaminerEvaluationForAdvisorSlot(app.studentId, app.examinerName);
+                      const ev2 = getExaminerEvaluationForAdvisorSlot(app.studentId, app.examiner2Name);
                       return (
                         <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4 bg-gray-50/20">
                           <h3 className="font-bold text-lg text-gray-900 border-b border-gray-100 pb-2">
@@ -1219,6 +1230,16 @@ const AdvisorDashboard = () => {
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Final Evaluation
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentDetailTab("examiner-eval")}
+                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "examiner-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <ClipboardList className="w-4 h-4" /> Examiner evaluation
+                {(selectedStudentExaminerEvals.ev1 || selectedStudentExaminerEvals.ev2) && (
+                  <span className="ml-0.5 h-2 w-2 rounded-full bg-green-500 shrink-0" title="At least one submitted" />
+                )}
               </button>
               <button
                 type="button"
@@ -1450,6 +1471,85 @@ const AdvisorDashboard = () => {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {studentDetailTab === "examiner-eval" && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Internal examiner forms for this student (read only). The same view is available under{" "}
+                  <strong className="text-gray-800">Examiner evaluations</strong> on the main dashboard.
+                </p>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                      Examiner 1
+                      {selectedStudent.examinerName ? ` — ${selectedStudent.examinerName}` : ""}
+                    </h4>
+                    {!selectedStudent.examinerName ? (
+                      <p className="text-sm text-gray-500">No examiner 1 assigned on this application.</p>
+                    ) : !selectedStudentExaminerEvals.ev1 ? (
+                      <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                        Examiner 1 has not submitted an evaluation yet.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-500">
+                          Submitted{" "}
+                          {new Date(selectedStudentExaminerEvals.ev1.submittedAt).toLocaleString()}
+                        </p>
+                        <ExaminerUniversityEvaluationForm
+                          readOnly
+                          initialData={{
+                            ...(selectedStudentExaminerEvals.ev1.formData || {}),
+                            studentName: selectedStudent.studentName || "",
+                            idNo: selectedStudent.studentId || "",
+                            department: selectedStudent.department || "",
+                            organization: selectedStudent.companyName || "",
+                            examinerName:
+                              selectedStudentExaminerEvals.ev1.examinerName ||
+                              selectedStudentExaminerEvals.ev1.formData?.examinerName ||
+                              "",
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                      Examiner 2
+                      {selectedStudent.examiner2Name ? ` — ${selectedStudent.examiner2Name}` : ""}
+                    </h4>
+                    {!selectedStudent.examiner2Name ? (
+                      <p className="text-sm text-gray-500">No examiner 2 assigned on this application.</p>
+                    ) : !selectedStudentExaminerEvals.ev2 ? (
+                      <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                        Examiner 2 has not submitted an evaluation yet.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-500">
+                          Submitted{" "}
+                          {new Date(selectedStudentExaminerEvals.ev2.submittedAt).toLocaleString()}
+                        </p>
+                        <ExaminerUniversityEvaluationForm
+                          readOnly
+                          initialData={{
+                            ...(selectedStudentExaminerEvals.ev2.formData || {}),
+                            studentName: selectedStudent.studentName || "",
+                            idNo: selectedStudent.studentId || "",
+                            department: selectedStudent.department || "",
+                            organization: selectedStudent.companyName || "",
+                            examinerName:
+                              selectedStudentExaminerEvals.ev2.examinerName ||
+                              selectedStudentExaminerEvals.ev2.formData?.examinerName ||
+                              "",
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

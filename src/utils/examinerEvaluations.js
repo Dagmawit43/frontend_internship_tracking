@@ -1,10 +1,24 @@
-const KEY = "internshipExaminerEvaluations";
+import { identityMatchesStaffField } from "./internshipDocuments";
 
+const KEY = "internshipExaminerEvaluations";
 export const EXAMINER_EVAL_STATUS = {
   SUBMITTED: "SUBMITTED",
 };
 
 const norm = (s) => String(s ?? "").trim().toLowerCase();
+
+/**
+ * Find examiner evaluation row for coordinator-assigned examinerName / examiner2Name vs stored login key.
+ */
+export const findExaminerEvalForStaffField = (evaluations, staffFieldValue) => {
+  if (!staffFieldValue || !evaluations?.length) return null;
+  const byAlias = evaluations.find((e) =>
+    identityMatchesStaffField(String(staffFieldValue), String(e.examinerKey || ""))
+  );
+  if (byAlias) return byAlias;
+  const fk = norm(staffFieldValue);
+  return evaluations.find((e) => norm(e.examinerName) === fk || norm(e.examinerKey) === fk) || null;
+};
 
 const readAll = () => {
   try {
@@ -29,6 +43,12 @@ export const getExaminerEvaluationsForStudent = (studentId) => {
     .filter((e) => String(e.studentId) === sid)
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
 };
+
+export const getExaminerEvaluationForAdvisorSlot = (studentId, examinerFieldFromApplication) =>
+  findExaminerEvalForStaffField(
+    getExaminerEvaluationsForStudent(studentId),
+    examinerFieldFromApplication
+  );
 
 export const submitExaminerEvaluation = ({
   studentId,

@@ -26,7 +26,10 @@ import {
   getAdvisorEvaluation,
   ADVISOR_EVAL_STATUS,
 } from "../utils/advisorEvaluations";
-import { getExaminerEvaluationsForStudent } from "../utils/examinerEvaluations";
+import {
+  getExaminerEvaluationsForStudent,
+  findExaminerEvalForStaffField,
+} from "../utils/examinerEvaluations";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
@@ -743,15 +746,21 @@ const MyInternshipView = ({ studentId, studentName }) => {
     };
   }, [studentId]);
 
-  const normEvKey = (s) => String(s || "").trim().toLowerCase();
-
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
     const all = getExaminerEvaluationsForStudent(String(studentId));
-    const e1 = normEvKey(activeApp.examinerName);
-    const e2 = normEvKey(activeApp.examiner2Name);
-    if (!e1 && !e2) return [];
-    return all.filter((r) => r.examinerKey === e1 || r.examinerKey === e2);
+    const picked = [];
+    const seen = new Set();
+    const pushSlot = (field) => {
+      const rec = findExaminerEvalForStaffField(all, field);
+      if (rec && rec.id != null && !seen.has(rec.id)) {
+        seen.add(rec.id);
+        picked.push(rec);
+      }
+    };
+    pushSlot(activeApp.examinerName);
+    pushSlot(activeApp.examiner2Name);
+    return picked.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   }, [activeApp, studentId, examinerEvalNonce]);
 
   useEffect(() => {
