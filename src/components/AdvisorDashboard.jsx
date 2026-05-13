@@ -537,7 +537,7 @@ const AdvisorDashboard = () => {
     notifications.push({
       id: Date.now(),
       type: action === "approve" ? "success" : "error",
-      title: action === "approve" ? "Monthly Evaluation Approved" : "Monthly Evaluation Rejected",
+      title: action === "approve" ? "Company Monthly Evaluation Approved" : "Company Monthly Evaluation Rejected",
       message: action === "approve"
         ? `Your Month ${selectedEval.eval.month} performance evaluation has been approved by your advisor${comment ? `: "${comment}"` : "."}`
         : `Your Month ${selectedEval.eval.month} performance evaluation was rejected by your advisor${comment ? `: "${comment}"` : ". Please contact your company to revise it."}`,
@@ -563,7 +563,7 @@ const AdvisorDashboard = () => {
     notifications.push({
       id: Date.now(),
       type: action === "approve" ? "success" : "error",
-      title: action === "approve" ? "Final Evaluation Approved" : "Final Evaluation Rejected",
+      title: action === "approve" ? "Company Final Evaluation Approved" : "Company Final Evaluation Rejected",
       message: action === "approve"
         ? `Your final internship evaluation has been approved by your advisor and sent to examiner for final review${comment ? `: "${comment}"` : "."}`
         : `Your final internship evaluation was rejected by your advisor${comment ? `: "${comment}"` : ". Please contact your company to revise it."}`,
@@ -692,7 +692,7 @@ const AdvisorDashboard = () => {
             }`}
           >
             <ClipboardList className="w-4 h-4" />
-            Monthly Evaluations
+            Company Monthly Evaluations
             {pendingMonthlyEvals.length > 0 && (
               <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
                 {pendingMonthlyEvals.length}
@@ -707,7 +707,7 @@ const AdvisorDashboard = () => {
             }`}
           >
             <ClipboardList className="w-4 h-4" />
-            Final Evaluations
+            Company Final Evaluations
             {pendingFinalEvals.length > 0 && (
               <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
                 {pendingFinalEvals.length}
@@ -810,15 +810,15 @@ const AdvisorDashboard = () => {
             {activeTab === "monthly" && (
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Monthly Evaluations</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Monthly Evaluations</h2>
                   <p className="text-gray-600">Company-submitted monthly performance evaluations — pending your approval.</p>
                 </div>
 
                 {allMyMonthlyEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                     <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No monthly evaluations submitted yet.</p>
-                    <p className="text-sm text-gray-400 mt-2">When a company submits a monthly evaluation for one of your students, it will appear here.</p>
+                    <p className="text-gray-500">No company monthly evaluations submitted yet.</p>
+                    <p className="text-sm text-gray-400 mt-2">When the host company submits the company monthly evaluation for one of your students, it will appear here.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -867,15 +867,15 @@ const AdvisorDashboard = () => {
             {activeTab === "final" && (
               <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Final Evaluations</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Final Evaluations</h2>
                   <p className="text-gray-600">Company-submitted final internship evaluations — pending your approval.</p>
                 </div>
 
                 {allMyFinalEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                     <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No final evaluations submitted yet.</p>
-                    <p className="text-sm text-gray-400 mt-2">When a company submits a final evaluation for one of your students, it will appear here.</p>
+                    <p className="text-gray-500">No company final evaluations submitted yet.</p>
+                    <p className="text-sm text-gray-400 mt-2">When the host company submits the company final evaluation for one of your students, it will appear here.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1140,7 +1140,7 @@ const AdvisorDashboard = () => {
                   <span className="text-lg font-bold text-yellow-600">{pendingWeeksCount}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Pending monthly evals</span>
+                  <span className="text-sm text-gray-600">Pending company monthly evals</span>
                   <span className="text-lg font-bold text-yellow-600">{pendingMonthlyEvals.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -1170,7 +1170,7 @@ const AdvisorDashboard = () => {
                 </li>
                 <li className="flex gap-3">
                   <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                  Monthly evaluations submitted by the company appear in the <strong className="text-gray-800">Monthly Evaluations</strong> tab for your review.
+                  Company monthly evaluations submitted by the host appear in the <strong className="text-gray-800">Company Monthly Evaluations</strong> tab for your review.
                 </li>
                 <li className="flex gap-3">
                   <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
@@ -1227,7 +1227,7 @@ const AdvisorDashboard = () => {
                 onClick={() => setStudentDetailTab("monthly")}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
-                <ClipboardList className="w-4 h-4" /> Monthly Evaluation
+                <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
               <button
                 type="button"
@@ -1244,7 +1244,7 @@ const AdvisorDashboard = () => {
                 onClick={() => setStudentDetailTab("final")}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
-                <ClipboardList className="w-4 h-4" /> Final Evaluation
+                <ClipboardList className="w-4 h-4" /> Company Final Evaluation
               </button>
               <button
                 type="button"
@@ -1357,7 +1357,7 @@ const AdvisorDashboard = () => {
               </div>
             )}
 
-            {/* ── Monthly Evaluation tab ── */}
+            {/* ── Company Monthly Evaluation tab ── */}
             {studentDetailTab === "monthly" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {[1, 2].map(month => {
@@ -1439,7 +1439,7 @@ const AdvisorDashboard = () => {
               </div>
             )}
 
-            {/* ── Final Evaluation tab ── */}
+            {/* ── Company Final Evaluation tab ── */}
             {studentDetailTab === "final" && (
               <div className="space-y-6">
                 {(() => {
@@ -1448,7 +1448,7 @@ const AdvisorDashboard = () => {
                     return (
                       <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                         <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No final evaluation submitted yet by the company.</p>
+                        <p className="text-gray-500">No company final evaluation submitted yet by the company.</p>
                       </div>
                     );
                   }

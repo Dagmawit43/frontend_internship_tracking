@@ -543,8 +543,8 @@ const InternsPage = ({ companySession }) => {
     notifications.push({
       id: Date.now(),
       type: "info",
-      title: "Monthly Evaluation Submitted",
-      message: `Your Month ${month} performance evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for review.`,
+      title: "Company Monthly Evaluation Submitted",
+      message: `Your Month ${month} company monthly evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for review.`,
       date: new Date().toISOString(),
       studentId: selectedIntern.studentId,
       studentName: selectedIntern.studentName,
@@ -576,8 +576,8 @@ const InternsPage = ({ companySession }) => {
     notifications.push({
       id: Date.now(),
       type: "info",
-      title: "Final Evaluation Submitted",
-      message: `Your final internship evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for approval.`,
+      title: "Company Final Evaluation Submitted",
+      message: `Your company final evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for approval.`,
       date: new Date().toISOString(),
       studentId: selectedIntern.studentId,
       studentName: selectedIntern.studentName,
@@ -612,7 +612,7 @@ const InternsPage = ({ companySession }) => {
           {reminders.map(({ intern, month }) => (
             <div key={`${intern.studentId}-m${month}`} className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
               <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-              <span><strong>Reminder:</strong> Month {month} evaluation for <strong>{intern.studentName}</strong> is due. Please fill it in.</span>
+              <span><strong>Reminder:</strong> Month {month} company monthly evaluation for <strong>{intern.studentName}</strong> is due. Please fill it in.</span>
             </div>
           ))}
         </div>
@@ -685,10 +685,10 @@ const InternsPage = ({ companySession }) => {
                 <FileText className="w-4 h-4" /> Weekly Logbook
               </button>
               <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                <ClipboardList className="w-4 h-4" /> Monthly Evaluation
+                <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
               <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                <ClipboardList className="w-4 h-4" /> Final Evaluation
+                <ClipboardList className="w-4 h-4" /> Company Final Evaluation
               </button>
               <button type="button" onClick={() => { setInternDetailTab("advisor-eval"); setOpenEvalMonth(null); setFinalEvalDraftOpen(false); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "advisor-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
                 <GraduationCap className="w-4 h-4" /> Advisor evaluation
@@ -729,7 +729,7 @@ const InternsPage = ({ companySession }) => {
               </div>
             )}
 
-            {/* Monthly Evaluation tab */}
+            {/* Company Monthly Evaluation tab */}
             {internDetailTab === "monthly" && (
               <div>
                 {openEvalMonth === null ? (
@@ -741,7 +741,7 @@ const InternsPage = ({ companySession }) => {
                       return (
                         <div key={month} className="border border-gray-200 rounded-xl p-6 space-y-4 bg-gray-50/40">
                           <div className="flex justify-between items-center">
-                            <h4 className="font-bold text-gray-900 text-base">Month {month} Evaluation</h4>
+                            <h4 className="font-bold text-gray-900 text-base">Month {month} — Company monthly evaluation</h4>
                             <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${evalStatusBadge(status)}`}>{EVAL_STATUS_LABELS[status]}</span>
                           </div>
 
@@ -783,7 +783,7 @@ const InternsPage = ({ companySession }) => {
               </div>
             )}
 
-            {/* Final Evaluation tab */}
+            {/* Company Final Evaluation tab */}
             {internDetailTab === "final" && selectedIntern && (() => {
               const finalStatus = finalEvalRecord?.status ?? FINAL_EVAL_STATUS.NOT_STARTED;
               const showFinalCta =
@@ -820,7 +820,7 @@ const InternsPage = ({ companySession }) => {
                 <div>
                   <div className="space-y-6">
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-bold text-gray-900">Final Internship Evaluation</h3>
+                      <h3 className="text-lg font-bold text-gray-900">Company Final Evaluation</h3>
                       <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${finalBadgeClass}`}>
                         {FINAL_EVAL_STATUS_LABELS[finalStatus]}
                       </span>
@@ -829,13 +829,13 @@ const InternsPage = ({ companySession }) => {
                     {showFinalCta && (
                       <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                         <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">Final evaluation not started yet.</p>
+                        <p className="text-gray-500">Company final evaluation not started yet.</p>
                         <button
                           type="button"
                           onClick={startFinalDraft}
                           className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
                         >
-                          Start Final Evaluation
+                          Start Company Final Evaluation
                         </button>
                       </div>
                     )}
@@ -1016,7 +1016,7 @@ const CompanyDashboard = () => {
                 <ul className="space-y-4">
                   <li className="flex gap-3 text-sm"><div className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" /><p className="text-gray-600">Ensure all active internships have correct contact info.</p></li>
                   <li className="flex gap-3 text-sm"><div className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" /><p className="text-gray-600">Review new student applications daily for fast onboarding.</p></li>
-                  <li className="flex gap-3 text-sm"><div className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 shrink-0" /><p className="text-gray-600">Monthly evaluations are due at 30 and 60 days — check Active Interns.</p></li>
+                  <li className="flex gap-3 text-sm"><div className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 shrink-0" /><p className="text-gray-600">Company monthly evaluations are due at 30 and 60 days — check Active Interns.</p></li>
                 </ul>
               </div>
             </div>

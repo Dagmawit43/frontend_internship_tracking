@@ -685,6 +685,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const docFileInputRef = useRef(null);
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
+  const [overallEvalNonce, setOverallEvalNonce] = useState(0);
 
   useEffect(() => {
     const loadActive = () => {
@@ -692,10 +693,15 @@ const MyInternshipView = ({ studentId, studentName }) => {
       const companies = JSON.parse(localStorage.getItem("companies")) || [];
       const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
       
-      const found = allApps.find(app => 
-        (app.studentId === studentId || app.studentName === studentName) && 
-        app.finalInternshipStatus === "ACTIVE_INTERN"
-      );
+      const sid = String(studentId ?? "").trim();
+      const sname = String(studentName ?? "").trim().toLowerCase();
+      const found = allApps.find((app) => {
+        const aid = String(app.studentId ?? "").trim();
+        const aname = String(app.studentName ?? "").trim().toLowerCase();
+        const idMatch = sid && aid && sid === aid;
+        const nameMatch = sname && aname && aname === sname;
+        return (idMatch || nameMatch) && app.finalInternshipStatus === "ACTIVE_INTERN";
+      });
 
       if (found) {
         const company = companies.find(c => c.company_id === found.companyId || c.id === found.companyId || c.companyName === found.companyName);
@@ -723,19 +729,22 @@ const MyInternshipView = ({ studentId, studentName }) => {
     return () => window.removeEventListener("storage", loadActive);
   }, [studentId, studentName]);
 
+  const docStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
+
   const refreshDocuments = () => {
-    setDocuments(getDocumentsByStudentId(String(studentId)));
+    setDocuments(getDocumentsByStudentId(docStudentKey));
   };
 
   useEffect(() => {
     refreshDocuments();
     window.addEventListener("storage", refreshDocuments);
     return () => window.removeEventListener("storage", refreshDocuments);
-  }, [studentId]);
+  }, [docStudentKey]);
 
   useEffect(() => {
+    const sid = activeApp?.studentId ?? studentId;
     const loadAdvisorEval = () => {
-      setAdvisorOwnEval(getAdvisorEvaluation(studentId));
+      setAdvisorOwnEval(getAdvisorEvaluation(sid));
     };
     loadAdvisorEval();
     const onUpdate = () => loadAdvisorEval();
@@ -745,11 +754,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
       window.removeEventListener("storage", onUpdate);
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
-  }, [studentId]);
+  }, [studentId, activeApp?.studentId]);
 
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
-    const all = getExaminerEvaluationsForStudent(String(studentId));
+    const all = getExaminerEvaluationsForStudent(String(activeApp.studentId ?? studentId));
     const picked = [];
     const seen = new Set();
     const pushSlot = (field) => {
@@ -764,9 +773,14 @@ const MyInternshipView = ({ studentId, studentName }) => {
     return picked.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   }, [activeApp, studentId, examinerEvalNonce]);
 
+  /** Match coordinator/advisor/examiner flows: approvals are keyed by application `studentId`, not necessarily login id */
+  const approvalStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
+
+  const overallApprovals = useMemo(() => getOverallApprovals(approvalStudentKey), [approvalStudentKey, overallEvalNonce]);
+
   const overallForStudent = useMemo(() => {
     if (!activeApp) return null;
-    const approvals = getOverallApprovals(String(studentId));
+    const approvals = getOverallApprovals(approvalStudentKey);
     if (
       !approvals.advisorApproved ||
       !approvals.examiner1Approved ||
@@ -774,7 +788,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
       !approvals.coordinatorApproved
     ) return null;
     return computeOverallEvaluation(activeApp);
-  }, [activeApp, studentId, examinerEvalNonce, advisorOwnEval]);
+  }, [activeApp, approvalStudentKey, examinerEvalNonce, advisorOwnEval, overallEvalNonce]);
 
   useEffect(() => {
     const bump = () => setExaminerEvalNonce((n) => n + 1);
@@ -785,6 +799,25 @@ const MyInternshipView = ({ studentId, studentName }) => {
       window.removeEventListener("examiner-evaluation-updated", bump);
     };
   }, []);
+
+  useEffect(() => {
+    const bumpOverall = (e) => {
+      const sid = e?.detail?.studentId;
+      if (sid == null || sid === "") {
+        setOverallEvalNonce((n) => n + 1);
+        return;
+      }
+      if (String(sid) === approvalStudentKey || String(sid) === String(studentId)) {
+        setOverallEvalNonce((n) => n + 1);
+      }
+    };
+    window.addEventListener("storage", bumpOverall);
+    window.addEventListener("overall-evaluation-updated", bumpOverall);
+    return () => {
+      window.removeEventListener("storage", bumpOverall);
+      window.removeEventListener("overall-evaluation-updated", bumpOverall);
+    };
+  }, [approvalStudentKey, studentId]);
 
   const handleDocFile = (e) => {
     const file = e.target.files?.[0];
@@ -1062,6 +1095,21 @@ const MyInternshipView = ({ studentId, studentName }) => {
               <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" title="Available" />
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setInternshipSubTab("overall-eval")}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+              internshipSubTab === "overall-eval"
+                ? "bg-blue-600 text-white shadow"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Overall evaluation
+            {overallForStudent && (
+              <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" title="Approved — report available" />
+            )}
+          </button>
         </div>
 
         {internshipSubTab === "logbook" && (
@@ -1209,15 +1257,26 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 </ul>
               )}
             </div>
+          </div>
+        )}
 
-            {overallForStudent && (
+        {internshipSubTab === "overall-eval" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Overall evaluation</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Your final overall mark out of 100 appears here after your advisor, both internal examiners, and the internship coordinator have approved the overall evaluation.
+              </p>
+            </div>
+            {!activeApp ? (
+              <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
+                No active internship record found.
+              </p>
+            ) : overallForStudent ? (
               <div className="border border-gray-200 rounded-xl p-5 bg-white">
                 <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-2">
-                  Overall report (approved)
+                  Overall report
                 </h4>
-                <p className="text-sm text-gray-600 mb-4">
-                  This overall report becomes visible after coordinator approval.
-                </p>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
@@ -1242,6 +1301,26 @@ const MyInternshipView = ({ studentId, studentName }) => {
                       Company: {overallForStudent.companyTotal40 != null ? `${overallForStudent.companyTotal40} / 40` : "—"}
                     </div>
                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-amber-200 bg-amber-50/40 rounded-xl p-5 space-y-4">
+                <p className="text-sm font-semibold text-amber-900">
+                  Your overall report is not published yet. Each role below must approve the overall evaluation in order.
+                </p>
+                <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                    Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                    Examiner 1 {overallApprovals.examiner1Approved ? "✓" : "…"}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                    Examiner 2 {overallApprovals.examiner2Approved ? "✓" : "…"}
+                  </span>
+                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                    Coordinator {overallApprovals.coordinatorApproved ? "✓" : "…"}
+                  </span>
                 </div>
               </div>
             )}
@@ -1803,6 +1882,7 @@ const StudentDashboard = () => {
   const [advisor, setAdvisor] = useState(null);
   const [examiner, setExaminer] = useState(null);
   const [examiner2, setExaminer2] = useState(null);
+  const [activeTab, setActiveTab] = useState("my-internship");
 
   const resolveDisplayName = (u) => {
     if (!u || typeof u !== "object") return "";
@@ -1985,8 +2065,6 @@ const StudentDashboard = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState("my-internship"); // my-internship, browse, applied, self-placement
-
   const loadApplications = (studentId, studentName) => {
     try {
       const apps = JSON.parse(localStorage.getItem("applications")) || [];
@@ -2077,10 +2155,11 @@ const StudentDashboard = () => {
         {/* Tab Navigation */}
         <div className="flex space-x-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-3xl overflow-x-auto scrollbar-hide">
           <button
+            type="button"
             onClick={() => setActiveTab("my-internship")}
             className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "my-internship" 
-                ? "bg-blue-600 text-white shadow-md" 
+              activeTab === "my-internship"
+                ? "bg-blue-600 text-white shadow-md"
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
             }`}
           >
@@ -2127,10 +2206,7 @@ const StudentDashboard = () => {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {activeTab === "my-internship" && (
-              <MyInternshipView 
-                studentId={studentData.studentId}
-                studentName={studentData.name}
-              />
+              <MyInternshipView studentId={studentData.studentId} studentName={studentData.name} />
             )}
 
             {activeTab === "browse" && (

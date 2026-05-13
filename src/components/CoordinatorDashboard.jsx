@@ -830,7 +830,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                 onClick={() => setInternDetailTab("monthly")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
-                <ClipboardList className="w-4 h-4" /> Monthly Evaluation
+                <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
             </div>
 
@@ -879,7 +879,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
               </div>
             )}
 
-            {/* Monthly Evaluation tab */}
+            {/* Company Monthly Evaluation tab */}
             {internDetailTab === "monthly" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {[1, 2].map(month => {

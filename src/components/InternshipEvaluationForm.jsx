@@ -297,7 +297,7 @@ const InternshipEvaluationForm = ({
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
             >
-              Submit Final Evaluation
+              Submit Company Final Evaluation
             </button>
           </div>
         )}

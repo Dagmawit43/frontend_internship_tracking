@@ -83,8 +83,8 @@ export const approveOverallAsExaminerSlot = (studentId, slot /* 1|2 */) => {
  * - Examiner 2 eval: finalMark / 25 → weighted /30
  *
  * Company (40%):
- * - Monthly evaluation: (Month1 /20 + Month2 /20) averaged → /20
- * - Final evaluation: /20
+ * - Company monthly evaluation: (Month1 /20 + Month2 /20) averaged → /20
+ * - Company final evaluation: /20
  * Company total = /40 (Monthly /20 + Final /20)
  *
  * Overall /100:
