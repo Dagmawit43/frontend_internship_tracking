@@ -11,6 +11,11 @@ import {
   submitExaminerEvaluation,
 } from "../utils/examinerEvaluations";
 import {
+  approveOverallAsExaminerSlot,
+  computeOverallEvaluation,
+  getOverallApprovals,
+} from "../utils/overallEvaluation";
+import {
   getDocumentsForExaminerStudents,
   examinerDecideInternshipDocument,
   examinerCanReviewDocument,
@@ -359,6 +364,25 @@ const ExaminerDashboard = () => {
     return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity);
   }, [selectedStudent, examinerIdentity, examinerEvalNonce]);
 
+  const overall = useMemo(() => {
+    if (!selectedStudent) return null;
+    return computeOverallEvaluation(selectedStudent);
+  }, [selectedStudent, examinerEvalNonce]);
+
+  const overallApprovals = useMemo(() => {
+    if (!selectedStudent) return null;
+    return getOverallApprovals(selectedStudent.studentId);
+  }, [selectedStudent, examinerEvalNonce, docQueueNonce]);
+
+  const examinerSlot = useMemo(() => {
+    if (!selectedStudent || !examinerIdentity) return null;
+    const e1 = String(selectedStudent.examinerName || "").trim().toLowerCase();
+    const e2 = String(selectedStudent.examiner2Name || "").trim().toLowerCase();
+    if (e1 && e1 === examinerIdentity) return 1;
+    if (e2 && e2 === examinerIdentity) return 2;
+    return null;
+  }, [selectedStudent, examinerIdentity]);
+
   const examinerEvalFormInitial = useMemo(() => {
     if (!selectedStudent || !session) return {};
     const rec = examinerOwnEval;
@@ -582,6 +606,18 @@ const ExaminerDashboard = () => {
                 <FileText className="w-4 h-4" />
                 Documents
               </button>
+              {overallApprovals?.advisorApproved && (
+                <button
+                  type="button"
+                  onClick={() => setStudentModalTab("overall")}
+                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
+                    studentModalTab === "overall" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Overall report
+                </button>
+              )}
             </div>
 
             {studentModalTab === "eval" && (
@@ -615,6 +651,74 @@ const ExaminerDashboard = () => {
                 examinerIdentity={examinerIdentity}
                 displayName={displayName}
               />
+            )}
+
+            {studentModalTab === "overall" && overallApprovals?.advisorApproved && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-lg">Overall report (advisor-approved)</h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      This appears after the advisor approves the overall evaluation. Your approval is required for coordinator finalization.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                    <p className="text-2xl font-black text-green-700">
+                      {overall?.overallMark100 ?? "—"} / 100
+                    </p>
+                    {overall?.companyTotal40 != null && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Company: {overall.companyTotal40} / 40
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border border-gray-200 rounded-xl p-5 space-y-3">
+                  <h5 className="font-bold text-gray-900">Approval status</h5>
+                  <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                    <span className={`px-3 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      Advisor: {overallApprovals.advisorApproved ? "Approved" : "Pending"}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      Examiner 1: {overallApprovals.examiner1Approved ? "Approved" : "Pending"}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      Examiner 2: {overallApprovals.examiner2Approved ? "Approved" : "Pending"}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                      Coordinator: {overallApprovals.coordinatorApproved ? "Approved" : "Pending"}
+                    </span>
+                  </div>
+
+                  {examinerSlot === 1 && !overallApprovals.examiner1Approved && (
+                    <button
+                      type="button"
+                      disabled={!overall?.complete}
+                      onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 1)}
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Approve overall (Examiner 1)
+                    </button>
+                  )}
+                  {examinerSlot === 2 && !overallApprovals.examiner2Approved && (
+                    <button
+                      type="button"
+                      disabled={!overall?.complete}
+                      onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 2)}
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Approve overall (Examiner 2)
+                    </button>
+                  )}
+                  {!overall?.complete && (
+                    <p className="text-xs text-gray-500">
+                      Your approval becomes available after advisor + both examiner evaluations and company evaluations are complete.
+                    </p>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

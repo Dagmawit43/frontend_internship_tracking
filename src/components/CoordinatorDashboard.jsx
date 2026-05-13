@@ -16,6 +16,11 @@ import {
   EVAL_STATUS_LABELS,
   getEvaluation,
 } from "../utils/monthlyEvaluations";
+import {
+  computeOverallEvaluation,
+  getOverallApprovals,
+  approveOverallAsCoordinator,
+} from "../utils/overallEvaluation";
 
 const getValidSession = () => {
   try {
@@ -609,6 +614,69 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                        <Eye className="w-4 h-4" />
                        View Progress
                      </button>
+
+                     {(() => {
+                       const overall = computeOverallEvaluation(app);
+                       const approvals = getOverallApprovals(app.studentId);
+                       const readyForCoordinator =
+                         overall.complete &&
+                         approvals.advisorApproved &&
+                         approvals.examiner1Approved &&
+                         approvals.examiner2Approved;
+                       return (
+                         <div className="border border-gray-200 rounded-2xl p-5 bg-gray-50/30">
+                           <div className="flex flex-wrap items-start justify-between gap-3">
+                             <div>
+                               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                                 Overall evaluation
+                               </p>
+                               <p className="text-lg font-black text-green-700">
+                                 {overall.overallMark100} / 100
+                               </p>
+                               <p className="text-xs text-gray-500 mt-1">
+                                 Company: {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                                 {" · "}
+                                 Academic: {overall.academicOverall100} / 100
+                               </p>
+                             </div>
+                             <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+                               <span className={`px-2 py-1 rounded-full border ${approvals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                 Advisor
+                               </span>
+                               <span className={`px-2 py-1 rounded-full border ${approvals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                 Ex1
+                               </span>
+                               <span className={`px-2 py-1 rounded-full border ${approvals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                 Ex2
+                               </span>
+                               <span className={`px-2 py-1 rounded-full border ${approvals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                                 Coord
+                               </span>
+                             </div>
+                           </div>
+
+                           {!approvals.coordinatorApproved ? (
+                             <button
+                               type="button"
+                               disabled={!readyForCoordinator}
+                               onClick={() => approveOverallAsCoordinator(app.studentId)}
+                               className="mt-4 w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                             >
+                               Approve overall evaluation
+                             </button>
+                           ) : (
+                             <div className="mt-4 text-xs font-black uppercase tracking-widest text-green-700 bg-green-50 border border-green-200 rounded-xl py-3 text-center">
+                               Overall evaluation approved
+                             </div>
+                           )}
+                           {!readyForCoordinator && !approvals.coordinatorApproved && (
+                             <p className="text-xs text-gray-500 mt-2">
+                               Waiting for advisor + examiner 1 + examiner 2 approvals (and all evaluations submitted).
+                             </p>
+                           )}
+                         </div>
+                       );
+                     })()}
                   </div>
 
                   <div className="flex-[2] grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">

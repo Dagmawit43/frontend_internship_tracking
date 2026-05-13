@@ -53,6 +53,11 @@ import {
 } from "../utils/advisorEvaluations";
 import { getExaminerEvaluationForAdvisorSlot } from "../utils/examinerEvaluations";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
+import {
+  computeOverallEvaluation,
+  getOverallApprovals,
+  approveOverallAsAdvisor,
+} from "../utils/overallEvaluation";
 
 const normStr = (s) => String(s || "").trim().toLowerCase();
 
@@ -455,6 +460,16 @@ const AdvisorDashboard = () => {
       ),
     };
   }, [selectedStudent, examinerEvalNonce]);
+
+  const selectedStudentOverall = useMemo(() => {
+    if (!selectedStudent) return null;
+    return computeOverallEvaluation(selectedStudent);
+  }, [selectedStudent, advisorEvalNonce, examinerEvalNonce]);
+
+  const selectedStudentOverallApprovals = useMemo(() => {
+    if (!selectedStudent) return null;
+    return getOverallApprovals(selectedStudent.studentId);
+  }, [selectedStudent, advisorEvalNonce, examinerEvalNonce, internshipDocsNonce]);
 
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
@@ -1243,6 +1258,16 @@ const AdvisorDashboard = () => {
               </button>
               <button
                 type="button"
+                onClick={() => setStudentDetailTab("overall-eval")}
+                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "overall-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                <ClipboardList className="w-4 h-4" /> Overall evaluation
+                {selectedStudentOverall?.complete && (
+                  <span className="ml-0.5 h-2 w-2 rounded-full bg-green-500 shrink-0" title="Complete" />
+                )}
+              </button>
+              <button
+                type="button"
                 onClick={() => setStudentDetailTab("documents")}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-2 sm:px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
@@ -1550,6 +1575,108 @@ const AdvisorDashboard = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {studentDetailTab === "overall-eval" && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-lg">Overall evaluation</h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Auto-calculated from your advisor evaluation and both internal examiner evaluations.
+                    </p>
+                  </div>
+                  {selectedStudentOverall && (
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                      <p className="text-2xl font-black text-green-700">
+                        {selectedStudentOverall.overallMark100} / 100
+                      </p>
+                      {!selectedStudentOverall.complete && (
+                        <p className="text-xs text-amber-700 font-semibold mt-1">
+                          Waiting for all evaluations to be submitted.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/30">
+                    <p className="text-xs font-black uppercase tracking-widest text-gray-500">Advisor</p>
+                    <p className="text-lg font-black text-gray-900 mt-1">
+                      {selectedStudentOverall?.advisorMark != null
+                        ? `${selectedStudentOverall.advisorMark} / 35`
+                        : "Not submitted"}
+                    </p>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/30">
+                    <p className="text-xs font-black uppercase tracking-widest text-gray-500">Examiner 1</p>
+                    <p className="text-lg font-black text-gray-900 mt-1">
+                      {selectedStudentOverall?.ex1Mark != null
+                        ? `${selectedStudentOverall.ex1Mark} / 25`
+                        : "Not submitted"}
+                    </p>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/30">
+                    <p className="text-xs font-black uppercase tracking-widest text-gray-500">Examiner 2</p>
+                    <p className="text-lg font-black text-gray-900 mt-1">
+                      {selectedStudentOverall?.ex2Mark != null
+                        ? `${selectedStudentOverall.ex2Mark} / 25`
+                        : "Not submitted"}
+                    </p>
+                  </div>
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/30">
+                    <p className="text-xs font-black uppercase tracking-widest text-gray-500">Company (Monthly+Final)</p>
+                    <p className="text-lg font-black text-gray-900 mt-1">
+                      {selectedStudentOverall?.companyTotal40 != null
+                        ? `${selectedStudentOverall.companyTotal40} / 40`
+                        : "Not ready"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Monthly avg: {selectedStudentOverall?.companyMonthly20 ?? "—"} / 20 · Final: {selectedStudentOverall?.companyFinal20 ?? "—"} / 20
+                    </p>
+                  </div>
+                </div>
+
+                {selectedStudentOverallApprovals && (
+                  <div className="border border-gray-200 rounded-xl p-5 space-y-3">
+                    <h5 className="font-bold text-gray-900">Approval status</h5>
+                    <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                      <span className={`px-3 py-1 rounded-full border ${selectedStudentOverallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        Advisor: {selectedStudentOverallApprovals.advisorApproved ? "Approved" : "Pending"}
+                      </span>
+                      <span className={`px-3 py-1 rounded-full border ${selectedStudentOverallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        Examiner 1: {selectedStudentOverallApprovals.examiner1Approved ? "Approved" : "Pending"}
+                      </span>
+                      <span className={`px-3 py-1 rounded-full border ${selectedStudentOverallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        Examiner 2: {selectedStudentOverallApprovals.examiner2Approved ? "Approved" : "Pending"}
+                      </span>
+                      <span className={`px-3 py-1 rounded-full border ${selectedStudentOverallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                        Coordinator: {selectedStudentOverallApprovals.coordinatorApproved ? "Approved" : "Pending"}
+                      </span>
+                    </div>
+
+                    {!selectedStudentOverallApprovals.advisorApproved && (
+                      <button
+                        type="button"
+                        disabled={!selectedStudentOverall?.complete}
+                        onClick={() => {
+                          approveOverallAsAdvisor(selectedStudent.studentId);
+                        }}
+                        className="mt-2 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        Approve overall evaluation
+                      </button>
+                    )}
+                    {!selectedStudentOverall?.complete && (
+                      <p className="text-xs text-gray-500">
+                        Advisor approval is enabled after advisor + examiner 1 + examiner 2 evaluations are submitted.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

@@ -30,6 +30,7 @@ import {
   getExaminerEvaluationsForStudent,
   findExaminerEvalForStaffField,
 } from "../utils/examinerEvaluations";
+import { computeOverallEvaluation, getOverallApprovals } from "../utils/overallEvaluation";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
@@ -763,6 +764,18 @@ const MyInternshipView = ({ studentId, studentName }) => {
     return picked.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   }, [activeApp, studentId, examinerEvalNonce]);
 
+  const overallForStudent = useMemo(() => {
+    if (!activeApp) return null;
+    const approvals = getOverallApprovals(String(studentId));
+    if (
+      !approvals.advisorApproved ||
+      !approvals.examiner1Approved ||
+      !approvals.examiner2Approved ||
+      !approvals.coordinatorApproved
+    ) return null;
+    return computeOverallEvaluation(activeApp);
+  }, [activeApp, studentId, examinerEvalNonce, advisorOwnEval]);
+
   useEffect(() => {
     const bump = () => setExaminerEvalNonce((n) => n + 1);
     window.addEventListener("storage", bump);
@@ -1196,6 +1209,42 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 </ul>
               )}
             </div>
+
+            {overallForStudent && (
+              <div className="border border-gray-200 rounded-xl p-5 bg-white">
+                <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-2">
+                  Overall report (approved)
+                </h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  This overall report becomes visible after coordinator approval.
+                </p>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                    <p className="text-2xl font-black text-green-700">
+                      {overallForStudent.overallMark100} / 100
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Company: {overallForStudent.companyTotal40 ?? "—"} / 40 · Academic: {overallForStudent.academicOverall100} / 100
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-gray-700">
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                      Advisor: {overallForStudent.advisorMark != null ? `${overallForStudent.advisorMark} / 35` : "—"}
+                    </div>
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                      Examiner 1: {overallForStudent.ex1Mark != null ? `${overallForStudent.ex1Mark} / 25` : "—"}
+                    </div>
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                      Examiner 2: {overallForStudent.ex2Mark != null ? `${overallForStudent.ex2Mark} / 25` : "—"}
+                    </div>
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                      Company: {overallForStudent.companyTotal40 != null ? `${overallForStudent.companyTotal40} / 40` : "—"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
