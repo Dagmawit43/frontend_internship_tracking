@@ -55,16 +55,18 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+      <div className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto scrollbar-hide">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur-sm">
+          <h2 className="text-xl font-bold text-slate-900">
             Apply to {company.companyName || company.company_name}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+            aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -73,9 +75,9 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Company Details */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">Company Information</h3>
-            <div className="space-y-1 text-sm text-gray-600">
+          <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-4">
+            <h3 className="mb-2 font-semibold text-slate-900">Company Information</h3>
+            <div className="space-y-1 text-sm text-slate-600">
               <p>
                 <span className="font-medium">Name:</span> {company.companyName}
               </p>
@@ -94,20 +96,20 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
 
           {/* Student ID */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="app-field-label">
               Student ID
             </label>
             <input
               type="text"
               value={studentId || ""}
               disabled
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 text-gray-600"
+              className="app-input cursor-not-allowed bg-slate-100 text-slate-600"
             />
           </div>
 
           {/* Reason */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="app-field-label">
               Reason for Choosing This Company <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -116,17 +118,17 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
               onChange={handleChange}
               required
               rows={5}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="app-input min-h-[120px] resize-y py-3"
               placeholder="Explain why you want to intern at this company..."
             />
           </div>
 
           {/* Document Upload */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="app-field-label">
               Upload CV/Resume <span className="text-red-500">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+            <div className="rounded-lg border-2 border-dashed border-slate-300 p-4">
               <input
                 type="file"
                 id="document-upload"
@@ -139,17 +141,17 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
                 className="flex flex-col items-center justify-center cursor-pointer"
               >
                 {formData.documentName ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <FileText className="h-5 w-5 text-blue-600" />
                     <span>{formData.documentName}</span>
                   </div>
                 ) : (
                   <>
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">
+                    <Upload className="mb-2 h-8 w-8 text-slate-400" />
+                    <p className="text-sm text-slate-600">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="mt-1 text-xs text-slate-400">
                       PDF, DOC, DOCX (Max 5MB)
                     </p>
                   </>
@@ -159,18 +161,18 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex gap-3 border-t border-slate-200 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg border border-blue-700/10 bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? "Submitting..." : "Submit Application"}
             </button>

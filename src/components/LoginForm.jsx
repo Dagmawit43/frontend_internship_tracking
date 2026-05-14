@@ -131,36 +131,36 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl p-8">
+    <div className="flex justify-center items-center app-shell px-4 py-10">
+      <div className="app-auth-card max-w-xl p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center mb-4 overflow-hidden">
+          <div className="w-20 h-20 rounded-full bg-blue-600 ring-2 ring-blue-500/30 flex items-center justify-center mb-4 overflow-hidden">
             <img
               src={logoSrc}
               alt="AASTU Logo"
               className="w-full h-full object-cover"
             />
           </div>
-          <p className="text-2xl font-bold text-gray-900 text-center mb-0 tracking-wide uppercase">
+          <p className="text-xs font-semibold text-slate-500 text-center mb-1 tracking-[0.12em] uppercase">
             ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY
           </p>
-          <h1 className="text-2xl font-bold text-gray-900 text-center">
+          <h1 className="text-2xl font-bold text-slate-900 text-center">
             Internship Tracking System
           </h1>
-          <p className="text-gray-500 text-sm mt-2">
+          <p className="text-slate-500 text-sm mt-2">
             Welcome back, please sign in
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">
+            <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 p-3 text-sm" role="alert">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="app-field-label">
               Account type
             </label>
             <select
@@ -169,7 +169,7 @@ const LoginForm = () => {
                 setAccountType(e.target.value);
                 setError("");
               }}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="app-select"
             >
               {Object.keys(roleRoutes).map((role) => (
                 <option key={role} value={role}>
@@ -180,7 +180,7 @@ const LoginForm = () => {
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="app-field-label">
               {accountType === "Student"
                 ? "AASTU Email"
                 : accountType === "Company"
@@ -192,7 +192,7 @@ const LoginForm = () => {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="app-input"
               placeholder={
                 accountType === "Student"
                   ? "Enter AASTU email or Student ID"
@@ -204,7 +204,7 @@ const LoginForm = () => {
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="app-field-label">
               Password
             </label>
             <div className="relative">
@@ -213,13 +213,14 @@ const LoginForm = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="app-input pr-10"
                 placeholder="Enter your password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -229,14 +230,14 @@ const LoginForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-blue-700/15 bg-blue-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Logging in..." : "Log in"}
           </button>
 
           <button
             type="button"
-            className="w-full text-sm text-blue-600 font-semibold mt-2 hover:underline"
+            className="mt-2 w-full text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline"
             onClick={() =>
               alert("Please contact your coordinator to reset your password.")
             }
@@ -245,11 +246,12 @@ const LoginForm = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div className="mt-6 text-center text-sm text-slate-600">
           Don't have an account?{" "}
           <button
+            type="button"
             onClick={() => navigate("/register")}
-            className="text-blue-600 font-semibold hover:underline"
+            className="font-semibold text-blue-700 hover:text-blue-800 hover:underline"
           >
             Sign up
           </button>

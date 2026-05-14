@@ -211,27 +211,27 @@ const RegistrationForm = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 px-4">
+    <div className="flex justify-center items-center app-shell px-4 py-10">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl space-y-5"
+        className="app-auth-card max-w-2xl space-y-5 p-8"
       >
         <div className="text-center">
-          <p className="text-sm text-gray-700 font-semibold tracking-wide">
+          <p className="text-xs font-semibold text-slate-500 tracking-[0.12em] uppercase">
             ADDIS ABABA SCIENCE AND TECHNOLOGY UNIVERSITY
           </p>
-          <h2 className="text-2xl font-bold text-gray-900 mt-1">
+          <h2 className="mt-2 text-2xl font-bold text-slate-900">
             Internship Tracking Registration
           </h2>
         </div>
 
         <div>
-          <label className="block text-gray-600 text-sm font-medium mb-1">Register as</label>
+          <label className="app-field-label">Register as</label>
           <select
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+            className="app-select"
           >
             <option value="Student">Student</option>
             <option value="Company">Company</option>
@@ -242,14 +242,18 @@ const RegistrationForm = () => {
         </div>
 
         {error && (
-          <div className="bg-red-100 text-red-600 p-3 rounded-md text-sm">{error}</div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+            {error}
+          </div>
         )}
         {success && (
-          <div className="bg-green-100 text-green-600 p-3 rounded-md text-sm">{success}</div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">
+            {success}
+          </div>
         )}
 
         <div>
-          <label className="block text-gray-600 text-sm font-medium mb-1">
+          <label className="app-field-label mb-1">
             {formData.role === "Student" ? "Full Name" : "Representative Name"}
           </label>
           <input
@@ -258,13 +262,13 @@ const RegistrationForm = () => {
             value={formData.fullName}
             onChange={handleChange}
             required
-            className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+            className="app-input"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">
+            <label className="app-field-label mb-1">
               {formData.role === "Student" ? "AASTU Email" : "Contact Email"}
             </label>
             <input
@@ -273,19 +277,19 @@ const RegistrationForm = () => {
               value={formData.email}
               onChange={handleChange}
               required={formData.role === "Student" || ["Coordinator", "Advisor", "Examiner"].includes(formData.role)}
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
               placeholder={formData.role === "Student" ? "example@aastustudent.edu.et" : "contact@company.com"}
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">Phone Number</label>
+            <label className="app-field-label mb-1">Phone Number</label>
             <input
               type="text"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
               required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
               placeholder="09XXXXXXXX"
             />
           </div>
@@ -293,37 +297,37 @@ const RegistrationForm = () => {
 
         {formData.role === "Company" ? (
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">Company Name</label>
+            <label className="app-field-label mb-1">Company Name</label>
             <input
               type="text"
               name="companyName"
               value={formData.companyName}
               onChange={handleChange}
               required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
             />
           </div>
         ) : formData.role === "Student" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-600 text-sm font-medium mb-1">Student ID</label>
+              <label className="app-field-label mb-1">Student ID</label>
               <input
                 type="text"
                 name="studentId"
                 value={formData.studentId}
                 onChange={handleChange}
                 required
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                className="app-input"
               />
             </div>
             <div>
-              <label className="block text-gray-600 text-sm font-medium mb-1">Department</label>
+              <label className="app-field-label mb-1">Department</label>
               <select
                 name="department"
                 value={formData.department}
                 onChange={handleChange}
                 required
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                className="app-select"
               >
                 <option value="">Select Department</option>
                 {DEPARTMENTS.map((dept) => (
@@ -336,13 +340,13 @@ const RegistrationForm = () => {
 
         {staffRoles.includes(formData.role) && (
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">Department</label>
+            <label className="app-field-label mb-1">Department</label>
             <select
               name="department"
               value={formData.department}
               onChange={handleChange}
               required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-select"
             >
               <option value="">Select Department</option>
               {DEPARTMENTS.map((dept) => (
@@ -354,7 +358,7 @@ const RegistrationForm = () => {
 
         {formData.role === "Company" && (
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">TIN Number</label>
+            <label className="app-field-label mb-1">TIN Number</label>
             <input
               type="text"
               name="tinNumber"
@@ -362,7 +366,7 @@ const RegistrationForm = () => {
               onChange={handleChange}
               required
               maxLength={10}
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
               placeholder="Enter 10-digit TIN"
             />
           </div>
@@ -370,10 +374,10 @@ const RegistrationForm = () => {
 
         {/* OTP modal (fake) */}
         {otpSent && pendingUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-bold mb-2">Verify Email</h3>
-              <p className="text-sm text-gray-600 mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+            <div className="app-modal-panel w-full max-w-md p-6">
+              <h3 className="mb-2 text-lg font-bold text-slate-900">Verify Email</h3>
+              <p className="mb-4 text-sm text-slate-600">
                 A one-time code was sent to {pendingUser.email}. (Fake for now — enter any code.)
               </p>
               <input
@@ -381,13 +385,13 @@ const RegistrationForm = () => {
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
                 placeholder="Enter OTP"
-                className="w-full border rounded-md p-2 mb-4"
+                className="app-input mb-4"
               />
-              <div className="flex gap-3 justify-end">
+              <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => { setOtpSent(false); setPendingUser(null); setOtpCode(""); }}
-                  className="px-4 py-2 rounded-md bg-gray-200"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
                 >
                   Cancel
                 </button>
@@ -416,7 +420,7 @@ const RegistrationForm = () => {
                     setSuccess("Registration complete. You can now log in.");
                     setTimeout(() => navigate("/login"), 900);
                   }}
-                  className="px-4 py-2 rounded-md bg-blue-600 text-white"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
                 >
                   Verify
                 </button>
@@ -427,25 +431,25 @@ const RegistrationForm = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">Password</label>
+            <label className="app-field-label mb-1">Password</label>
             <input
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-sm font-medium mb-1">Confirm Password</label>
+            <label className="app-field-label mb-1">Confirm Password</label>
             <input
               type="password"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+              className="app-input"
             />
           </div>
         </div>
@@ -453,17 +457,17 @@ const RegistrationForm = () => {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition disabled:opacity-60"
+          className="w-full rounded-lg border border-blue-700/15 bg-blue-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? "Registering..." : "Register"}
         </button>
 
-        <p className="text-sm text-center text-gray-600">
+        <p className="text-center text-sm text-slate-600">
           Already have an account?{" "}
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="text-blue-600 hover:underline font-medium"
+            className="font-semibold text-blue-700 hover:text-blue-800 hover:underline"
           >
             Sign in
           </button>

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, Clock, Layers, Search, Filter, MapPin, FileText, Eye, BookOpen, ClipboardList } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import CoordinatorSidebar from "./CoordinatorSidebar";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
@@ -39,17 +40,45 @@ const getValidSession = () => {
       } catch { continue; }
     }
     return {};
-  } catch (e) {
+  } catch {
     return {};
   }
 };
 
+/** Coordinator session: prefer dedicated key (always treated as coordinator). Other keys must have role Coordinator. */
+const readCoordinatorProfile = () => {
+  try {
+    const rawCoord = localStorage.getItem("coordinator");
+    if (rawCoord && rawCoord !== "null" && rawCoord !== "undefined") {
+      const p = JSON.parse(rawCoord);
+      if (p && typeof p === "object" && (p.fullName || p.name || p.username || p.email || p.department)) {
+        return p;
+      }
+    }
+    for (const key of ["activeStaffUser", "user"]) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === "null" || raw === "undefined") continue;
+      const p = JSON.parse(raw);
+      if (!p || typeof p !== "object") continue;
+      if (String(p.role || "").toLowerCase() !== "coordinator") continue;
+      if (p.fullName || p.name || p.username || p.email || p.department) return p;
+    }
+  } catch { /* ignore */ }
+  return null;
+};
+
 export const getCoordinatorDepartment = () => {
-  const session = getValidSession();
-  return (session.department || "Department").toString().trim();
+  const coord = readCoordinatorProfile();
+  const d = coord?.department;
+  if (d != null && String(d).trim() !== "") return String(d).trim();
+  return "";
 };
 
 export const getCoordinatorName = () => {
+  const coord = readCoordinatorProfile();
+  if (coord) {
+    return coord.fullName || coord.name || coord.username || coord.email || "Coordinator";
+  }
   const session = getValidSession();
   return session.fullName || session.name || session.username || session.email || "Coordinator";
 };
@@ -58,40 +87,61 @@ export const getCoordinatorName = () => {
 const StudentManagementView = ({ coordinatorDept, onBack }) => {
   const [activeStudents, setActiveStudents] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
+  const [resolvedDeptForDisplay, setResolvedDeptForDisplay] = useState("");
 
-  useEffect(() => {
-    // Use the passed coordinatorDept prop directly (resolved by parent from coordinator session).
-    // Do NOT re-read localStorage here — localStorage.user may hold a student's session
-    // (from the student's last login), which would corrupt the department filter.
-    // As a safety net, only accept a session with role === "Coordinator".
-    const safeSession = (() => {
-      try {
-        const raw = localStorage.getItem("coordinator");
-        if (!raw || raw === "null") return null;
-        const p = JSON.parse(raw);
-        if (p && String(p.role || "").toLowerCase() === "coordinator") return p;
-      } catch { /**/ }
-      return null;
-    })();
-    const dept = (safeSession?.department || coordinatorDept || "").trim();
-
+  const reloadLists = useCallback(() => {
+    const liveDept = (getCoordinatorDepartment() || coordinatorDept || "").trim();
     const allEligible = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
     const allRegistered = JSON.parse(localStorage.getItem("students") || "[]");
-
     const normalize = (s) => String(s || "").trim().toLowerCase();
 
-    const deptEligible = allEligible.filter(s => normalize(s.department) === normalize(dept));
-    const deptRegistered = allRegistered.filter(s => normalize(s.department) === normalize(dept));
+    const useDeptFilter = liveDept.length > 0;
+    const deptEligible = useDeptFilter
+      ? allEligible.filter((s) => normalize(s.department) === normalize(liveDept))
+      : allEligible;
+    const deptRegistered = useDeptFilter
+      ? allRegistered.filter((s) => normalize(s.department) === normalize(liveDept))
+      : allRegistered;
 
-    const registeredIds = new Set(deptRegistered.map(s => normalize(s.studentId)));
-    const pending = deptEligible.filter(s => !registeredIds.has(normalize(s.studentId)));
+    const registeredKeys = new Set();
+    deptRegistered.forEach((r) => {
+      if (normalize(r.studentId)) registeredKeys.add(`id:${normalize(r.studentId)}`);
+      if (normalize(r.id)) registeredKeys.add(`id:${normalize(r.id)}`);
+      if (normalize(r.email)) registeredKeys.add(`em:${normalize(r.email)}`);
+    });
+
+    const pending = deptEligible.filter((s) => {
+      const sid = normalize(s.studentId);
+      const em = normalize(s.email);
+      const byId = sid && registeredKeys.has(`id:${sid}`);
+      const byEmail = em && registeredKeys.has(`em:${em}`);
+      return !byId && !byEmail;
+    });
 
     setActiveStudents(deptRegistered);
     setPendingStudents(pending);
+    setResolvedDeptForDisplay(liveDept);
   }, [coordinatorDept]);
 
-  // Derive display dept from session for the heading
-  const displayDept = coordinatorDept || "your department";
+  useEffect(() => {
+    reloadLists();
+    const onStorage = (e) => {
+      if (e.key === "eligibleStudents" || e.key === "students" || e.key === "coordinator" || e.key === "user") {
+        reloadLists();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("eligibleStudentsUpdated", reloadLists);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("eligibleStudentsUpdated", reloadLists);
+    };
+  }, [reloadLists]);
+
+  const displayDept =
+    resolvedDeptForDisplay && resolvedDeptForDisplay.length > 0
+      ? resolvedDeptForDisplay
+      : "all departments (set your coordinator department to filter)";
 
   return (
     <div className="space-y-6">
@@ -105,48 +155,56 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Active */}
-        <div className="bg-white border rounded-lg shadow-sm border-green-200">
-          <div className="bg-green-50 px-4 py-3 border-b border-green-200 flex justify-between items-center rounded-t-lg">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-green-50/60 px-4 py-3">
             <h3 className="font-semibold text-green-900">Active (Signed Up)</h3>
-            <span className="bg-green-200 text-green-800 text-xs px-2 py-1 rounded-full font-bold">{activeStudents.length}</span>
+            <span className="rounded-full bg-green-200/90 px-2.5 py-0.5 text-xs font-bold text-green-900">{activeStudents.length}</span>
           </div>
-          <div className="p-4 space-y-3">
-            {activeStudents.length === 0
-              ? <p className="text-sm text-gray-500">No students are actively registered yet.</p>
-              : activeStudents.map((s, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">{s.fullName}</div>
-                    <div className="text-xs text-gray-500">{s.studentId} • {s.email}</div>
+          {activeStudents.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-slate-500">No students are actively registered yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {activeStudents.map((s) => (
+                <li
+                  key={s.studentId || s.email}
+                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900">{s.fullName}</div>
+                    <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
                   </div>
-                  <div className="text-xs text-green-600 font-medium px-2 py-1 bg-green-100 rounded">Active</div>
-                </div>
+                  <span className="shrink-0 self-start rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 sm:self-center">Active</span>
+                </li>
               ))}
-          </div>
-        </div>
+            </ul>
+          )}
+        </section>
 
-        {/* Pending */}
-        <div className="bg-white border rounded-lg shadow-sm border-yellow-200">
-          <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-200 flex justify-between items-center rounded-t-lg">
-            <h3 className="font-semibold text-yellow-900">Eligible (Not Signed Up)</h3>
-            <span className="bg-yellow-200 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold">{pendingStudents.length}</span>
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-amber-50/60 px-4 py-3">
+            <h3 className="font-semibold text-amber-900">Eligible (Not Signed Up)</h3>
+            <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 text-xs font-bold text-amber-900">{pendingStudents.length}</span>
           </div>
-          <div className="p-4 space-y-3">
-            {pendingStudents.length === 0
-              ? <p className="text-sm text-gray-500">All eligible students have registered.</p>
-              : pendingStudents.map((s, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div>
-                    <div className="font-semibold text-sm text-gray-900">{s.fullName}</div>
-                    <div className="text-xs text-gray-500">{s.studentId} • {s.email}</div>
+          {pendingStudents.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-slate-500">All eligible students have registered.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {pendingStudents.map((s) => (
+                <li
+                  key={s.studentId || s.email}
+                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-slate-900">{s.fullName}</div>
+                    <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
                   </div>
-                  <div className="text-xs text-yellow-600 font-medium px-2 py-1 bg-yellow-100 rounded">Pending</div>
-                </div>
+                  <span className="shrink-0 self-start rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 sm:self-center">Pending</span>
+                </li>
               ))}
-          </div>
-        </div>
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -251,56 +309,57 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
       </div>
 
       {pendingApps.length === 0 ? (
-        <div className="bg-white border rounded-xl p-12 text-center shadow-sm">
-          <Briefcase className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900">No Pending Approvals</h3>
-          <p className="text-gray-500">Everything is caught up!</p>
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-6 py-14 text-center">
+          <Briefcase className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+          <h3 className="text-base font-semibold text-slate-900">No pending approvals</h3>
+          <p className="mt-1 text-sm text-slate-500">Everything is caught up.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {pendingApps.map(app => (
-            <div key={app.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex flex-col lg:flex-row justify-between gap-6">
-                <div className="flex gap-4">
-                  <div className="bg-blue-50 p-3 rounded-lg h-fit">
-                    <User className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">{app.studentName}</h3>
-                    <p className="text-sm text-gray-500 mb-4">ID: {app.studentId}</p>
-                    
-                    <div className="flex flex-wrap gap-4">
-                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          <span className="font-bold">{app.companyName}</span>
-                       </div>
-                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Briefcase className="w-4 h-4 text-gray-400" />
-                          <span className="font-bold">{app.internshipTitle}</span>
-                       </div>
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <ul className="divide-y divide-slate-100">
+            {pendingApps.map((app) => (
+              <li
+                key={app.id}
+                className="flex flex-col gap-4 px-4 py-4 sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between hover:bg-slate-50/70"
+              >
+                <div className="flex min-w-0 flex-1 gap-3">
+                  <User className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">{app.studentName}</p>
+                    <p className="text-xs text-slate-500">ID {app.studentId}</p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate">{app.companyName}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Briefcase className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate">{app.internshipTitle}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-3 self-end lg:self-center">
-                  <button 
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-3 lg:border-t-0 lg:pt-0">
+                  <button
+                    type="button"
                     onClick={() => setSelectedApp(app)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    <Eye className="w-4 h-4" />
-                    Review Details
+                    <Eye className="h-4 w-4" />
+                    Details
                   </button>
-                  <button 
+                  <button
+                    type="button"
                     onClick={() => handleAction(app, "APPROVE")}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-shadow shadow-lg shadow-green-100 text-sm"
+                    className="inline-flex items-center gap-2 rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    Fast Approve
+                    <CheckCircle className="h-4 w-4" />
+                    Approve
                   </button>
                 </div>
-              </div>
-            </div>
-          ))}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -573,220 +632,225 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       </div>
 
       {activeInterns.length === 0 ? (
-        <div className="bg-white border-2 border-dashed rounded-2xl p-20 text-center shadow-sm">
-          <GraduationCap className="w-20 h-20 text-gray-100 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-gray-900">Queue is Empty</h3>
-          <p className="text-gray-500 max-w-xs mx-auto">Students will appear here once their coordinator approval is finalized.</p>
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-6 py-14 text-center">
+          <GraduationCap className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+          <h3 className="text-base font-semibold text-slate-900">No active interns yet</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Students appear here after coordinator approval is finalized.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {activeInterns.map(app => (
-            <div key={app.id} className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all group">
-               <div className="flex flex-col xl:flex-row justify-between gap-10">
-                  <div className="flex-1 space-y-6">
-                     <div className="flex items-center gap-5">
-                        <div className="h-16 w-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                           <User className="w-8 h-8" />
-                        </div>
-                        <div>
-                           <h3 className="text-2xl font-black text-gray-900 leading-tight">{app.studentName}</h3>
-                           <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Reg ID: {app.studentId}</p>
-                        </div>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                           <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Affiliated Host</p>
-                           <p className="text-sm font-bold text-gray-700">{app.companyName}</p>
-                        </div>
-                        <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                           <p className="text-[10px] font-black text-green-600 uppercase mb-1">Status</p>
-                           <div className="flex items-center gap-2 text-sm font-bold text-green-700">
-                              <div className="h-1.5 w-1.5 rounded-full bg-green-600 animate-pulse"></div>
-                              Active Placement
-                           </div>
-                        </div>
-                     </div>
-                     <button
-                       type="button"
-                       onClick={() => openInternDetail(app)}
-                       className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-bold rounded-xl border border-blue-200 transition-colors w-fit"
-                     >
-                       <Eye className="w-4 h-4" />
-                       View Progress
-                     </button>
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <ul className="divide-y divide-slate-200">
+            {activeInterns.map((app) => (
+              <li key={app.id} className="px-4 py-5 sm:px-6 sm:py-6 hover:bg-slate-50/50">
+                <div className="flex flex-col gap-6 xl:flex-row xl:justify-between">
+                  <div className="min-w-0 flex-1 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold leading-tight text-slate-900">{app.studentName}</h3>
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">ID {app.studentId}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Host</p>
+                        <p className="text-sm font-medium text-slate-800">{app.companyName}</p>
+                      </div>
+                      <div className="rounded-md border border-green-200/80 bg-green-50/50 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700">Status</p>
+                        <p className="flex items-center gap-2 text-sm font-medium text-green-800">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" />
+                          Active placement
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openInternDetail(app)}
+                      className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View progress
+                    </button>
 
-                     {(() => {
-                       const overall = computeOverallEvaluation(app);
-                       const approvals = getOverallApprovals(app.studentId);
-                       const readyForCoordinator =
-                         overall.complete &&
-                         approvals.advisorApproved &&
-                         approvals.examiner1Approved &&
-                         approvals.examiner2Approved;
-                       return (
-                         <div className="border border-gray-200 rounded-2xl p-5 bg-gray-50/30">
-                           <div className="flex flex-wrap items-start justify-between gap-3">
-                             <div>
-                               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
-                                 Overall evaluation
-                               </p>
-                               <p className="text-lg font-black text-green-700">
-                                 {overall.overallMark100} / 100
-                               </p>
-                               <p className="text-xs text-gray-500 mt-1">
-                                 Company: {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
-                                 {" · "}
-                                 Academic: {overall.academicOverall100} / 100
-                               </p>
-                             </div>
-                             <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
-                               <span className={`px-2 py-1 rounded-full border ${approvals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                 Advisor
-                               </span>
-                               <span className={`px-2 py-1 rounded-full border ${approvals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                 Ex1
-                               </span>
-                               <span className={`px-2 py-1 rounded-full border ${approvals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                 Ex2
-                               </span>
-                               <span className={`px-2 py-1 rounded-full border ${approvals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}>
-                                 Coord
-                               </span>
-                             </div>
-                           </div>
+                    {(() => {
+                      const overall = computeOverallEvaluation(app);
+                      const approvals = getOverallApprovals(app.studentId);
+                      const readyForCoordinator =
+                        overall.complete &&
+                        approvals.advisorApproved &&
+                        approvals.examiner1Approved &&
+                        approvals.examiner2Approved;
+                      return (
+                        <div className="rounded-md border border-slate-200 bg-slate-50/40 px-3 py-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Overall evaluation</p>
+                              <p className="text-base font-bold text-green-700">{overall.overallMark100} / 100</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                Company: {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                                {" · "}
+                                Academic: {overall.academicOverall100} / 100
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase">
+                              <span className={`rounded border px-2 py-0.5 ${approvals.advisorApproved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
+                                Advisor
+                              </span>
+                              <span className={`rounded border px-2 py-0.5 ${approvals.examiner1Approved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
+                                Ex1
+                              </span>
+                              <span className={`rounded border px-2 py-0.5 ${approvals.examiner2Approved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
+                                Ex2
+                              </span>
+                              <span className={`rounded border px-2 py-0.5 ${approvals.coordinatorApproved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
+                                Coord
+                              </span>
+                            </div>
+                          </div>
 
-                           {!approvals.coordinatorApproved ? (
-                             <button
-                               type="button"
-                               disabled={!readyForCoordinator}
-                               onClick={() => approveOverallAsCoordinator(app.studentId)}
-                               className="mt-4 w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                             >
-                               Approve overall evaluation
-                             </button>
-                           ) : (
-                             <div className="mt-4 text-xs font-black uppercase tracking-widest text-green-700 bg-green-50 border border-green-200 rounded-xl py-3 text-center">
-                               Overall evaluation approved
-                             </div>
-                           )}
-                           {!readyForCoordinator && !approvals.coordinatorApproved && (
-                             <p className="text-xs text-gray-500 mt-2">
-                               Waiting for advisor + examiner 1 + examiner 2 approvals (and all evaluations submitted).
-                             </p>
-                           )}
-                         </div>
-                       );
-                     })()}
+                          {!approvals.coordinatorApproved ? (
+                            <button
+                              type="button"
+                              disabled={!readyForCoordinator}
+                              onClick={() => approveOverallAsCoordinator(app.studentId)}
+                              className="mt-3 w-full rounded-md bg-blue-600 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Approve overall evaluation
+                            </button>
+                          ) : (
+                            <div className="mt-3 rounded-md border border-green-200 bg-green-50 py-2 text-center text-xs font-semibold uppercase tracking-wide text-green-800">
+                              Overall evaluation approved
+                            </div>
+                          )}
+                          {!readyForCoordinator && !approvals.coordinatorApproved && (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Waiting for advisor + examiner 1 + examiner 2 approvals (and all evaluations submitted).
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
-                  <div className="flex-[2] grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#fcfcfc] p-8 rounded-3xl border border-gray-100">
-                     <div className="space-y-4">
-                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                           <User className="w-3.5 h-3.5 text-blue-600" />
-                           Academic Advisor
-                        </label>
-                        {app.advisorName ? (
-                          <div className="relative group/slot">
-                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-md">
-                                <span className="text-sm font-black text-blue-700">{app.advisorName}</span>
-                                <CheckCircle className="w-5 h-5 text-blue-500" />
-                             </div>
-                             <button 
-                               onClick={() => clearAssignment(app.id, "advisorName")}
-                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
-                             >
-                               <XCircle className="w-4 h-4" />
-                             </button>
+                  <div className="grid grid-cols-1 gap-5 border-t border-slate-100 pt-5 md:grid-cols-3 xl:max-w-[58%] xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <User className="h-3.5 w-3.5 text-blue-600" />
+                        Academic advisor
+                      </label>
+                      {app.advisorName ? (
+                        <div className="group/slot relative">
+                          <div className="flex items-center justify-between rounded-md border border-blue-300 bg-white px-3 py-2.5">
+                            <span className="text-sm font-medium text-blue-900">{app.advisorName}</span>
+                            <CheckCircle className="h-4 w-4 text-blue-500" />
                           </div>
-                        ) : (
-                          <select 
-                            onChange={(e) => handleUpdateAssignment(app.id, "advisorName", e.target.value)}
-                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-blue-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
-                            defaultValue=""
+                          <button
+                            type="button"
+                            onClick={() => clearAssignment(app.id, "advisorName")}
+                            className="absolute -right-1 -top-1 rounded-full bg-red-600 p-1 text-white opacity-0 shadow transition-opacity group-hover/slot:opacity-100"
                           >
-                             <option value="" disabled>Select from Assigned Advisors...</option>
-                             {advisorsPool.filter((s) => s.name !== app.examinerName && s.name !== app.examiner2Name).map(s => (
-                               <option key={s.id} value={s.name}>{s.name}</option>
-                             ))}
-                          </select>
-                        )}
-                     </div>
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          onChange={(e) => handleUpdateAssignment(app.id, "advisorName", e.target.value)}
+                          className="w-full cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Select advisor…
+                          </option>
+                          {advisorsPool.filter((s) => s.name !== app.examinerName && s.name !== app.examiner2Name).map((s) => (
+                            <option key={s.id} value={s.name}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
 
-                     <div className="space-y-4">
-                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                           <User className="w-3.5 h-3.5 text-purple-600" />
-                           Internal Examiner 1
-                        </label>
-                        {app.examinerName ? (
-                          <div className="relative group/slot">
-                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-purple-500 shadow-md">
-                                <span className="text-sm font-black text-purple-700">{app.examinerName}</span>
-                                <CheckCircle className="w-5 h-5 text-purple-500" />
-                             </div>
-                             <button 
-                               onClick={() => clearAssignment(app.id, "examinerName")}
-                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
-                             >
-                               <XCircle className="w-4 h-4" />
-                             </button>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <User className="h-3.5 w-3.5 text-purple-600" />
+                        Internal examiner 1
+                      </label>
+                      {app.examinerName ? (
+                        <div className="group/slot relative">
+                          <div className="flex items-center justify-between rounded-md border border-purple-300 bg-white px-3 py-2.5">
+                            <span className="text-sm font-medium text-purple-900">{app.examinerName}</span>
+                            <CheckCircle className="h-4 w-4 text-purple-500" />
                           </div>
-                        ) : (
-                          <select 
-                            onChange={(e) => handleUpdateAssignment(app.id, "examinerName", e.target.value)}
-                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-purple-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
-                            defaultValue=""
+                          <button
+                            type="button"
+                            onClick={() => clearAssignment(app.id, "examinerName")}
+                            className="absolute -right-1 -top-1 rounded-full bg-red-600 p-1 text-white opacity-0 shadow transition-opacity group-hover/slot:opacity-100"
                           >
-                             <option value="" disabled>
-                               {examinersPool.length > 0
-                                 ? "Select examiner 1..."
-                                 : "No examiners pool — pick from advisors..."}
-                             </option>
-                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examiner2Name).map(s => (
-                               <option key={s.id} value={s.name}>{s.name}</option>
-                             ))}
-                          </select>
-                        )}
-                     </div>
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          onChange={(e) => handleUpdateAssignment(app.id, "examinerName", e.target.value)}
+                          className="w-full cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-purple-500"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            {examinersPool.length > 0 ? "Select examiner 1…" : "No examiners — pick from advisors…"}
+                          </option>
+                          {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examiner2Name).map((s) => (
+                            <option key={s.id} value={s.name}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
 
-                     <div className="space-y-4">
-                        <label className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                           <User className="w-3.5 h-3.5 text-indigo-600" />
-                           Internal Examiner 2
-                        </label>
-                        {app.examiner2Name ? (
-                          <div className="relative group/slot">
-                             <div className="flex items-center justify-between bg-white p-4 rounded-2xl border-2 border-indigo-500 shadow-md">
-                                <span className="text-sm font-black text-indigo-700">{app.examiner2Name}</span>
-                                <CheckCircle className="w-5 h-5 text-indigo-500" />
-                             </div>
-                             <button 
-                               onClick={() => clearAssignment(app.id, "examiner2Name")}
-                               className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover/slot:opacity-100 transition-opacity shadow-lg"
-                             >
-                               <XCircle className="w-4 h-4" />
-                             </button>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <User className="h-3.5 w-3.5 text-indigo-600" />
+                        Internal examiner 2
+                      </label>
+                      {app.examiner2Name ? (
+                        <div className="group/slot relative">
+                          <div className="flex items-center justify-between rounded-md border border-indigo-300 bg-white px-3 py-2.5">
+                            <span className="text-sm font-medium text-indigo-900">{app.examiner2Name}</span>
+                            <CheckCircle className="h-4 w-4 text-indigo-500" />
                           </div>
-                        ) : (
-                          <select 
-                            onChange={(e) => handleUpdateAssignment(app.id, "examiner2Name", e.target.value)}
-                            className="w-full text-sm font-extrabold bg-white border-2 border-gray-200 rounded-2xl p-4 focus:border-indigo-600 focus:ring-0 outline-none transition-colors appearance-none cursor-pointer hover:border-gray-300"
-                            defaultValue=""
+                          <button
+                            type="button"
+                            onClick={() => clearAssignment(app.id, "examiner2Name")}
+                            className="absolute -right-1 -top-1 rounded-full bg-red-600 p-1 text-white opacity-0 shadow transition-opacity group-hover/slot:opacity-100"
                           >
-                             <option value="" disabled>
-                               {examinersPool.length > 0
-                                 ? "Select examiner 2..."
-                                 : "No examiners pool — pick from advisors..."}
-                             </option>
-                             {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examinerName).map(s => (
-                               <option key={s.id} value={s.name}>{s.name}</option>
-                             ))}
-                          </select>
-                        )}
-                     </div>
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          onChange={(e) => handleUpdateAssignment(app.id, "examiner2Name", e.target.value)}
+                          className="w-full cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            {examinersPool.length > 0 ? "Select examiner 2…" : "No examiners — pick from advisors…"}
+                          </option>
+                          {(examinersPool.length > 0 ? examinersPool : advisorsPool).filter((s) => s.name !== app.advisorName && s.name !== app.examinerName).map((s) => (
+                            <option key={s.id} value={s.name}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
-               </div>
-            </div>
-          ))}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -935,9 +999,19 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   );
 };
 
+const COORDINATOR_HOME_TILES = [
+  { view: "staff", title: "Staff list", description: "View unassigned staff and invite advisors or examiners.", icon: Users, accent: "bg-blue-50 text-blue-600 ring-blue-100" },
+  { view: "advisors", title: "Assigned advisors", description: "See advisors linked to your department.", icon: UserCheck, accent: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
+  { view: "examiners", title: "Assigned examiners", description: "See internal examiners for your department.", icon: GraduationCap, accent: "bg-violet-50 text-violet-700 ring-violet-100" },
+  { view: "internships", title: "Internship approvals", description: "Review and approve student placement choices.", icon: Briefcase, accent: "bg-amber-50 text-amber-800 ring-amber-100" },
+  { view: "active-students", title: "Active interns", description: "Assign advisors and examiners to active placements.", icon: ClipboardList, accent: "bg-sky-50 text-sky-700 ring-sky-100" },
+  { view: "students", title: "Manage students", description: "Registered vs eligible students in your department.", icon: BookOpen, accent: "bg-orange-50 text-orange-800 ring-orange-100" },
+  { view: "upload", title: "Upload eligible list", description: "Import eligible students from a JSON file.", icon: Upload, accent: "bg-indigo-50 text-indigo-700 ring-indigo-100" },
+];
+
 const CoordinatorDashboard = () => {
-  const [coordinatorDept] = useState(getCoordinatorDepartment());
-  const [coordinatorName] = useState(getCoordinatorName());
+  const [coordinatorDept, setCoordinatorDept] = useState(() => getCoordinatorDepartment());
+  const [coordinatorName, setCoordinatorName] = useState(() => getCoordinatorName());
   const [mockStaff, setMockStaff] = useState([]);
   const [assignedAdvisors, setAssignedAdvisors] = useState(() => {
     const dept = getCoordinatorDepartment();
@@ -956,6 +1030,11 @@ const CoordinatorDashboard = () => {
   const [toast, setToast] = useState({ show: false, message: "" });
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  useEffect(() => {
+    setCoordinatorDept(getCoordinatorDepartment());
+    setCoordinatorName(getCoordinatorName());
+  }, [view]);
 
   const handleLogout = () => {
     try { logout(); } catch (e) { /* ignore */ }
@@ -1022,6 +1101,7 @@ const CoordinatorDashboard = () => {
         const valid = data.every(item => item.studentId && item.fullName && item.email && item.department);
         if (!valid) { setFileError("Invalid student file format"); return; }
         localStorage.setItem("eligibleStudents", JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent("eligibleStudentsUpdated"));
         setFileSuccess("Eligible students uploaded successfully");
         setSelectedFile(null);
       } catch { setFileError("Invalid student file format"); }
@@ -1032,7 +1112,8 @@ const CoordinatorDashboard = () => {
 
   // Populate mockStaff on mount, subtract already-assigned ones (dept-scoped)
   useEffect(() => {
-    const dept = coordinatorDept || "Department";
+    const deptRaw = (getCoordinatorDepartment() || coordinatorDept || "").trim();
+    const dept = deptRaw.length > 0 ? deptRaw : "Department";
     const key = dept.toString().replace(/\s+/g, "").toLowerCase();
 
     // Only subtract staff that belong to THIS coordinator's department
@@ -1066,104 +1147,120 @@ const CoordinatorDashboard = () => {
     }).filter(s => !assignedIds.has(s.id) && !assignedEmails.has(s.email.toLowerCase()));
 
     setMockStaff(staff);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [coordinatorDept]);
+
+  const navigateCoordinator = (next) => {
+    if (next === "upload") {
+      setFileError("");
+      setFileSuccess("");
+      setSelectedFile(null);
+    }
+    setView(next);
+  };
 
   return (
-    <div>
-      {/* Top Nav */}
-      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">Internship Tracking System</h1>
-                <p className="text-xs text-gray-500">AASTU</p>
+    <div className="app-shell flex min-h-screen flex-col md:flex-row">
+      <CoordinatorSidebar
+        currentView={view}
+        coordinatorName={coordinatorName}
+        onNavigate={navigateCoordinator}
+      />
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <nav className="app-nav">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 items-center gap-3 md:hidden">
+              <img src={logoSrc} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80" />
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-bold text-slate-900">Internship Tracking</h1>
+                <p className="text-xs text-slate-500">AASTU</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
-                <Bell className="w-5 h-5" />
+            <div className="hidden flex-1 md:block" aria-hidden="true" />
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button
+                type="button"
+                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              >
+                <Bell className="h-5 w-5" />
               </button>
               <button
+                type="button"
                 onClick={handleLogout}
-                className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+                className="hidden rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:inline-flex"
               >
                 Logout
               </button>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg">
-                <span className="text-sm font-medium text-gray-700 hidden sm:block">{coordinatorName}</span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+              <div className="flex items-center gap-2 rounded-lg px-2 py-2 sm:px-3">
+                <span className="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 sm:block">{coordinatorName}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
               </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className="fixed top-20 right-4 z-[100] animate-bounce-in">
-          <div className="bg-green-600 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 border-2 border-green-400">
-            <div className="bg-white/20 p-1 rounded-full">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <span className="font-bold tracking-tight">{toast.message}</span>
-          </div>
-        </div>
-      )}
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-1">Welcome, {coordinatorName}</h1>
-              <div className="flex flex-wrap gap-4 text-sm md:text-base opacity-90">
-                <span>Department: <strong>{coordinatorDept}</strong></span>
+        {toast.show && (
+          <div className="fixed right-4 top-20 z-[100] animate-bounce-in">
+            <div className="flex items-center gap-3 rounded-lg border-2 border-green-400 bg-green-600 px-6 py-3 text-white shadow-2xl">
+              <div className="rounded-full bg-white/20 p-1">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10">
-              <div>
-                <p className="text-xs font-medium opacity-80">Role</p>
-                <p className="text-sm font-bold">Coordinator</p>
-              </div>
+              <span className="font-bold tracking-tight">{toast.message}</span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Content Area */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-
-          {/* HOME – navigation buttons */}
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
           {view === "home" && (
-            <div className="flex flex-wrap gap-4">
-              <button className="bg-blue-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-blue-700 transition" onClick={() => setView("staff")}>
-                View Staff List
-              </button>
-              <button className="bg-green-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition" onClick={() => setView("advisors")}>
-                Assigned Advisors
-              </button>
-              <button className="bg-purple-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-purple-700 transition" onClick={() => setView("examiners")}>
-                Assigned Examiners
-              </button>
-              <button className="bg-green-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-green-700 transition" onClick={() => setView("internships")}>
-                Internship Students
-              </button>
-              <button className="bg-blue-800 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-blue-900 transition" onClick={() => setView("active-students")}>
-                Active Internship Students
-              </button>
-              <button className="bg-yellow-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-yellow-700 transition" onClick={() => setView("students")}>
-                Manage Students
-              </button>
-              <button className="bg-indigo-600 font-medium text-white px-4 py-2 rounded shadow-sm hover:bg-indigo-700 transition"
-                onClick={() => { setView("upload"); setFileError(""); setFileSuccess(""); setSelectedFile(null); }}>
-                Upload Eligible Students
-              </button>
-            </div>
+            <>
+              <div className="app-hero mb-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h1 className="mb-1 text-2xl font-bold md:text-3xl">Welcome, {coordinatorName}</h1>
+                    <div className="flex flex-wrap gap-4 text-sm opacity-90 md:text-base">
+                      <span>
+                        Department: <strong>{coordinatorDept}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg bg-white/10 px-4 py-3">
+                    <div>
+                      <p className="text-xs font-medium opacity-80">Role</p>
+                      <p className="text-sm font-bold">Coordinator</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {COORDINATOR_HOME_TILES.map((tile) => {
+                  const Icon = tile.icon;
+                  return (
+                    <button
+                      key={tile.view}
+                      type="button"
+                      onClick={() => navigateCoordinator(tile.view)}
+                      className="app-card group flex w-full flex-col items-start gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
+                    >
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-900">{tile.title}</p>
+                        <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
+                      </div>
+                      <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
+
+          {view !== "home" && (
+            <div className="max-w-6xl">
 
           {/* STUDENTS */}
           {view === "students" && (
@@ -1189,14 +1286,14 @@ const CoordinatorDashboard = () => {
               </div>
               {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
               {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
-              <div className="border shadow-sm rounded-lg p-6 bg-gray-50 border-gray-200 space-y-4">
-                <label className="block text-sm font-medium text-gray-700">Select JSON File</label>
+              <div className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+                <label className="block text-sm font-medium text-slate-700">Select JSON File</label>
                 <input
                   type="file" accept=".json"
                   onChange={(e) => setSelectedFile(e.target.files[0])}
-                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
                 />
-                <button onClick={handleFileUpload} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded shadow-sm hover:bg-blue-700 font-medium transition">
+                <button type="button" onClick={handleFileUpload} className="mt-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-blue-700">
                   Upload
                 </button>
               </div>
@@ -1211,26 +1308,26 @@ const CoordinatorDashboard = () => {
                 <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
               </div>
               {mockStaff.length === 0
-                ? <p className="text-gray-500 py-4">No unassigned staff available.</p>
+                ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
                 : (
-                  <div className="space-y-3">
+                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
                     {mockStaff.map((s) => (
-                      <div key={s.id} className="p-4 rounded-lg bg-gray-50 border border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <div className="font-semibold text-gray-900">{s.name}</div>
-                          <div className="text-sm text-gray-600">{s.email}</div>
+                      <li key={s.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-900">{s.name}</div>
+                          <div className="text-sm text-slate-600">{s.email}</div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => assignAsAdvisor(s)} className="text-sm font-medium bg-green-100 text-green-700 px-3 py-1.5 rounded hover:bg-green-200 transition">
-                            Assign Advisor
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <button type="button" onClick={() => assignAsAdvisor(s)} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                            Assign advisor
                           </button>
-                          <button onClick={() => assignAsExaminer(s)} className="text-sm font-medium bg-purple-100 text-purple-700 px-3 py-1.5 rounded hover:bg-purple-200 transition">
-                            Assign Examiner
+                          <button type="button" onClick={() => assignAsExaminer(s)} className="rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100">
+                            Assign examiner
                           </button>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
             </div>
           )}
@@ -1243,19 +1340,19 @@ const CoordinatorDashboard = () => {
                 <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
               </div>
               {assignedAdvisors.length === 0
-                ? <p className="text-gray-500 py-4">No advisors have been assigned yet.</p>
+                ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
                 : (
-                  <div className="space-y-3">
+                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
                     {assignedAdvisors.map((s) => (
-                      <div key={s.id} className="p-4 rounded-lg bg-white border border-gray-200 flex justify-between items-center">
-                        <div>
-                          <div className="font-semibold text-gray-900">{s.name}</div>
-                          <div className="text-sm text-gray-600">{s.email}</div>
+                      <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-900">{s.name}</div>
+                          <div className="text-sm text-slate-600">{s.email}</div>
                         </div>
-                        <div className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">{s.status}</div>
-                      </div>
+                        <span className="shrink-0 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 sm:self-center">{s.status}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
             </div>
           )}
@@ -1268,25 +1365,27 @@ const CoordinatorDashboard = () => {
                 <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
               </div>
               {assignedExaminers.length === 0
-                ? <p className="text-gray-500 py-4">No examiners have been assigned yet.</p>
+                ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
                 : (
-                  <div className="space-y-3">
+                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
                     {assignedExaminers.map((s) => (
-                      <div key={s.id} className="p-4 rounded-lg bg-white border border-gray-200 flex justify-between items-center">
-                        <div>
-                          <div className="font-semibold text-gray-900">{s.name}</div>
-                          <div className="text-sm text-gray-600">{s.email}</div>
+                      <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-900">{s.name}</div>
+                          <div className="text-sm text-slate-600">{s.email}</div>
                         </div>
-                        <div className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-1 rounded">{s.status}</div>
-                      </div>
+                        <span className="shrink-0 self-start rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-900 sm:self-center">{s.status}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
             </div>
           )}
 
         </div>
-      </main>
+          )}
+        </main>
+      </div>
     </div>
   );
 };

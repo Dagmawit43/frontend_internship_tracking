@@ -213,18 +213,18 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
   };
 
   return (
-    <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
+    <nav className="app-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
             <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Internship Tracking System</h1>
-              <p className="text-xs text-gray-500">AASTU</p>
+              <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
+              <p className="text-xs text-slate-500">AASTU</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button type="button" className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
+            <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30">
               <Bell className="w-5 h-5" />
               {notificationCount > 0 && (
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
@@ -267,7 +267,7 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
 
 // ─── Welcome Header ───────────────────────────────────────────────────────────
 const WelcomeHeader = ({ name, department, roleLabel, subtitle, statPrimary }) => (
-  <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-6">
+  <div className="app-hero">
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {name || roleLabel}</h1>
@@ -399,10 +399,10 @@ const ExaminerDashboard = () => {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading dashboard...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+          <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -412,7 +412,7 @@ const ExaminerDashboard = () => {
   const department = session.department || "";
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="app-shell">
       <StaffTopNavigation
         displayName={displayName}
         roleLabel="Internal Examiner"
@@ -428,12 +428,12 @@ const ExaminerDashboard = () => {
           statPrimary={assignedStudents.length}
         />
 
-        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 max-w-3xl">
+        <div className="app-tab-shell mb-8 max-w-3xl">
           <button
             type="button"
             onClick={() => setMainTab("students")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              mainTab === "students" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              mainTab === "students" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <User className="w-4 h-4" />
@@ -442,8 +442,8 @@ const ExaminerDashboard = () => {
           <button
             type="button"
             onClick={() => setMainTab("doc-queue")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              mainTab === "doc-queue" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              mainTab === "doc-queue" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -459,7 +459,7 @@ const ExaminerDashboard = () => {
         {mainTab === "students" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
                   <p className="text-gray-600">Active placements where you are the internal examiner.</p>
@@ -483,7 +483,7 @@ const ExaminerDashboard = () => {
                           setStudentModalTab("eval");
                           setSelectedStudent(app);
                         }}
-                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30 hover:border-blue-200"
+                        className="rounded-xl border border-slate-200/90 bg-blue-50/50 p-5 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
                       >
                         <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
                         <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 font-medium">
@@ -503,7 +503,7 @@ const ExaminerDashboard = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Assigned students</span>
@@ -515,7 +515,7 @@ const ExaminerDashboard = () => {
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-600" />
                   Your role
@@ -530,7 +530,7 @@ const ExaminerDashboard = () => {
         )}
 
         {mainTab === "doc-queue" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 max-w-4xl">
+          <div className="app-card p-6 max-w-4xl">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
               <p className="text-gray-600">
@@ -567,7 +567,7 @@ const ExaminerDashboard = () => {
 
       {selectedStudent && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel mx-auto my-8 max-w-5xl p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">{selectedStudent.studentName}</h3>
@@ -585,12 +585,12 @@ const ExaminerDashboard = () => {
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl mb-6">
+            <div className="app-tab-shell mb-6">
               <button
                 type="button"
                 onClick={() => setStudentModalTab("eval")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
-                  studentModalTab === "eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
+                  studentModalTab === "eval" ? "app-tab-active" : "app-tab-inactive"
                 }`}
               >
                 <ClipboardList className="w-4 h-4" />
@@ -599,8 +599,8 @@ const ExaminerDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentModalTab("documents")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
-                  studentModalTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
+                  studentModalTab === "documents" ? "app-tab-active" : "app-tab-inactive"
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -610,8 +610,8 @@ const ExaminerDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setStudentModalTab("overall")}
-                  className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${
-                    studentModalTab === "overall" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
+                    studentModalTab === "overall" ? "app-tab-active" : "app-tab-inactive"
                   }`}
                 >
                   <ClipboardList className="w-4 h-4" />

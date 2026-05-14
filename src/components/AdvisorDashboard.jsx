@@ -175,14 +175,14 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
   };
 
   return (
-    <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
+    <nav className="app-nav">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-3">
             <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Internship Tracking System</h1>
-              <p className="text-xs text-gray-500">AASTU</p>
+              <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
+              <p className="text-xs text-slate-500">AASTU</p>
             </div>
           </div>
 
@@ -190,7 +190,7 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
             <div className="relative">
               <button
                 type="button"
-                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
               >
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
@@ -242,7 +242,7 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
 };
 
 const StaffWelcomeHeader = ({ name, department, roleLabel, subtitle, statPrimary, statSecondary }) => (
-  <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-6">
+  <div className="app-hero">
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {name || roleLabel}</h1>
@@ -602,7 +602,7 @@ const AdvisorDashboard = () => {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="app-shell flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading dashboard...</p>
@@ -615,7 +615,7 @@ const AdvisorDashboard = () => {
   const department = session?.department || "";
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="app-shell">
       <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -628,12 +628,12 @@ const AdvisorDashboard = () => {
           statSecondary={pendingWeeksCount}
         />
 
-        <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-8 w-full">
+        <div className="app-tab-shell mb-8 w-full">
           <button
             type="button"
             onClick={() => setActiveTab("students")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "students" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              activeTab === "students" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <User className="w-4 h-4" />
@@ -642,8 +642,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("documents")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "documents" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
+              activeTab === "documents" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <FileText className="w-4 h-4 shrink-0" />
@@ -657,8 +657,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("advisor-my-evals")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "advisor-my-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
+              activeTab === "advisor-my-evals" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <ClipboardList className="w-4 h-4 shrink-0" />
@@ -667,8 +667,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("advisor-examiner-evals")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-5 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "advisor-examiner-evals" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
+              activeTab === "advisor-examiner-evals" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <ClipboardList className="w-4 h-4 shrink-0" />
@@ -677,8 +677,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("queue")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "queue" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              activeTab === "queue" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -687,8 +687,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("monthly")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "monthly" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              activeTab === "monthly" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <ClipboardList className="w-4 h-4" />
@@ -702,8 +702,8 @@ const AdvisorDashboard = () => {
           <button
             type="button"
             onClick={() => setActiveTab("final")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-6 rounded-lg text-sm font-bold transition-all ${
-              activeTab === "final" ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
+              activeTab === "final" ? "app-tab-active" : "app-tab-inactive"
             }`}
           >
             <ClipboardList className="w-4 h-4" />
@@ -719,7 +719,7 @@ const AdvisorDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2 space-y-6">
             {activeTab === "students" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
                   <p className="text-gray-600">Students on active placements where you are the academic advisor.</p>
@@ -767,7 +767,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "queue" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Pending advisor approvals</h2>
                   <p className="text-gray-600">Weeks awaiting your decision (same as opening a student below).</p>
@@ -808,7 +808,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "monthly" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Monthly Evaluations</h2>
                   <p className="text-gray-600">Company-submitted monthly performance evaluations — pending your approval.</p>
@@ -865,7 +865,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "final" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Final Evaluations</h2>
                   <p className="text-gray-600">Company-submitted final internship evaluations — pending your approval.</p>
@@ -926,7 +926,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "documents" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
                   <p className="text-gray-600">
@@ -978,7 +978,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "advisor-my-evals" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
                   <p className="text-gray-600">
@@ -1038,7 +1038,7 @@ const AdvisorDashboard = () => {
             )}
 
             {activeTab === "advisor-examiner-evals" && (
-              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="app-card p-6">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Examiner evaluations</h2>
                   <p className="text-gray-600">
@@ -1128,7 +1128,7 @@ const AdvisorDashboard = () => {
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div className="app-card p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -1154,7 +1154,7 @@ const AdvisorDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+            <div className="app-card p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-blue-600" />
                 Workflow
@@ -1188,7 +1188,7 @@ const AdvisorDashboard = () => {
 
       {selectedStudent && selectedLogbook && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel mx-auto my-8 max-w-5xl p-4 sm:p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4 border-b border-gray-100 pb-4">
               <div>
@@ -1214,25 +1214,25 @@ const AdvisorDashboard = () => {
             </div>
 
             {/* Inner tabs */}
-            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl mb-6">
+            <div className="app-tab-shell mb-6">
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("logbook")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "logbook" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <BookOpen className="w-4 h-4" /> Weekly Logbook
               </button>
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("monthly")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "monthly" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("advisor-eval")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "advisor-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "advisor-eval" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <ClipboardList className="w-4 h-4" /> My evaluation
                 {selectedAdvisorEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
@@ -1242,14 +1242,14 @@ const AdvisorDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("final")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "final" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Company Final Evaluation
               </button>
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("examiner-eval")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "examiner-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "examiner-eval" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Examiner evaluation
                 {(selectedStudentExaminerEvals.ev1 || selectedStudentExaminerEvals.ev2) && (
@@ -1259,7 +1259,7 @@ const AdvisorDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("overall-eval")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "overall-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentDetailTab === "overall-eval" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Overall evaluation
                 {selectedStudentOverall?.complete && (
@@ -1269,7 +1269,7 @@ const AdvisorDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentDetailTab("documents")}
-                className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-2 sm:px-3 rounded-lg text-sm font-bold transition-all ${studentDetailTab === "documents" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-sm font-bold transition-all sm:px-3 ${studentDetailTab === "documents" ? "app-tab-active" : "app-tab-inactive"}`}
               >
                 <FileText className="w-4 h-4 shrink-0" /> Documents
               </button>
@@ -1691,7 +1691,7 @@ const AdvisorDashboard = () => {
       )}
       {selectedEval && (
         <div className="fixed inset-0 bg-black/60 z-[190] p-4 overflow-y-auto">
-          <div className="max-w-4xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel mx-auto my-8 max-w-4xl p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
@@ -1728,7 +1728,7 @@ const AdvisorDashboard = () => {
 
       {selectedFinalEval && (
         <div className="fixed inset-0 bg-black/60 z-[190] p-4 overflow-y-auto">
-          <div className="max-w-4xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel mx-auto my-8 max-w-4xl p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
@@ -1766,7 +1766,7 @@ const AdvisorDashboard = () => {
 
       {selectedDocQueue?.doc && (
         <div className="fixed inset-0 bg-black/60 z-[190] p-4 overflow-y-auto">
-          <div className="max-w-2xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel mx-auto my-8 max-w-2xl p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6 border-b border-gray-100 pb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">

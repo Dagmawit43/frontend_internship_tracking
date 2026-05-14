@@ -95,8 +95,8 @@ const InternshipModal = ({ isOpen, onClose, onSubmit, initialData, companySessio
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[100] p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 scrollbar-hide">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
+      <div className="app-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6 scrollbar-hide">
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <h2 className="text-xl font-bold text-gray-900">{initialData ? "Edit Internship" : "Create Internship"}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -199,7 +199,7 @@ const InternshipCard = ({ data, onEdit, onDelete }) => {
     return "bg-gray-100 text-gray-700";
   };
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden mb-4">
+    <div className="app-card overflow-hidden mb-4">
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
@@ -309,7 +309,7 @@ const AppliedStudentsPage = ({ companySession }) => {
         </div>
       </div>
       {applications.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
+        <div className="app-card p-12 text-center">
           <User className="w-12 h-12 text-gray-200 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-1">No applications yet</h3>
           <p className="text-gray-500">Student applications for your posted jobs will appear here.</p>
@@ -317,7 +317,7 @@ const AppliedStudentsPage = ({ companySession }) => {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {applications.map(app => (
-            <div key={app.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 hover:shadow-md transition-all">
+            <div key={app.id} className="app-card p-6 transition-shadow hover:shadow-md">
               <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div className="flex gap-4">
                   <div className="bg-blue-50 h-16 w-16 rounded-xl flex items-center justify-center border border-blue-100 flex-shrink-0">
@@ -370,7 +370,7 @@ const AppliedStudentsPage = ({ companySession }) => {
       )}
       {selectedApplication && (
         <div className="fixed inset-0 bg-black/60 z-[150] p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel max-w-5xl mx-auto my-8 p-4 sm:p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-900">Acceptance Form — {selectedApplication.studentName}</h3>
               <button onClick={() => setSelectedApplication(null)} className="text-sm font-semibold text-gray-500 hover:text-gray-700">Close</button>
@@ -414,12 +414,12 @@ const InternshipPage = ({ companySession }) => {
           <h2 className="text-2xl font-bold text-gray-900">Internships</h2>
           <p className="text-sm text-gray-500">Post and manage your internship opportunities</p>
         </div>
-        <button onClick={() => { setEditingInternship(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md font-bold flex items-center gap-2 transition-all">
+        <button onClick={() => { setEditingInternship(null); setIsModalOpen(true); }} className="flex items-center gap-2 rounded-lg border border-blue-700/10 bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
           <Plus className="w-5 h-5" /> Create Internship
         </button>
       </div>
       {internships.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center"><p className="text-gray-500">No internships posted yet.</p></div>
+        <div className="app-card p-12 text-center"><p className="text-gray-500">No internships posted yet.</p></div>
       ) : (
         <div className="space-y-4">
           {internships.map(internship => (
@@ -645,10 +645,12 @@ const InternsPage = ({ companySession }) => {
                 {studentList.map(intern => {
                   const hasPendingEval = [1, 2].some(m => { const rec = getEvaluation(intern.studentId, m); return !rec || rec.status === EVAL_STATUS.NOT_STARTED; });
                   return (
-                    <button type="button" onClick={() => openInternDetail(intern)} key={intern.id} className="text-left bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-xl transition-all border-l-4 border-l-blue-600 group relative">
+                    <button type="button" onClick={() => openInternDetail(intern)} key={intern.id} className="app-card group relative border-l-4 border-l-blue-600 p-6 text-left transition-shadow hover:shadow-md">
                       {hasPendingEval && <span className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-white" title="Evaluation due" />}
                       <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100 text-blue-600 font-black text-xl group-hover:bg-blue-600 group-hover:text-white transition-colors capitalize">{intern.studentName?.[0] || "S"}</div>
+                        <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-xl font-black capitalize text-blue-600 transition-colors group-hover:bg-blue-600 group-hover:text-white">
+                          {intern.studentName?.[0] || "S"}
+                        </div>
                         <div>
                           <h4 className="font-bold text-gray-900 text-lg leading-tight">{intern.studentName}</h4>
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Student ID: {intern.studentId}</p>
@@ -670,7 +672,7 @@ const InternsPage = ({ companySession }) => {
       {/* ── Intern detail modal ── */}
       {selectedIntern && (
         <div className="fixed inset-0 bg-black/60 z-[160] p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
+          <div className="app-modal-panel max-w-5xl mx-auto my-8 p-4 sm:p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">{selectedIntern.studentName}</h3>
@@ -680,17 +682,17 @@ const InternsPage = ({ companySession }) => {
             </div>
 
             {/* Inner tabs */}
-            <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl mb-6">
-              <button type="button" onClick={() => { setInternDetailTab("logbook"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+            <div className="flex flex-wrap gap-1 app-tab-shell mb-6">
+              <button type="button" onClick={() => { setInternDetailTab("logbook"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "logbook" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <FileText className="w-4 h-4" /> Weekly Logbook
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "monthly" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "final" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "final" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <ClipboardList className="w-4 h-4" /> Company Final Evaluation
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("advisor-eval"); setOpenEvalMonth(null); setFinalEvalDraftOpen(false); }} className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${internDetailTab === "advisor-eval" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("advisor-eval"); setOpenEvalMonth(null); setFinalEvalDraftOpen(false); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "advisor-eval" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <GraduationCap className="w-4 h-4" /> Advisor evaluation
                 {internAdvisorEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
                   <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Submitted by advisor" />
@@ -945,20 +947,20 @@ const CompanyDashboard = () => {
   const repName = session.representative_name || session.fullName || "Representative";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-shell">
       {/* Top Navigation */}
-      <nav className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50">
+      <nav className="app-nav">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
               <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Internship Tracking System</h1>
-                <p className="text-xs text-gray-500">AASTU</p>
+                <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
+                <p className="text-xs text-slate-500">AASTU</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors">
+              <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30">
                 <Bell className="w-5 h-5" />
               </button>
               <button onClick={handleLogout} className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm">Logout</button>
@@ -974,7 +976,7 @@ const CompanyDashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white mb-8">
+        <div className="app-hero">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight">Welcome, {cName}</h1>
@@ -991,14 +993,25 @@ const CompanyDashboard = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-200">
+        <div className="mb-8 flex flex-wrap gap-2 border-b border-slate-200">
           {[
             { key: "home",         label: "Overview" },
             { key: "internships",  label: "Internships" },
             { key: "applications", label: "Applied Students" },
             { key: "interns",      label: "Active Interns" },
           ].map(({ key, label }) => (
-            <button key={key} onClick={() => setView(key)} className={`px-6 py-3 font-bold text-sm transition-all border-b-2 ${view === key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}>{label}</button>
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              className={`border-b-2 px-5 py-3 text-sm font-bold transition-colors ${
+                view === key
+                  ? "border-blue-600 text-blue-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {label}
+            </button>
           ))}
         </div>
 
@@ -1006,12 +1019,12 @@ const CompanyDashboard = () => {
         <div>
           {view === "home" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
-              <div className="md:col-span-2 bg-white p-12 rounded-xl shadow-md border border-gray-200 text-center">
+              <div className="app-card md:col-span-2 p-12 text-center">
                 <Briefcase className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Welcome to your dashboard</h3>
                 <p className="text-gray-500 max-w-sm mx-auto">Track student applications and manage your company postings from the tabs above.</p>
               </div>
-              <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
+              <div className="app-card p-8">
                 <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-600" /> System Reminders</h4>
                 <ul className="space-y-4">
                   <li className="flex gap-3 text-sm"><div className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" /><p className="text-gray-600">Ensure all active internships have correct contact info.</p></li>

@@ -5,7 +5,7 @@ import StudentDashboard from "./components/StudentDashboard";
 import CompanyDashboard from "./components/CompanyDashboard";
 import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
-import ExaminerDashboard from "./components/ExaminerDashboard"; // <-- added Examiner
+import ExaminerDashboard from "./components/ExaminerDashboard";
 import "./App.css";
 
 function App() {
@@ -26,8 +26,7 @@ function App() {
         <Route
           path="/examiner-dashboard"
           element={<ExaminerDashboard />}
-        />{" "}
-        {/* <-- Examiner route */}
+        />
       </Routes>
     </Router>
   );

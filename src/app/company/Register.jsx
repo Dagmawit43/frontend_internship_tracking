@@ -25,13 +25,13 @@ const Register = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white border border-gray-200 rounded-xl shadow-md p-8 max-w-lg w-full text-center space-y-3">
-          <h2 className="text-2xl font-bold text-gray-900">
+      <div className="app-shell flex items-center justify-center p-6">
+        <div className="app-auth-card max-w-lg w-full space-y-3 p-8 text-center">
+          <h2 className="text-2xl font-bold text-slate-900">
             Registration Submitted
           </h2>
-          <p className="text-gray-600">Your company is pending verification.</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-slate-600">Your company is pending verification.</p>
+          <p className="text-sm text-slate-500">
             We will notify you once verified.
           </p>
         </div>
@@ -40,16 +40,16 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div className="app-shell flex items-center justify-center p-6">
       <form
         onSubmit={handleSubmit}
-        className="bg-white border border-gray-200 rounded-xl shadow-md p-8 max-w-3xl w-full space-y-6"
+        className="app-auth-card max-w-3xl w-full space-y-6 p-8"
       >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-slate-900">
             Company Registration
           </h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-sm text-slate-600">
             Submit your company for verification.
           </p>
         </div>
