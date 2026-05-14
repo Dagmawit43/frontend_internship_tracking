@@ -1071,33 +1071,6 @@ function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorC
   };
 }
 
-function homeTileMetric(view, m) {
-  switch (view) {
-    case "staff":
-      return { primary: m.staffUnassigned, hint: "unassigned in pool" };
-    case "advisors":
-      return { primary: m.advisorsAssigned, hint: "assigned to department" };
-    case "examiners":
-      return { primary: m.examinersAssigned, hint: "assigned to department" };
-    case "internships":
-      return { primary: m.pendingApprovals, hint: "awaiting your approval" };
-    case "active-students":
-      return { primary: m.activeInterns, hint: "active placements" };
-    case "students":
-      return {
-        primary: m.registeredStudents,
-        hint:
-          m.eligibleOnFile > 0
-            ? `${m.eligibleOnFile} eligible · ${m.notSignedUp} not signed up`
-            : "Upload a list to compare eligible vs registered",
-      };
-    case "upload":
-      return { primary: m.eligibleTotalAllDepts, hint: "rows in stored JSON" };
-    default:
-      return { primary: "—", hint: "" };
-  }
-}
-
 const CoordinatorDashboard = () => {
   const [coordinatorDept, setCoordinatorDept] = useState(() => getCoordinatorDepartment());
   const [coordinatorName, setCoordinatorName] = useState(() => getCoordinatorName());
@@ -1375,30 +1348,21 @@ const CoordinatorDashboard = () => {
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {COORDINATOR_HOME_TILES.map((tile) => {
                   const Icon = tile.icon;
-                  const { primary, hint } = homeTileMetric(tile.view, homeMetrics);
                   return (
                     <button
                       key={tile.view}
                       type="button"
                       onClick={() => navigateCoordinator(tile.view)}
-                      className="app-card group flex w-full flex-col gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
+                      className="app-card group flex w-full flex-col items-start gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
                     >
-                      <div className="flex w-full items-start gap-3">
-                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-slate-900">{tile.title}</p>
-                            <span className="shrink-0 text-xl font-bold tabular-nums text-indigo-600">{primary}</span>
-                          </div>
-                          <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
-                          {hint ? (
-                            <p className="mt-2 text-xs font-medium text-slate-500">{hint}</p>
-                          ) : null}
-                        </div>
-                        <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
+                        <Icon className="h-5 w-5" />
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-900">{tile.title}</p>
+                        <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
+                      </div>
+                      <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
                     </button>
                   );
                 })}
