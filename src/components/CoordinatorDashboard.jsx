@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -1009,6 +1009,95 @@ const COORDINATOR_HOME_TILES = [
   { view: "upload", title: "Upload eligible list", description: "Import eligible students from a JSON file.", icon: Upload, accent: "bg-indigo-50 text-indigo-700 ring-indigo-100" },
 ];
 
+/** Counts for coordinator home tiles (matches department filtering used in sub-views). */
+function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorCount, examinerCount) {
+  const normalize = (s) => String(s || "").trim().toLowerCase();
+  const liveDept = String(getCoordinatorDepartment() || coordinatorDept || "").trim();
+  const useDeptFilter = liveDept.length > 0;
+  const deptNorm = normalize(liveDept);
+
+  let students = [];
+  let eligible = [];
+  let applications = [];
+  try {
+    students = JSON.parse(localStorage.getItem("students") || "[]");
+    eligible = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
+    applications = JSON.parse(localStorage.getItem("applications") || "[]");
+  } catch {
+    /* ignore */
+  }
+
+  const deptStudents = useDeptFilter
+    ? students.filter((s) => normalize(s.department) === deptNorm)
+    : students;
+  const deptEligible = useDeptFilter
+    ? eligible.filter((s) => normalize(s.department) === deptNorm)
+    : eligible;
+
+  const registeredKeys = new Set();
+  deptStudents.forEach((r) => {
+    if (normalize(r.studentId)) registeredKeys.add(`id:${normalize(r.studentId)}`);
+    if (normalize(r.id)) registeredKeys.add(`id:${normalize(r.id)}`);
+    if (normalize(r.email)) registeredKeys.add(`em:${normalize(r.email)}`);
+  });
+  const notSignedUp = deptEligible.filter((s) => {
+    const sid = normalize(s.studentId);
+    const em = normalize(s.email);
+    const byId = sid && registeredKeys.has(`id:${sid}`);
+    const byEmail = em && registeredKeys.has(`em:${em}`);
+    return !byId && !byEmail;
+  }).length;
+
+  let pendingApprovals = 0;
+  let activeInterns = 0;
+  applications.forEach((app) => {
+    const student = students.find((s) => s.studentId === app.studentId || s.name === app.studentName);
+    if (!student) return;
+    if (useDeptFilter && normalize(student.department) !== deptNorm) return;
+    if (app.coordinatorApprovalStatus === "PENDING") pendingApprovals += 1;
+    if (app.finalInternshipStatus === "ACTIVE_INTERN") activeInterns += 1;
+  });
+
+  return {
+    staffUnassigned: mockStaffCount,
+    advisorsAssigned: advisorCount,
+    examinersAssigned: examinerCount,
+    pendingApprovals,
+    activeInterns,
+    registeredStudents: deptStudents.length,
+    notSignedUp,
+    eligibleOnFile: deptEligible.length,
+    eligibleTotalAllDepts: eligible.length,
+  };
+}
+
+function homeTileMetric(view, m) {
+  switch (view) {
+    case "staff":
+      return { primary: m.staffUnassigned, hint: "unassigned in pool" };
+    case "advisors":
+      return { primary: m.advisorsAssigned, hint: "assigned to department" };
+    case "examiners":
+      return { primary: m.examinersAssigned, hint: "assigned to department" };
+    case "internships":
+      return { primary: m.pendingApprovals, hint: "awaiting your approval" };
+    case "active-students":
+      return { primary: m.activeInterns, hint: "active placements" };
+    case "students":
+      return {
+        primary: m.registeredStudents,
+        hint:
+          m.eligibleOnFile > 0
+            ? `${m.eligibleOnFile} eligible · ${m.notSignedUp} not signed up`
+            : "Upload a list to compare eligible vs registered",
+      };
+    case "upload":
+      return { primary: m.eligibleTotalAllDepts, hint: "rows in stored JSON" };
+    default:
+      return { primary: "—", hint: "" };
+  }
+}
+
 const CoordinatorDashboard = () => {
   const [coordinatorDept, setCoordinatorDept] = useState(() => getCoordinatorDepartment());
   const [coordinatorName, setCoordinatorName] = useState(() => getCoordinatorName());
@@ -1028,6 +1117,7 @@ const CoordinatorDashboard = () => {
   const [fileSuccess, setFileSuccess] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "" });
+  const [homeMetricsNonce, setHomeMetricsNonce] = useState(0);
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -1035,6 +1125,35 @@ const CoordinatorDashboard = () => {
     setCoordinatorDept(getCoordinatorDepartment());
     setCoordinatorName(getCoordinatorName());
   }, [view]);
+
+  useEffect(() => {
+    if (view !== "home") return undefined;
+    const bump = () => setHomeMetricsNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    window.addEventListener("eligibleStudentsUpdated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("eligibleStudentsUpdated", bump);
+    };
+  }, [view]);
+
+  const homeMetrics = useMemo(
+    () =>
+      computeCoordinatorHomeMetrics(
+        coordinatorDept,
+        mockStaff.length,
+        assignedAdvisors.length,
+        assignedExaminers.length
+      ),
+    [
+      coordinatorDept,
+      mockStaff.length,
+      assignedAdvisors.length,
+      assignedExaminers.length,
+      view,
+      homeMetricsNonce,
+    ]
+  );
 
   const handleLogout = () => {
     try { logout(); } catch (e) { /* ignore */ }
@@ -1156,6 +1275,9 @@ const CoordinatorDashboard = () => {
       setSelectedFile(null);
     }
     setView(next);
+    if (next === "home") {
+      setHomeMetricsNonce((n) => n + 1);
+    }
   };
 
   return (
@@ -1221,7 +1343,7 @@ const CoordinatorDashboard = () => {
                     <h1 className="mb-1 text-2xl font-bold md:text-3xl">Welcome, {coordinatorName}</h1>
                     <div className="flex flex-wrap gap-4 text-sm opacity-90 md:text-base">
                       <span>
-                        Department: <strong>{coordinatorDept}</strong>
+                        Department: <strong>{coordinatorDept || "—"}</strong>
                       </span>
                     </div>
                   </div>
@@ -1232,26 +1354,51 @@ const CoordinatorDashboard = () => {
                     </div>
                   </div>
                 </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/20 pt-5 sm:grid-cols-4">
+                  {[
+                    { label: "Pending approvals", value: homeMetrics.pendingApprovals },
+                    { label: "Active interns", value: homeMetrics.activeInterns },
+                    { label: "Not signed up", value: homeMetrics.notSignedUp },
+                    { label: "Staff in pool", value: homeMetrics.staffUnassigned },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-lg bg-white/10 px-3 py-2.5 backdrop-blur-sm"
+                    >
+                      <p className="text-2xl font-bold tabular-nums leading-tight">{stat.value}</p>
+                      <p className="mt-0.5 text-xs font-medium opacity-90">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {COORDINATOR_HOME_TILES.map((tile) => {
                   const Icon = tile.icon;
+                  const { primary, hint } = homeTileMetric(tile.view, homeMetrics);
                   return (
                     <button
                       key={tile.view}
                       type="button"
                       onClick={() => navigateCoordinator(tile.view)}
-                      className="app-card group flex w-full flex-col items-start gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
+                      className="app-card group flex w-full flex-col gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
                     >
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
-                        <Icon className="h-5 w-5" />
+                      <div className="flex w-full items-start gap-3">
+                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-semibold text-slate-900">{tile.title}</p>
+                            <span className="shrink-0 text-xl font-bold tabular-nums text-indigo-600">{primary}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
+                          {hint ? (
+                            <p className="mt-2 text-xs font-medium text-slate-500">{hint}</p>
+                          ) : null}
+                        </div>
+                        <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-900">{tile.title}</p>
-                        <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
-                      </div>
-                      <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
                     </button>
                   );
                 })}
@@ -1264,17 +1411,17 @@ const CoordinatorDashboard = () => {
 
           {/* STUDENTS */}
           {view === "students" && (
-            <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+            <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
           )}
 
           {/* INTERNSHIP STUDENTS */}
           {view === "internships" && (
-            <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+            <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
           )}
 
           {/* ACTIVE INTERNSHIP STUDENTS (Academic Assignment) */}
           {view === "active-students" && (
-            <ActiveInternsManagementView coordinatorDept={coordinatorDept} onBack={() => setView("home")} />
+            <ActiveInternsManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
           )}
 
           {/* UPLOAD */}
@@ -1282,7 +1429,7 @@ const CoordinatorDashboard = () => {
             <div className="max-w-xl">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Upload Eligible Students</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
               {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
@@ -1305,7 +1452,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {mockStaff.length === 0
                 ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
@@ -1337,7 +1484,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {assignedAdvisors.length === 0
                 ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
@@ -1362,7 +1509,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => setView("home")}>← Back</button>
+                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {assignedExaminers.length === 0
                 ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
