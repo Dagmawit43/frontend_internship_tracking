@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight } from "lucide-react";
+import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
@@ -150,7 +150,7 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
           <h2 className="text-xl font-semibold text-gray-900">Department Students</h2>
           <p className="text-sm text-gray-500 mt-0.5">Showing students in: <strong>{displayDept}</strong></p>
         </div>
-        <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+        <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={onBack}>
           ← Back
         </button>
       </div>
@@ -303,7 +303,7 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
           <h2 className="text-2xl font-bold text-gray-900">Internship Approvals</h2>
           <p className="text-gray-500">Forensic review of student internship selections for {coordinatorDept}</p>
         </div>
-        <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+        <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={onBack}>
           ← Back
         </button>
       </div>
@@ -384,13 +384,13 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
                    
                    {/* Student Information */}
                    <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-600 w-fit">
-                         <User className="w-5 h-5 text-blue-600" />
+                      <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-600 w-fit">
+                         <User className="w-5 h-5 text-indigo-600" />
                          <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Student Profile</h4>
                       </div>
                       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
                          <div>
-                            <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Full Name</p>
+                            <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Full Name</p>
                             <p className="font-bold text-gray-900 text-lg">{selectedApp.studentName}</p>
                          </div>
                          <div className="grid grid-cols-2 gap-4">
@@ -405,14 +405,14 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
                          </div>
                          <div>
                             <p className="text-[10px] font-black text-gray-400 uppercase">Email Address</p>
-                            <p className="text-sm font-bold text-blue-600">{selectedApp.studentFull?.email || "N/A"}</p>
+                            <p className="text-sm font-bold text-indigo-600">{selectedApp.studentFull?.email || "N/A"}</p>
                          </div>
                       </div>
                       
                       {selectedApp.additionalDocument && (
-                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
+                         <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                               <div className="bg-white p-2 rounded-lg"><FileText className="w-5 h-5 text-blue-600" /></div>
+                               <div className="bg-white p-2 rounded-lg"><FileText className="w-5 h-5 text-indigo-600" /></div>
                                <div>
                                   <p className="text-xs font-bold text-gray-900">CV / Resume Uploaded</p>
                                   <p className="text-[10px] text-gray-500">{selectedApp.documentName || "Student_CV.pdf"}</p>
@@ -421,7 +421,7 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
                             <a 
                               href={selectedApp.additionalDocument} 
                               download={selectedApp.documentName || "CV.pdf"}
-                              className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+                              className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
                             >
                                View CV
                             </a>
@@ -626,7 +626,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
            <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Academic Assignments</h2>
            <p className="text-gray-500 text-sm font-medium">Assign one academic advisor and two internal examiners per intern in {coordinatorDept}</p>
         </div>
-        <button className="text-sm font-bold text-blue-600 hover:text-blue-800 transition" onClick={onBack}>
+        <button className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition" onClick={onBack}>
           ← Back to Dashboard
         </button>
       </div>
@@ -645,7 +645,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                 <div className="flex flex-col gap-6 xl:flex-row xl:justify-between">
                   <div className="min-w-0 flex-1 space-y-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white">
                         <User className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
@@ -669,7 +669,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                     <button
                       type="button"
                       onClick={() => openInternDetail(app)}
-                      className="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100"
+                      className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-100"
                     >
                       <Eye className="h-4 w-4" />
                       View progress
@@ -716,7 +716,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                               type="button"
                               disabled={!readyForCoordinator}
                               onClick={() => approveOverallAsCoordinator(app.studentId)}
-                              className="mt-3 w-full rounded-md bg-blue-600 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-blue-700 disabled:opacity-50"
+                              className="mt-3 w-full rounded-md bg-indigo-600 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 disabled:opacity-50"
                             >
                               Approve overall evaluation
                             </button>
@@ -738,14 +738,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                   <div className="grid grid-cols-1 gap-5 border-t border-slate-100 pt-5 md:grid-cols-3 xl:max-w-[58%] xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <User className="h-3.5 w-3.5 text-blue-600" />
+                        <User className="h-3.5 w-3.5 text-indigo-600" />
                         Academic advisor
                       </label>
                       {app.advisorName ? (
                         <div className="group/slot relative">
-                          <div className="flex items-center justify-between rounded-md border border-blue-300 bg-white px-3 py-2.5">
-                            <span className="text-sm font-medium text-blue-900">{app.advisorName}</span>
-                            <CheckCircle className="h-4 w-4 text-blue-500" />
+                          <div className="flex items-center justify-between rounded-md border border-indigo-300 bg-white px-3 py-2.5">
+                            <span className="text-sm font-medium text-indigo-900">{app.advisorName}</span>
+                            <CheckCircle className="h-4 w-4 text-indigo-500" />
                           </div>
                           <button
                             type="button"
@@ -758,7 +758,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                       ) : (
                         <select
                           onChange={(e) => handleUpdateAssignment(app.id, "advisorName", e.target.value)}
-                          className="w-full cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500"
+                          className="w-full cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500"
                           defaultValue=""
                         >
                           <option value="" disabled>
@@ -885,14 +885,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
               <button
                 type="button"
                 onClick={() => setInternDetailTab("logbook")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
                 <BookOpen className="w-4 h-4" /> Weekly Logbook
               </button>
               <button
                 type="button"
                 onClick={() => setInternDetailTab("monthly")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               >
                 <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
@@ -911,7 +911,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                     {logbookRecord.weeks
                       .filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED)
                       .map(week => {
-                        let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                        let badgeClass = "bg-indigo-100 text-indigo-800 border-indigo-200";
                         if (week.status === WEEK_STATUS.APPROVED) badgeClass = "bg-green-100 text-green-800 border-green-200";
                         if (week.status === WEEK_STATUS.REJECTED_ADVISOR || week.status === WEEK_STATUS.REJECTED_COMPANY) badgeClass = "bg-red-100 text-red-800 border-red-200";
                         if (week.status === WEEK_STATUS.PENDING_COMPANY) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
@@ -951,7 +951,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                   const status = rec?.status || EVAL_STATUS.NOT_STARTED;
                   const badgeMap = {
                     [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-                    [EVAL_STATUS.SUBMITTED]:   "bg-blue-100 text-blue-700 border-blue-200",
+                    [EVAL_STATUS.SUBMITTED]:   "bg-indigo-100 text-indigo-700 border-indigo-200",
                     [EVAL_STATUS.APPROVED]:    "bg-green-100 text-green-700 border-green-200",
                     [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
                   };
@@ -1000,7 +1000,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
 };
 
 const COORDINATOR_HOME_TILES = [
-  { view: "staff", title: "Staff list", description: "View unassigned staff and invite advisors or examiners.", icon: Users, accent: "bg-blue-50 text-blue-600 ring-blue-100" },
+  { view: "staff", title: "Staff list", description: "View unassigned staff and invite advisors or examiners.", icon: Users, accent: "bg-indigo-50 text-indigo-600 ring-indigo-100" },
   { view: "advisors", title: "Assigned advisors", description: "See advisors linked to your department.", icon: UserCheck, accent: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
   { view: "examiners", title: "Assigned examiners", description: "See internal examiners for your department.", icon: GraduationCap, accent: "bg-violet-50 text-violet-700 ring-violet-100" },
   { view: "internships", title: "Internship approvals", description: "Review and approve student placement choices.", icon: Briefcase, accent: "bg-amber-50 text-amber-800 ring-amber-100" },
@@ -1254,47 +1254,53 @@ const CoordinatorDashboard = () => {
   };
 
   return (
-    <div className="app-shell flex min-h-screen flex-col md:flex-row">
-      <CoordinatorSidebar
-        currentView={view}
-        coordinatorName={coordinatorName}
-        onNavigate={navigateCoordinator}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <nav className="app-nav">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div className="flex min-w-0 items-center gap-3 md:hidden">
-              <img src={logoSrc} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80" />
-              <div className="min-w-0">
-                <h1 className="truncate text-base font-bold text-slate-900">Internship Tracking</h1>
-                <p className="text-xs text-slate-500">AASTU</p>
-              </div>
-            </div>
-            <div className="hidden flex-1 md:block" aria-hidden="true" />
-            <div className="flex items-center gap-2 sm:gap-4">
-              <button
-                type="button"
-                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="hidden rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:inline-flex"
-              >
-                Logout
-              </button>
-              <div className="flex items-center gap-2 rounded-lg px-2 py-2 sm:px-3">
-                <span className="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 sm:block">{coordinatorName}</span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
-              </div>
+    <div className="app-shell flex min-h-screen flex-col">
+      <nav className="app-nav shrink-0 border-b border-slate-200/80">
+        <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <img
+              src={logoSrc}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80"
+            />
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold text-slate-900">Internship Tracking System</h1>
+              <p className="text-xs text-slate-500">AASTU</p>
             </div>
           </div>
-        </nav>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              type="button"
+              className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Log out"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
+            >
+              <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+            <div className="flex min-w-0 max-w-[160px] items-center gap-2 rounded-lg px-2 py-2 sm:max-w-none sm:px-3">
+              <span className="truncate text-sm font-medium text-slate-700">{coordinatorName}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+            </div>
+          </div>
+        </div>
+      </nav>
 
-        {toast.show && (
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <CoordinatorSidebar
+          currentView={view}
+          coordinatorName={coordinatorName}
+          onNavigate={navigateCoordinator}
+        />
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          {toast.show && (
           <div className="fixed right-4 top-20 z-[100] animate-bounce-in">
             <div className="flex items-center gap-3 rounded-lg border-2 border-green-400 bg-green-600 px-6 py-3 text-white shadow-2xl">
               <div className="rounded-full bg-white/20 p-1">
@@ -1307,7 +1313,7 @@ const CoordinatorDashboard = () => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {view === "home" && (
             <>
               <div className="app-hero mb-6">
@@ -1372,11 +1378,10 @@ const CoordinatorDashboard = () => {
 
           {view !== "home" && (
             <div className="max-w-6xl">
-
-          {/* STUDENTS */}
-          {view === "students" && (
-            <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
-          )}
+              {/* STUDENTS */}
+              {view === "students" && (
+                <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
+              )}
 
           {/* INTERNSHIP STUDENTS */}
           {view === "internships" && (
@@ -1393,7 +1398,7 @@ const CoordinatorDashboard = () => {
             <div className="max-w-xl">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Upload Eligible Students</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
               {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
@@ -1402,9 +1407,9 @@ const CoordinatorDashboard = () => {
                 <input
                   type="file" accept=".json"
                   onChange={(e) => setSelectedFile(e.target.files[0])}
-                  className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
                 />
-                <button type="button" onClick={handleFileUpload} className="mt-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-blue-700">
+                <button type="button" onClick={handleFileUpload} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-indigo-700">
                   Upload
                 </button>
               </div>
@@ -1416,7 +1421,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {mockStaff.length === 0
                 ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
@@ -1448,7 +1453,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {assignedAdvisors.length === 0
                 ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
@@ -1473,7 +1478,7 @@ const CoordinatorDashboard = () => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
-                <button className="text-sm font-medium text-blue-600 hover:text-blue-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
               {assignedExaminers.length === 0
                 ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
@@ -1493,9 +1498,11 @@ const CoordinatorDashboard = () => {
             </div>
           )}
 
-        </div>
+            </div>
           )}
+
         </main>
+        </div>
       </div>
     </div>
   );

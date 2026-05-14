@@ -14,6 +14,7 @@ import {
   FileText,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
+import AdvisorSidebar from "./AdvisorSidebar";
 import { useAuth } from "../contexts/AuthContext";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
@@ -112,7 +113,7 @@ const AdvisorStudentDocumentsPanel = ({ studentId, advisorIdentity }) => {
               <a
                 href={doc.fileData}
                 download={doc.fileName}
-                className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+                className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
               >
                 Download
               </a>
@@ -175,65 +176,66 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
   };
 
   return (
-    <nav className="app-nav">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center gap-3">
-            <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
-              <p className="text-xs text-slate-500">AASTU</p>
-            </div>
+    <nav className="app-nav shrink-0 border-b border-slate-200/80">
+      <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src={logoSrc}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80"
+          />
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-slate-900">Internship Tracking System</h1>
+            <p className="text-xs text-slate-500">AASTU</p>
           </div>
+        </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <button
-                type="button"
-                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
-              >
-                <Bell className="w-5 h-5" />
-                {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
-                    {notificationCount > 9 ? "9+" : notificationCount}
-                  </span>
-                )}
-              </button>
-            </div>
-
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative">
             <button
               type="button"
-              onClick={handleLogout}
-              className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+              className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             >
-              <LogOut className="w-4 h-4 sm:mr-2 inline sm:hidden" />
-              <span className="hidden sm:inline">Logout</span>
+              <Bell className="h-5 w-5" />
+              {notificationCount > 0 && (
+                <span className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-semibold text-white">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Log out"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
+          >
+            <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex min-w-0 max-w-[160px] items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-100 transition-colors sm:max-w-none sm:px-3"
+            >
+              <span className="truncate text-sm font-medium text-gray-700">{displayName || roleLabel}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
             </button>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                  {displayName || roleLabel}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </button>
-
-              {showProfileDropdown && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowProfileDropdown(false)} />
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-1 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">{displayName || roleLabel}</p>
-                      <p className="text-xs text-gray-500">{roleLabel} Account</p>
-                    </div>
+            {showProfileDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowProfileDropdown(false)} />
+                <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+                  <div className="border-b border-gray-200 px-4 py-1">
+                    <p className="text-sm font-medium text-gray-900">{displayName || roleLabel}</p>
+                    <p className="text-xs text-gray-500">{roleLabel} Account</p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -258,7 +260,7 @@ const StaffWelcomeHeader = ({ name, department, roleLabel, subtitle, statPrimary
             <span className="font-semibold">{roleLabel}</span>
           </div>
         </div>
-        {subtitle && <p className="text-sm text-blue-100 mt-3 max-w-xl">{subtitle}</p>}
+        {subtitle && <p className="mt-3 max-w-xl text-sm text-indigo-100/95">{subtitle}</p>}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -604,7 +606,7 @@ const AdvisorDashboard = () => {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -615,10 +617,20 @@ const AdvisorDashboard = () => {
   const department = session?.department || "";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell flex min-h-screen flex-col">
       <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <AdvisorSidebar
+          currentView={activeTab}
+          onNavigate={setActiveTab}
+          staffName={displayName}
+          pendingDocs={pendingAdvisorDocuments.length}
+          pendingMonthly={pendingMonthlyEvals.length}
+          pendingFinal={pendingFinalEvals.length}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <StaffWelcomeHeader
           name={displayName}
           department={department}
@@ -628,95 +640,7 @@ const AdvisorDashboard = () => {
           statSecondary={pendingWeeksCount}
         />
 
-        <div className="app-tab-shell mb-8 w-full">
-          <button
-            type="button"
-            onClick={() => setActiveTab("students")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === "students" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            My Students
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("documents")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
-              activeTab === "documents" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <FileText className="w-4 h-4 shrink-0" />
-            Document queue
-            {pendingAdvisorDocuments.length > 0 && (
-              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingAdvisorDocuments.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("advisor-my-evals")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
-              activeTab === "advisor-my-evals" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4 shrink-0" />
-            My evaluations
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("advisor-examiner-evals")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-bold transition-all ${
-              activeTab === "advisor-examiner-evals" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4 shrink-0" />
-            Examiner evaluations
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("queue")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === "queue" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            Logbook queue
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("monthly")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === "monthly" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            Company Monthly Evaluations
-            {pendingMonthlyEvals.length > 0 && (
-              <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingMonthlyEvals.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("final")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === "final" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            Company Final Evaluations
-            {pendingFinalEvals.length > 0 && (
-              <span className="ml-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingFinalEvals.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-6 mb-6">
           <div className="lg:col-span-2 space-y-6">
             {activeTab === "students" && (
               <div className="app-card p-6">
@@ -740,10 +664,10 @@ const AdvisorDashboard = () => {
                         key={app.id}
                         type="button"
                         onClick={() => openStudent(app)}
-                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30 hover:border-blue-200"
+                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30 hover:border-indigo-200"
                       >
                         <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                        <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 font-medium">
+                        <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
                           <Briefcase className="w-4 h-4" />
                           <span>{app.internshipTitle || "Internship"}</span>
                         </div>
@@ -790,7 +714,7 @@ const AdvisorDashboard = () => {
                           key={app.id}
                           type="button"
                           onClick={() => openStudent(app)}
-                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/40 transition flex justify-between items-center gap-4"
+                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/40 transition flex justify-between items-center gap-4"
                         >
                           <div>
                             <p className="font-bold text-gray-900">{app.studentName}</p>
@@ -828,7 +752,7 @@ const AdvisorDashboard = () => {
                       const isApproved = ev.status === EVAL_STATUS.APPROVED;
                       const isRejected = ev.status === EVAL_STATUS.REJECTED;
 
-                      let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                      let badgeClass = "bg-indigo-100 text-indigo-800 border-indigo-200";
                       if (isApproved) badgeClass = "bg-green-100 text-green-800 border-green-200";
                       if (isRejected) badgeClass = "bg-red-100 text-red-800 border-red-200";
 
@@ -837,7 +761,7 @@ const AdvisorDashboard = () => {
                           key={ev.id}
                           type="button"
                           onClick={() => setSelectedEval({ eval: ev, studentApp })}
-                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/40 transition flex justify-between items-center gap-4"
+                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/40 transition flex justify-between items-center gap-4"
                         >
                           <div>
                             <p className="font-bold text-gray-900">{studentApp?.studentName || ev.studentId}</p>
@@ -850,7 +774,7 @@ const AdvisorDashboard = () => {
                               </p>
                             )}
                             {ev.advisorComment && (
-                              <p className="text-xs text-blue-600 mt-0.5 italic">Your comment: {ev.advisorComment}</p>
+                              <p className="text-xs text-indigo-600 mt-0.5 italic">Your comment: {ev.advisorComment}</p>
                             )}
                           </div>
                           <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-black uppercase border ${badgeClass}`}>
@@ -887,7 +811,7 @@ const AdvisorDashboard = () => {
                       const isFinalApproved = ev.status === FINAL_EVAL_STATUS.FINAL_APPROVED;
                       const isRejected = ev.status === FINAL_EVAL_STATUS.REJECTED;
 
-                      let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                      let badgeClass = "bg-indigo-100 text-indigo-800 border-indigo-200";
                       if (isApprovedByAdvisor) badgeClass = "bg-green-100 text-green-800 border-green-200";
                       if (isPendingExaminer) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
                       if (isFinalApproved) badgeClass = "bg-green-100 text-green-800 border-green-200";
@@ -898,7 +822,7 @@ const AdvisorDashboard = () => {
                           key={ev.id}
                           type="button"
                           onClick={() => setSelectedFinalEval({ eval: ev, studentApp })}
-                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-blue-200 hover:bg-blue-50/40 transition flex justify-between items-center gap-4"
+                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/40 transition flex justify-between items-center gap-4"
                         >
                           <div>
                             <p className="font-bold text-gray-900">{studentApp?.studentName || ev.studentId}</p>
@@ -911,7 +835,7 @@ const AdvisorDashboard = () => {
                               </p>
                             )}
                             {ev.advisorComment && (
-                              <p className="text-xs text-blue-600 mt-0.5 italic">Your comment: {ev.advisorComment}</p>
+                              <p className="text-xs text-indigo-600 mt-0.5 italic">Your comment: {ev.advisorComment}</p>
                             )}
                           </div>
                           <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-black uppercase border ${badgeClass}`}>
@@ -982,7 +906,7 @@ const AdvisorDashboard = () => {
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
                   <p className="text-gray-600">
-                    Your advisor-authored internship evaluations for each assigned student. Open a student from My Students to submit or change (until submitted).
+                    Your advisor-authored internship evaluations for each assigned student. Open a student from <strong className="text-gray-800">My students</strong> in the sidebar to submit or change (until submitted).
                   </p>
                 </div>
                 {assignedStudents.length === 0 ? (
@@ -1005,7 +929,7 @@ const AdvisorDashboard = () => {
                                 setActiveTab("students");
                                 openStudent(app, "advisor-eval");
                               }}
-                              className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
+                              className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
                             >
                               {submitted ? "View in student" : "Open to submit"}
                             </button>
@@ -1156,32 +1080,34 @@ const AdvisorDashboard = () => {
 
             <div className="app-card p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-blue-600" />
+                <CheckCircle className="w-5 h-5 text-indigo-600" />
                 Workflow
               </h3>
               <ul className="space-y-3 text-sm text-gray-600">
                 <li className="flex gap-3">
-                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
                   Company approves the student week first; then it appears for your approval.
                 </li>
                 <li className="flex gap-3">
-                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                  Use <strong className="text-gray-800">My Students</strong> to open a student and approve or reject each week.
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                  Use <strong className="text-gray-800">My students</strong> in the sidebar to open a student and approve or reject each week.
                 </li>
                 <li className="flex gap-3">
-                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                  Company monthly evaluations submitted by the host appear in the <strong className="text-gray-800">Company Monthly Evaluations</strong> tab for your review.
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                  Company monthly evaluations submitted by the host appear under <strong className="text-gray-800">Monthly evaluations</strong> in the sidebar for your review.
                 </li>
                 <li className="flex gap-3">
-                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                  Use <strong className="text-gray-800">My evaluations</strong> and <strong className="text-gray-800">Examiner evaluations</strong> (next to Document queue) to review submissions across all students.
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                  Use <strong className="text-gray-800">My evaluations</strong> and <strong className="text-gray-800">Examiner evaluations</strong> in the sidebar to review submissions across all students.
                 </li>
                 <li className="flex gap-3">
-                  <span className="h-2 w-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                  Student uploads appear in the <strong className="text-gray-800">Document queue</strong> tab until you approve or reject them.
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                  Student uploads appear under <strong className="text-gray-800">Document queue</strong> until you approve or reject them.
                 </li>
               </ul>
             </div>
+          </div>
+        </div>
           </div>
         </div>
       </div>
@@ -1195,7 +1121,7 @@ const AdvisorDashboard = () => {
                 <h3 className="text-xl font-bold text-gray-900">{selectedStudent.studentName}</h3>
                 <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-600">
                   <span className="flex items-center gap-1">
-                    <Building2 className="w-4 h-4 text-blue-600" />
+                    <Building2 className="w-4 h-4 text-indigo-600" />
                     {selectedStudent.companyName}
                   </span>
                   <span className="flex items-center gap-1">
@@ -1291,7 +1217,7 @@ const AdvisorDashboard = () => {
                       const isApproved = week.status === WEEK_STATUS.APPROVED;
                       const isRejected = week.status === WEEK_STATUS.REJECTED_ADVISOR;
 
-                      let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+                      let badgeClass = "bg-indigo-100 text-indigo-800 border-indigo-200";
                       if (isApproved) badgeClass = "bg-green-100 text-green-800 border-green-200";
                       if (isRejected) badgeClass = "bg-red-100 text-red-800 border-red-200";
                       if (week.status === WEEK_STATUS.PENDING_COMPANY) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
@@ -1365,7 +1291,7 @@ const AdvisorDashboard = () => {
                   const status = rec?.status || EVAL_STATUS.NOT_STARTED;
                   const badgeMap = {
                     [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-                    [EVAL_STATUS.SUBMITTED]:   "bg-blue-100 text-blue-700 border-blue-200",
+                    [EVAL_STATUS.SUBMITTED]:   "bg-indigo-100 text-indigo-700 border-indigo-200",
                     [EVAL_STATUS.APPROVED]:    "bg-green-100 text-green-700 border-green-200",
                     [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
                   };
@@ -1455,7 +1381,7 @@ const AdvisorDashboard = () => {
 
                   const badgeMap = {
                     [FINAL_EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-                    [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-blue-100 text-blue-700 border-blue-200",
+                    [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-indigo-100 text-indigo-700 border-indigo-200",
                     [FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR]: "bg-green-100 text-green-700 border-green-200",
                     [FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL]: "bg-yellow-100 text-yellow-700 border-yellow-200",
                     [FINAL_EVAL_STATUS.FINAL_APPROVED]: "bg-green-100 text-green-700 border-green-200",
@@ -1472,11 +1398,11 @@ const AdvisorDashboard = () => {
                       </div>
 
                       {finalEval.total !== undefined && (
-                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 mb-6">
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="text-center">
                               <p className="text-sm font-semibold text-gray-600 mb-1">Total Score</p>
-                              <p className="text-2xl font-bold text-blue-700">{finalEval.total} / 60</p>
+                              <p className="text-2xl font-bold text-indigo-700">{finalEval.total} / 60</p>
                             </div>
                             <div className="text-center">
                               <p className="text-sm font-semibold text-gray-600 mb-1">Final Mark</p>
@@ -1665,7 +1591,7 @@ const AdvisorDashboard = () => {
                         onClick={() => {
                           approveOverallAsAdvisor(selectedStudent.studentId);
                         }}
-                        className="mt-2 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                        className="mt-2 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                       >
                         Approve overall evaluation
                       </button>
@@ -1801,7 +1727,7 @@ const AdvisorDashboard = () => {
               <a
                 href={selectedDocQueue.doc.fileData}
                 download={selectedDocQueue.doc.fileName}
-                className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline"
+                className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:underline"
               >
                 <FileText className="w-4 h-4" /> Download {selectedDocQueue.doc.fileName}
               </a>

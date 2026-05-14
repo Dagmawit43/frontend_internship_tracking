@@ -123,7 +123,7 @@ const InternshipEvaluationForm = ({
 
   const inputClass = readOnly
     ? "border border-gray-200 p-2 rounded bg-gray-50 text-gray-600 cursor-not-allowed"
-    : "border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none";
+    : "border border-gray-300 p-2 rounded focus:ring-2 focus:ring-indigo-500 outline-none";
 
   const selectClass = readOnly
     ? "border border-gray-200 rounded p-2 bg-gray-50 cursor-not-allowed"
@@ -274,8 +274,8 @@ const InternshipEvaluationForm = ({
         </div>
 
         {existingAdvisorComment && !advisorView && (
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">
+          <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">
               Advisor Comment
             </p>
             <p className="text-sm text-gray-700">{existingAdvisorComment}</p>
@@ -295,7 +295,7 @@ const InternshipEvaluationForm = ({
           <div className="mt-6">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
             >
               Submit Company Final Evaluation
             </button>
@@ -313,7 +313,7 @@ const InternshipEvaluationForm = ({
                 value={advisorComment}
                 onChange={(e) => setAdvisorComment(e.target.value)}
                 rows={3}
-                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Add a comment for the company or examiner..."
               />
             </div>
@@ -352,7 +352,7 @@ const InternshipEvaluationForm = ({
                 value={examinerComment}
                 onChange={(e) => setExaminerComment(e.target.value)}
                 rows={3}
-                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Add a comment for the record..."
               />
             </div>

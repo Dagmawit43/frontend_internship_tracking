@@ -4,6 +4,7 @@ import { getInternships } from "../mock/internshipApi";
 import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import StudentSidebar from "./StudentSidebar";
 import ApplicationModal from "./modals/ApplicationModal";
 import companiesMock from "../mock/companies.json";
 import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
@@ -46,9 +47,8 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
   };
 
   return (
-    <nav className="app-nav">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="app-nav shrink-0 border-b border-slate-200/80">
+      <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
             <div>
@@ -57,9 +57,9 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative">
-              <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30">
+              <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30">
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
                   <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
@@ -70,10 +70,13 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
             </div>
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+              aria-label="Log out"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
             >
-              Logout
+              <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">Logout</span>
             </button>
 
             <div className="relative">
@@ -100,7 +103,6 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
               )}
             </div>
           </div>
-        </div>
       </div>
     </nav>
   );
@@ -130,9 +132,9 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
       },
       Completed: {
         icon: CheckCircle,
-        color: "text-blue-600",
-        bgColor: "bg-blue-50",
-        borderColor: "border-blue-300",
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-50",
+        borderColor: "border-indigo-300",
       },
     };
     return statusMap[status] || statusMap["Not Applied"];
@@ -177,7 +179,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
 
         {/* Assignment Information Row */}
         {(advisor || examiner || examiner2) && (
-          <div className="border-t border-blue-500/30 pt-4">
+          <div className="border-t border-indigo-500/30 pt-4">
             <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
             <div className="flex flex-wrap gap-4 text-sm">
               {advisor && (
@@ -349,9 +351,9 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {internships.map(internship => (
-            <div key={internship.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-blue-50/30">
+            <div key={internship.id} className="border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30">
               <h3 className="font-bold text-lg text-gray-900 mb-1">{internship.title}</h3>
-              <div className="flex items-center gap-2 mb-3 text-sm text-blue-700 font-medium">
+              <div className="flex items-center gap-2 mb-3 text-sm text-indigo-700 font-medium">
                 <Building2 className="w-4 h-4" />
                 <span>{internship.companyName}</span>
               </div>
@@ -367,7 +369,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
               </div>
               <button
                 onClick={() => setSelectedInternship(internship)}
-                className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
               >
                 <Eye className="w-4 h-4" />
                 View Details
@@ -385,10 +387,10 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedInternship.title}</h2>
                   <p className="text-gray-700 font-medium mb-1 flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-blue-600" />
+                    <Building2 className="w-5 h-5 text-indigo-600" />
                     {selectedInternship.companyName}
                   </p>
-                  <p className="text-blue-600 font-medium">{selectedInternship.start_date} to {selectedInternship.end_date}</p>
+                  <p className="text-indigo-600 font-medium">{selectedInternship.start_date} to {selectedInternship.end_date}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedInternship(null)}
@@ -399,32 +401,32 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
               </div>
 
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
                    <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-blue-200"><Layers className="w-4 h-4 text-blue-600" /></div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><Layers className="w-4 h-4 text-indigo-600" /></div>
                       <div>
-                         <p className="text-[10px] uppercase font-bold text-blue-600">Department</p>
+                         <p className="text-[10px] uppercase font-bold text-indigo-600">Department</p>
                          <p className="text-sm font-bold text-gray-900">{selectedInternship.department}</p>
                       </div>
                    </div>
                    <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-blue-200"><MapPin className="w-4 h-4 text-blue-600" /></div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><MapPin className="w-4 h-4 text-indigo-600" /></div>
                       <div>
-                         <p className="text-[10px] uppercase font-bold text-blue-600">Location</p>
+                         <p className="text-[10px] uppercase font-bold text-indigo-600">Location</p>
                          <p className="text-sm font-bold text-gray-900">{selectedInternship.location} ({selectedInternship.internship_type})</p>
                       </div>
                    </div>
                    <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-blue-200"><CheckCircle className="w-4 h-4 text-blue-600" /></div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><CheckCircle className="w-4 h-4 text-indigo-600" /></div>
                       <div>
-                         <p className="text-[10px] uppercase font-bold text-blue-600">Status</p>
+                         <p className="text-[10px] uppercase font-bold text-indigo-600">Status</p>
                          <p className="text-sm font-bold text-gray-900">{selectedInternship.status || "ACTIVE"}</p>
                       </div>
                    </div>
                    <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-blue-200"><Clock className="w-4 h-4 text-blue-600" /></div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><Clock className="w-4 h-4 text-indigo-600" /></div>
                       <div>
-                         <p className="text-[10px] uppercase font-bold text-blue-600">Schedule</p>
+                         <p className="text-[10px] uppercase font-bold text-indigo-600">Schedule</p>
                          <p className="text-sm font-bold text-gray-900">{selectedInternship.days_in_week || selectedInternship.Days_in_week} days/week</p>
                       </div>
                    </div>
@@ -467,7 +469,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
                 </button>
                 <button
                   onClick={() => setIsApplyModalOpen(true)}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
                 >
                   Apply Now
                 </button>
@@ -605,10 +607,10 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
           {appliedInternships.map(app => {
             const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus);
             return (
-              <div key={app.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border border-gray-100 rounded-xl bg-gray-50/50 gap-4 hover:border-blue-200 transition-colors">
+              <div key={app.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border border-gray-100 rounded-xl bg-gray-50/50 gap-4 hover:border-indigo-200 transition-colors">
                 <div className="flex gap-4 items-center">
                   <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                    <Building2 className="w-6 h-6 text-blue-600" />
+                    <Building2 className="w-6 h-6 text-indigo-600" />
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-900 text-lg">{app.internshipTitle || "Internship"}</h4>
@@ -642,7 +644,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
                    {statusConfig.canSelect && (
                      <button 
                        onClick={() => handleSelectCompany(app)}
-                       className="px-4 py-1.5 bg-blue-600 text-white text-xs font-black uppercase rounded-full hover:bg-blue-700 transition-all shadow-md shadow-blue-100 w-full sm:w-auto whitespace-nowrap"
+                       className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-black uppercase rounded-full hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 w-full sm:w-auto whitespace-nowrap"
                      >
                        Select This Company
                      </button>
@@ -926,7 +928,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
       [WEEK_STATUS.NOT_SUBMITTED]: "bg-gray-100 text-gray-700 border-gray-200",
       [WEEK_STATUS.PENDING_COMPANY]: "bg-yellow-100 text-yellow-700 border-yellow-200",
       [WEEK_STATUS.REJECTED_COMPANY]: "bg-red-100 text-red-700 border-red-200",
-      [WEEK_STATUS.PENDING_ADVISOR]: "bg-blue-100 text-blue-700 border-blue-200",
+      [WEEK_STATUS.PENDING_ADVISOR]: "bg-indigo-100 text-indigo-700 border-indigo-200",
       [WEEK_STATUS.REJECTED_ADVISOR]: "bg-red-100 text-red-700 border-red-200",
       [WEEK_STATUS.APPROVED]: "bg-green-100 text-green-700 border-green-200",
     };
@@ -950,12 +952,12 @@ const MyInternshipView = ({ studentId, studentName }) => {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white relative">
+        <div className="bg-gradient-to-r from-indigo-700 to-slate-900 p-8 text-white relative">
           <div className="absolute top-0 right-0 p-8 opacity-10">
              <Building2 className="w-32 h-32" />
           </div>
           <div className="relative z-10">
-            <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mb-2">Official Placement</p>
+            <p className="text-indigo-100 font-bold uppercase tracking-widest text-xs mb-2">Official Placement</p>
             <h2 className="text-3xl md:text-4xl font-black tracking-tight">Intern at {activeApp.companyName}</h2>
             <div className="mt-4 inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/30 text-xs font-black uppercase">
               <CheckCircle className="w-4 h-4" />
@@ -969,14 +971,14 @@ const MyInternshipView = ({ studentId, studentName }) => {
             
             {/* Company Deep Dive */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-600 w-fit">
-                 <Building2 className="w-5 h-5 text-blue-600" />
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-400 w-fit">
+                 <Building2 className="w-5 h-5 text-indigo-600" />
                  <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Partner Organization</h4>
               </div>
               <div className="space-y-4">
                  <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
                  <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <MapPin className="w-4 h-4 text-blue-600" />
+                    <MapPin className="w-4 h-4 text-indigo-600" />
                     <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
                  </div>
                  <p className="text-gray-600 leading-relaxed italic text-sm border-l-4 border-gray-100 pl-4">
@@ -987,20 +989,20 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
             {/* Position Details */}
             <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-blue-800/50 w-fit">
-                 <Briefcase className="w-5 h-5 text-blue-700" />
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-300/60 w-fit">
+                 <Briefcase className="w-5 h-5 text-indigo-700" />
                  <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Role</h4>
               </div>
               <div className="space-y-4">
                  <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
                  
                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/80">
-                       <p className="text-[10px] font-black text-blue-800 uppercase mb-1">Timeframe</p>
+                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
+                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Timeframe</p>
                        <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}</p>
                     </div>
-                    <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/80">
-                       <p className="text-[10px] font-black text-blue-800 uppercase mb-1">Weekly Commitment</p>
+                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
+                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Weekly Commitment</p>
                        <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
                     </div>
                  </div>
@@ -1009,11 +1011,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
                     <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                        <div>
-                          <p className="text-[10px] font-black text-blue-600 uppercase mb-1">Academic Advisor</p>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Academic Advisor</p>
                           <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
                        </div>
                        <div>
-                          <p className="text-[10px] font-black text-blue-700 uppercase mb-1">Internal Examiner 1</p>
+                          <p className="text-[10px] font-black text-indigo-700 uppercase mb-1">Internal Examiner 1</p>
                           <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
                        </div>
                        <div>
@@ -1126,7 +1128,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                   key={week.weekNumber}
                   type="button"
                   onClick={() => openWeek(week)}
-                  className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50 transition"
+                  className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50 transition"
                 >
                   <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
                   <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
@@ -1184,7 +1186,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 <button
                   type="submit"
                   disabled={docSubmitting || !docFile}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {docSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1231,7 +1233,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                           <a
                             href={d.fileData}
                             download={d.fileName}
-                            className="text-xs font-bold text-blue-600 hover:underline shrink-0"
+                            className="text-xs font-bold text-indigo-600 hover:underline shrink-0"
                           >
                             Download
                           </a>
@@ -1565,7 +1567,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
           {!isFormOpen ? (
             <button
               onClick={() => setIsFormOpen(true)}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm"
             >
               <Upload className="w-5 h-5" />
               Submit Self-Placement Request
@@ -1584,7 +1586,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                     value={formData.companyName}
                     onChange={handleChange}
                     required
-                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                     placeholder="Enter company name"
                   />
                 </div>
@@ -1600,7 +1602,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                       name="representativeName"
                       value={formData.representativeName}
                       onChange={handleChange}
-                      className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                      className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                       placeholder="Full name"
                     />
                   </div>
@@ -1617,7 +1619,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                       value={formData.representativeEmail}
                       onChange={handleChange}
                       required
-                      className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                      className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                       placeholder="email@example.com"
                     />
                   </div>
@@ -1633,7 +1635,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                     name="representativePhone"
                     value={formData.representativePhone}
                     onChange={handleChange}
-                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                     placeholder="+251 XXX XXX XXX"
                   />
                 </div>
@@ -1648,7 +1650,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                    className="w-full pl-10 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                     placeholder="City, Country"
                   />
                 </div>
@@ -1673,7 +1675,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                   >
                     {formData.licenseFileName ? (
                       <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <FileText className="w-5 h-5 text-blue-600" />
+                        <FileText className="w-5 h-5 text-indigo-600" />
                         <span>{formData.licenseFileName}</span>
                       </div>
                     ) : (
@@ -1694,7 +1696,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                   value={formData.additionalNotes}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-blue-500/25 focus-visible:border-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus-visible:ring-2 focus-visible:ring-indigo-500/25 focus-visible:border-indigo-500"
                   placeholder="Any additional information about the company..."
                 />
               </div>
@@ -1722,7 +1724,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? "Submitting..." : "Submit Request"}
                 </button>
@@ -1796,7 +1798,7 @@ const NotificationsPanel = ({ studentId, studentName }) => {
       success: "text-green-600 bg-green-50",
       error: "text-red-600 bg-red-50",
       warning: "text-yellow-600 bg-yellow-50",
-      info: "text-blue-600 bg-blue-50",
+      info: "text-indigo-600 bg-indigo-50",
     };
     return colorMap[type] || "text-gray-600 bg-gray-50";
   };
@@ -2124,7 +2126,7 @@ const StudentDashboard = () => {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
           <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
@@ -2132,139 +2134,89 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="app-shell">
-      {/* Top Navigation */}
+    <div className="app-shell flex min-h-screen flex-col">
       <TopNavigation
         studentName={studentData.name}
         notificationCount={notificationCount}
       />
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Header */}
-        <WelcomeHeader
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <StudentSidebar
+          currentView={activeTab}
+          onNavigate={setActiveTab}
           studentName={studentData.name}
-          department={studentData.department}
-          college={studentData.college}
-          internshipStatus={internshipStatus}
-          advisor={advisor}
-          examiner={examiner}
-          examiner2={examiner2}
         />
 
-        {/* Tab Navigation */}
-        <div className="app-tab-shell mb-8 max-w-3xl overflow-x-auto scrollbar-hide">
-          <button
-            type="button"
-            onClick={() => setActiveTab("my-internship")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg py-3 px-6 text-sm font-bold transition-all ${
-              activeTab === "my-internship"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            My Internship
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("browse")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg py-3 px-6 text-sm font-bold transition-all ${
-              activeTab === "browse"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <Briefcase className="w-4 h-4" />
-            Browse Opportunities
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("applied")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg py-3 px-6 text-sm font-bold transition-all ${
-              activeTab === "applied"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <CheckCircle className="w-4 h-4" />
-            My Applications
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("self-placement")}
-            className={`flex-shrink-0 flex items-center justify-center gap-2 rounded-lg py-3 px-6 text-sm font-bold transition-all ${
-              activeTab === "self-placement"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            Self Placement
-          </button>
-        </div>
-
-        {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {activeTab === "my-internship" && (
-              <MyInternshipView studentId={studentData.studentId} studentName={studentData.name} />
-            )}
-
-            {activeTab === "browse" && (
-              <AvailableInternships 
-                studentId={studentData.studentId}
-                studentDepartment={studentData.department}
-                studentProfile={studentData}
-                onApplicationSubmit={handleApplicationSubmit}
-              />
-            )}
-
-            {activeTab === "applied" && (
-              <AppliedInternshipsList 
-                studentId={studentData.studentId}
-                studentName={studentData.name}
-              />
-            )}
-
-            {activeTab === "self-placement" && (
-              <SelfPlacementSection
-                studentId={studentData.studentId}
-                onSubmit={handleApplicationSubmit}
-              />
-            )}
-          </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            {/* Notifications Panel */}
-            <NotificationsPanel
-              studentId={studentData.studentId}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <WelcomeHeader
               studentName={studentData.name}
+              department={studentData.department}
+              college={studentData.college}
+              internshipStatus={internshipStatus}
+              advisor={advisor}
+              examiner={examiner}
+              examiner2={examiner2}
             />
 
-            {/* Quick Stats Card */}
-            <div className="app-card p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Applications</span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {applications.length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Pending</span>
-                  <span className="text-lg font-bold text-yellow-600">
-                    {applications.filter((app) => app.status === "Pending" || app.status === "applied").length}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Active</span>
-                  <span className="text-lg font-bold text-green-600">
-                    {applications.filter((app) => app.status === "Active" || app.status === "accepted").length}
-                  </span>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+              {/* Left Column - Main Content */}
+              <div className="lg:col-span-2 space-y-6">
+                {activeTab === "my-internship" && (
+                  <MyInternshipView studentId={studentData.studentId} studentName={studentData.name} />
+                )}
+
+                {activeTab === "browse" && (
+                  <AvailableInternships
+                    studentId={studentData.studentId}
+                    studentDepartment={studentData.department}
+                    studentProfile={studentData}
+                    onApplicationSubmit={handleApplicationSubmit}
+                  />
+                )}
+
+                {activeTab === "applied" && (
+                  <AppliedInternshipsList
+                    studentId={studentData.studentId}
+                    studentName={studentData.name}
+                  />
+                )}
+
+                {activeTab === "self-placement" && (
+                  <SelfPlacementSection
+                    studentId={studentData.studentId}
+                    onSubmit={handleApplicationSubmit}
+                  />
+                )}
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-6">
+                <NotificationsPanel
+                  studentId={studentData.studentId}
+                  studentName={studentData.name}
+                />
+
+                <div className="app-card p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Applications</span>
+                      <span className="text-lg font-bold text-gray-900">{applications.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Pending</span>
+                      <span className="text-lg font-bold text-yellow-600">
+                        {applications.filter((app) => app.status === "Pending" || app.status === "applied").length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Active</span>
+                      <span className="text-lg font-bold text-green-600">
+                        {applications.filter((app) => app.status === "Active" || app.status === "accepted").length}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

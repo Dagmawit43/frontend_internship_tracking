@@ -234,7 +234,7 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab("view")}
           className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "view"
-              ? "bg-blue-600 text-white shadow-md"
+              ? "bg-indigo-600 text-white shadow-md"
               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
@@ -244,7 +244,7 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab("create")}
           className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "create"
-              ? "bg-blue-600 text-white shadow-md"
+              ? "bg-indigo-600 text-white shadow-md"
               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
@@ -254,7 +254,7 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab("companies")}
           className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "companies"
-              ? "bg-blue-600 text-white shadow-md"
+              ? "bg-indigo-600 text-white shadow-md"
               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab("coordinator")}
           className={`py-2 px-4 rounded-md font-medium transition-colors ${
             activeTab === "coordinator"
-              ? "bg-blue-600 text-white shadow-md"
+              ? "bg-indigo-600 text-white shadow-md"
               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
@@ -276,7 +276,7 @@ const AdminDashboard = () => {
       {activeTab === "view" && (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-            <thead className="bg-blue-600 text-white">
+            <thead className="bg-indigo-600 text-white">
               <tr>
                 <th className="py-3 px-4 text-left font-semibold">
                   Name / Username
@@ -317,7 +317,7 @@ const AdminDashboard = () => {
       {activeTab === "companies" && (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-            <thead className="bg-blue-600 text-white">
+            <thead className="bg-indigo-600 text-white">
               <tr>
                 <th className="py-3 px-4 text-left font-semibold">
                   Company Name
@@ -407,7 +407,7 @@ const AdminDashboard = () => {
             Promote Staff to Coordinator
           </h3>
           <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
-            <thead className="bg-blue-600 text-white">
+            <thead className="bg-indigo-600 text-white">
               <tr>
                 <th className="py-3 px-4 text-left font-semibold">Username</th>
                 <th className="py-3 px-4 text-left font-semibold">Email</th>
@@ -440,7 +440,7 @@ const AdminDashboard = () => {
                   <td className="py-2 px-4">
                     <button
                       onClick={() => handleOpenPromotion(staff.username)}
-                      className="bg-blue-600 text-white py-1 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+                      className="bg-indigo-600 text-white py-1 px-3 rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium shadow-sm"
                     >
                       Promote to Coordinator
                     </button>
@@ -469,7 +469,7 @@ const AdminDashboard = () => {
                         department: e.target.value,
                       })
                     }
-                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                    className="w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-400"
                   >
                     <option value="">Select Department</option>
                     {DEPARTMENTS.map((dept) => (
@@ -482,7 +482,7 @@ const AdminDashboard = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handlePromoteToCoordinator}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                    className="flex-1 bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors font-medium shadow-sm"
                   >
                     Promote
                   </button>
@@ -524,7 +524,7 @@ const AdminDashboard = () => {
                 value={newUser.username}
                 onChange={handleChange}
                 required
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-400"
               />
             </div>
 
@@ -538,7 +538,7 @@ const AdminDashboard = () => {
                 value={newUser.password}
                 onChange={handleChange}
                 required
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-400"
               />
             </div>
 
@@ -551,7 +551,7 @@ const AdminDashboard = () => {
                 value={newUser.department}
                 onChange={handleChange}
                 required
-                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-blue-400"
+                className="w-full border rounded-md p-2 focus:ring-2 focus:ring-indigo-400"
               >
                 <option value="">Select Department</option>
                 {DEPARTMENTS.map((dept) => (
@@ -564,7 +564,7 @@ const AdminDashboard = () => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors font-medium shadow-sm"
             >
               Create User
             </button>

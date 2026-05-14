@@ -98,7 +98,7 @@ const CreateAccounts = () => {
                   key={index}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     selectedStaff === staff.username
-                      ? "border-blue-500 bg-blue-50"
+                      ? "border-indigo-500 bg-indigo-50"
                       : "border-gray-200 hover:bg-gray-50"
                   }`}
                   onClick={() => setSelectedStaff(staff.username)}
@@ -110,7 +110,7 @@ const CreateAccounts = () => {
                         <p className="text-sm text-gray-500">{staff.email}</p>
                       )}
                       {staff.department && (
-                        <p className="text-xs text-blue-600 mt-1">{staff.department}</p>
+                        <p className="text-xs text-indigo-600 mt-1">{staff.department}</p>
                       )}
                     </div>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
@@ -160,7 +160,7 @@ const CreateAccounts = () => {
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={!selectedStaff}
               >
                 <option value="Advisor">Advisor</option>
@@ -171,7 +171,7 @@ const CreateAccounts = () => {
             <button
               onClick={handleAssignRole}
               disabled={!selectedStaff}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <UserCheck className="w-5 h-5" />
               Assign Role

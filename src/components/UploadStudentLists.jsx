@@ -93,7 +93,7 @@ const UploadStudentList = () => {
           />
           <label
             htmlFor="file-upload"
-            className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
+            className="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors"
           >
             Select File
           </label>

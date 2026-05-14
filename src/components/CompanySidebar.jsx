@@ -1,27 +1,14 @@
 import React from "react";
-import {
-  LayoutDashboard,
-  Users,
-  UserCheck,
-  GraduationCap,
-  Briefcase,
-  ClipboardList,
-  BookOpen,
-  Upload,
-} from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, GraduationCap } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "home", label: "Dashboard", icon: LayoutDashboard },
-  { id: "staff", label: "Staff list", icon: Users },
-  { id: "advisors", label: "Assigned advisors", icon: UserCheck },
-  { id: "examiners", label: "Assigned examiners", icon: GraduationCap },
-  { id: "internships", label: "Internship approvals", icon: Briefcase },
-  { id: "active-students", label: "Active interns", icon: ClipboardList },
-  { id: "students", label: "Manage students", icon: BookOpen },
-  { id: "upload", label: "Upload eligible list", icon: Upload },
+  { id: "home", label: "Overview", icon: LayoutDashboard },
+  { id: "internships", label: "Internships", icon: Briefcase },
+  { id: "applications", label: "Applied students", icon: Users },
+  { id: "interns", label: "Active interns", icon: GraduationCap },
 ];
 
-const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
+const CompanySidebar = ({ currentView, onNavigate, companyName }) => {
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:w-56 md:min-h-0 md:self-stretch md:border-b-0 md:border-r md:border-slate-200">
       <div className="shrink-0 border-b border-slate-100 px-4 py-3 md:pt-4">
@@ -53,10 +40,10 @@ const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
       </nav>
       <div className="mt-auto shrink-0 border-t border-slate-100 p-3">
         <p className="truncate text-xs font-medium text-slate-500">Signed in</p>
-        <p className="truncate text-sm font-semibold text-slate-800">{coordinatorName}</p>
+        <p className="truncate text-sm font-semibold text-slate-800">{companyName || "Company"}</p>
       </div>
     </aside>
   );
 };
 
-export default CoordinatorSidebar;
+export default CompanySidebar;

@@ -52,7 +52,7 @@ const calculateTotal = (data) =>
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const SectionTitle = ({ title }) => (
-  <h2 className="text-xl font-bold text-blue-700 mb-4 mt-6 border-b border-blue-100 pb-2">
+  <h2 className="text-xl font-bold text-indigo-700 mb-4 mt-6 border-b border-indigo-100 pb-2">
     {title}
   </h2>
 );
@@ -66,7 +66,7 @@ const InputField = ({ label, name, value, onChange, readOnly }) => (
       value={value}
       onChange={onChange}
       readOnly={readOnly}
-      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
         readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
       }`}
     />
@@ -84,7 +84,7 @@ const ScoreField = ({ label, name, value, onChange, readOnly }) => (
       value={value}
       onChange={onChange}
       readOnly={readOnly}
-      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
         readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
       }`}
     />
@@ -233,10 +233,10 @@ const InternshipMonthlyEvaluation = ({
         </div>
 
         {/* Totals */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 my-6">
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 my-6">
           <div className="flex justify-between items-center mb-3 text-base font-bold text-gray-800">
             <span>Total Marks (out of 100)</span>
-            <span className="text-2xl text-blue-700">{totalMarks}</span>
+            <span className="text-2xl text-indigo-700">{totalMarks}</span>
           </div>
           <div className="flex justify-between items-center text-base font-bold text-gray-800">
             <span>Monthly Performance Mark (out of 20)</span>
@@ -253,7 +253,7 @@ const InternshipMonthlyEvaluation = ({
             onChange={handleChange}
             readOnly={readOnly}
             rows={4}
-            className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
               readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
             }`}
             placeholder="Write additional comments here..."
@@ -273,8 +273,8 @@ const InternshipMonthlyEvaluation = ({
 
         {/* Advisor comment (read-only display for company view) */}
         {existingAdvisorComment && !advisorView && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Advisor Comment</p>
+          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Advisor Comment</p>
             <p className="text-sm text-gray-700">{existingAdvisorComment}</p>
           </div>
         )}
@@ -284,7 +284,7 @@ const InternshipMonthlyEvaluation = ({
           <div className="mt-4">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
             >
               Submit Evaluation
             </button>
@@ -303,7 +303,7 @@ const InternshipMonthlyEvaluation = ({
                 value={advisorComment}
                 onChange={(e) => setAdvisorComment(e.target.value)}
                 rows={3}
-                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Add a comment for the company or student..."
               />
             </div>

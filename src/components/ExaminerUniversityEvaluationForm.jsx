@@ -93,7 +93,7 @@ const ExaminerUniversityEvaluationForm = ({
 
   const selectClass = readOnly
     ? "border border-gray-200 rounded p-1 text-sm bg-gray-50 cursor-not-allowed min-w-[3.5rem]"
-    : "border border-gray-300 rounded p-1 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none min-w-[3.5rem]";
+    : "border border-gray-300 rounded p-1 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none min-w-[3.5rem]";
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -223,7 +223,7 @@ const ExaminerUniversityEvaluationForm = ({
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm"
             >
               Submit evaluation
             </button>

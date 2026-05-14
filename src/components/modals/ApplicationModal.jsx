@@ -65,7 +65,7 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
@@ -142,7 +142,7 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
               >
                 {formData.documentName ? (
                   <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <FileText className="h-5 w-5 text-blue-600" />
+                    <FileText className="h-5 w-5 text-indigo-600" />
                     <span>{formData.documentName}</span>
                   </div>
                 ) : (
@@ -165,14 +165,14 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 rounded-lg border border-blue-700/10 bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-lg border border-indigo-700/10 bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? "Submitting..." : "Submit Application"}
             </button>

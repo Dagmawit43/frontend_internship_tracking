@@ -391,7 +391,7 @@ const RegistrationForm = () => {
                 <button
                   type="button"
                   onClick={() => { setOtpSent(false); setPendingUser(null); setOtpCode(""); }}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
                 >
                   Cancel
                 </button>
@@ -420,7 +420,7 @@ const RegistrationForm = () => {
                     setSuccess("Registration complete. You can now log in.");
                     setTimeout(() => navigate("/login"), 900);
                   }}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                 >
                   Verify
                 </button>
@@ -457,7 +457,7 @@ const RegistrationForm = () => {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-lg border border-blue-700/15 bg-blue-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg border border-indigo-700/15 bg-indigo-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? "Registering..." : "Register"}
         </button>
@@ -467,7 +467,7 @@ const RegistrationForm = () => {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            className="font-semibold text-blue-700 hover:text-blue-800 hover:underline"
+            className="font-semibold text-indigo-700 hover:text-indigo-800 hover:underline"
           >
             Sign in
           </button>

@@ -2,9 +2,10 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
-  CheckCircle, ClipboardList, X, FileText,
+  CheckCircle, ClipboardList, X, FileText, LogOut,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
+import ExaminerSidebar from "./ExaminerSidebar";
 import { useAuth } from "../contexts/AuthContext";
 import {
   getExaminerEvaluation,
@@ -79,7 +80,7 @@ const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayNam
               <a
                 href={doc.fileData}
                 download={doc.fileName}
-                className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+                className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
               >
                 Download
               </a>
@@ -156,7 +157,7 @@ const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, o
         <a
           href={doc.fileData}
           download={doc.fileName}
-          className="text-sm font-bold text-blue-600 hover:underline shrink-0"
+          className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
         >
           Download
         </a>
@@ -213,51 +214,58 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
   };
 
   return (
-    <nav className="app-nav">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center gap-3">
-            <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
-              <p className="text-xs text-slate-500">AASTU</p>
-            </div>
+    <nav className="app-nav shrink-0 border-b border-slate-200/80">
+      <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src={logoSrc}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-slate-200/80"
+          />
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-slate-900">Internship Tracking System</h1>
+            <p className="text-xs text-slate-500">AASTU</p>
           </div>
-          <div className="flex items-center gap-4">
-            <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30">
-              <Bell className="w-5 h-5" />
-              {notificationCount > 0 && (
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
-              )}
-            </button>
+        </div>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+          >
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 && (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Log out"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
+          >
+            <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+          <div className="relative">
             <button
               type="button"
-              onClick={handleLogout}
-              className="hidden sm:inline-flex px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors shadow-sm"
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="flex min-w-0 max-w-[160px] items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-100 transition-colors sm:max-w-none sm:px-3"
             >
-              Logout
+              <span className="truncate text-sm font-medium text-gray-700">{displayName || roleLabel}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
             </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-sm font-medium text-gray-700 hidden sm:block">{displayName || roleLabel}</span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </button>
-              {showDropdown && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{displayName || roleLabel}</p>
-                      <p className="text-xs text-gray-500">{roleLabel} Account</p>
-                    </div>
+            {showDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)} />
+                <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-2 shadow-lg">
+                  <div className="border-b border-gray-100 px-4 py-2">
+                    <p className="text-sm font-medium text-gray-900">{displayName || roleLabel}</p>
+                    <p className="text-xs text-gray-500">{roleLabel} Account</p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -283,7 +291,7 @@ const WelcomeHeader = ({ name, department, roleLabel, subtitle, statPrimary }) =
             <span className="font-semibold">{roleLabel}</span>
           </div>
         </div>
-        {subtitle && <p className="text-sm text-blue-100 mt-3 max-w-xl">{subtitle}</p>}
+        {subtitle && <p className="mt-3 max-w-xl text-sm text-indigo-100/95">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 border border-white/20">
         <ClipboardList className="w-6 h-6" />
@@ -401,7 +409,7 @@ const ExaminerDashboard = () => {
     return (
       <div className="app-shell flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
           <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
@@ -412,14 +420,22 @@ const ExaminerDashboard = () => {
   const department = session.department || "";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell flex min-h-screen flex-col">
       <StaffTopNavigation
         displayName={displayName}
         roleLabel="Internal Examiner"
         notificationCount={pendingExaminerDocuments.length}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <ExaminerSidebar
+          currentView={mainTab}
+          onNavigate={setMainTab}
+          staffName={displayName}
+          pendingDocs={pendingExaminerDocuments.length}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <WelcomeHeader
           name={displayName}
           department={department}
@@ -427,34 +443,6 @@ const ExaminerDashboard = () => {
           subtitle="Review assigned students, submit examiner evaluations, and clear your document queue."
           statPrimary={assignedStudents.length}
         />
-
-        <div className="app-tab-shell mb-8 max-w-3xl">
-          <button
-            type="button"
-            onClick={() => setMainTab("students")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              mainTab === "students" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            Assigned students
-          </button>
-          <button
-            type="button"
-            onClick={() => setMainTab("doc-queue")}
-            className={`flex flex-shrink-0 items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-bold transition-all ${
-              mainTab === "doc-queue" ? "app-tab-active" : "app-tab-inactive"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Document queue
-            {pendingExaminerDocuments.length > 0 && (
-              <span className="ml-1 bg-amber-400 text-amber-950 text-[10px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingExaminerDocuments.length}
-              </span>
-            )}
-          </button>
-        </div>
 
         {mainTab === "students" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -483,10 +471,10 @@ const ExaminerDashboard = () => {
                           setStudentModalTab("eval");
                           setSelectedStudent(app);
                         }}
-                        className="rounded-xl border border-slate-200/90 bg-blue-50/50 p-5 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
+                        className="rounded-xl border border-slate-200/90 bg-indigo-50/50 p-5 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
                       >
                         <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                        <div className="flex items-center gap-2 mb-2 text-sm text-blue-700 font-medium">
+                        <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
                           <Briefcase className="w-4 h-4" />
                           <span>{app.internshipTitle || "Internship"}</span>
                         </div>
@@ -517,7 +505,7 @@ const ExaminerDashboard = () => {
 
               <div className="app-card p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                  <CheckCircle className="w-5 h-5 text-indigo-600" />
                   Your role
                 </h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -563,6 +551,8 @@ const ExaminerDashboard = () => {
             )}
           </div>
         )}
+          </div>
+        </div>
       </div>
 
       {selectedStudent && (
@@ -697,7 +687,7 @@ const ExaminerDashboard = () => {
                       type="button"
                       disabled={!overall?.complete}
                       onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 1)}
-                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 1)
                     </button>
@@ -707,7 +697,7 @@ const ExaminerDashboard = () => {
                       type="button"
                       disabled={!overall?.complete}
                       onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 2)}
-                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 2)
                     </button>

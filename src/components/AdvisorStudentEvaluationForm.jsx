@@ -155,7 +155,7 @@ const AdvisorStudentEvaluationForm = ({
 
   const selectClass = readOnly
     ? "border border-gray-200 p-2 rounded w-24 text-sm bg-gray-50 cursor-not-allowed shrink-0"
-    : "border border-gray-300 p-2 rounded w-24 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none shrink-0";
+    : "border border-gray-300 p-2 rounded w-24 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none shrink-0";
 
   const renderSection = (title, items, sectionKey, rawTotal, maxTotal) => (
     <div className="mb-8">
@@ -320,7 +320,7 @@ const AdvisorStudentEvaluationForm = ({
           <div className="mt-8 pt-4 border-t border-gray-200">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm"
             >
               Submit evaluation to student
             </button>

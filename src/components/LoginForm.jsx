@@ -134,7 +134,7 @@ const LoginForm = () => {
     <div className="flex justify-center items-center app-shell px-4 py-10">
       <div className="app-auth-card max-w-xl p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-blue-600 ring-2 ring-blue-500/30 flex items-center justify-center mb-4 overflow-hidden">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-indigo-600 ring-2 ring-indigo-500/35">
             <img
               src={logoSrc}
               alt="AASTU Logo"
@@ -219,7 +219,7 @@ const LoginForm = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -230,14 +230,14 @@ const LoginForm = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg border border-blue-700/15 bg-blue-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg border border-indigo-700/15 bg-indigo-600 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? "Logging in..." : "Log in"}
           </button>
 
           <button
             type="button"
-            className="mt-2 w-full text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline"
+            className="mt-2 w-full text-sm font-semibold text-indigo-700 hover:text-indigo-800 hover:underline"
             onClick={() =>
               alert("Please contact your coordinator to reset your password.")
             }
@@ -251,7 +251,7 @@ const LoginForm = () => {
           <button
             type="button"
             onClick={() => navigate("/register")}
-            className="font-semibold text-blue-700 hover:text-blue-800 hover:underline"
+            className="font-semibold text-indigo-700 hover:text-indigo-800 hover:underline"
           >
             Sign up
           </button>

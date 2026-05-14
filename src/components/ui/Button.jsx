@@ -2,7 +2,7 @@ import React from "react";
 
 const variantClasses = {
   default:
-    "bg-blue-600 text-white hover:bg-blue-700 shadow-sm border border-blue-700/10",
+    "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm border border-indigo-700/15",
   outline:
     "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm",
   destructive:
@@ -17,7 +17,7 @@ const sizeClasses = {
 
 const baseClasses =
   "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 " +
   "disabled:pointer-events-none disabled:opacity-50";
 
 export const Button = ({

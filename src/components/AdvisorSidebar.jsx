@@ -1,27 +1,37 @@
 import React from "react";
 import {
-  LayoutDashboard,
-  Users,
-  UserCheck,
-  GraduationCap,
-  Briefcase,
+  User,
+  FileText,
   ClipboardList,
+  GraduationCap,
   BookOpen,
-  Upload,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "home", label: "Dashboard", icon: LayoutDashboard },
-  { id: "staff", label: "Staff list", icon: Users },
-  { id: "advisors", label: "Assigned advisors", icon: UserCheck },
-  { id: "examiners", label: "Assigned examiners", icon: GraduationCap },
-  { id: "internships", label: "Internship approvals", icon: Briefcase },
-  { id: "active-students", label: "Active interns", icon: ClipboardList },
-  { id: "students", label: "Manage students", icon: BookOpen },
-  { id: "upload", label: "Upload eligible list", icon: Upload },
+  { id: "students", label: "My students", icon: User, badgeKey: null },
+  { id: "documents", label: "Document queue", icon: FileText, badgeKey: "docs" },
+  { id: "advisor-my-evals", label: "My evaluations", icon: ClipboardList, badgeKey: null },
+  { id: "advisor-examiner-evals", label: "Examiner evaluations", icon: GraduationCap, badgeKey: null },
+  { id: "queue", label: "Logbook queue", icon: BookOpen, badgeKey: null },
+  { id: "monthly", label: "Monthly evaluations", icon: ClipboardList, badgeKey: "monthly" },
+  { id: "final", label: "Final evaluations", icon: ClipboardList, badgeKey: "final" },
 ];
 
-const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
+const AdvisorSidebar = ({
+  currentView,
+  onNavigate,
+  staffName,
+  pendingDocs = 0,
+  pendingMonthly = 0,
+  pendingFinal = 0,
+}) => {
+  const badgeFor = (key) => {
+    if (key === "docs") return pendingDocs;
+    if (key === "monthly") return pendingMonthly;
+    if (key === "final") return pendingFinal;
+    return 0;
+  };
+
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:w-56 md:min-h-0 md:self-stretch md:border-b-0 md:border-r md:border-slate-200">
       <div className="shrink-0 border-b border-slate-100 px-4 py-3 md:pt-4">
@@ -31,6 +41,7 @@ const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = currentView === item.id;
+          const n = item.badgeKey ? badgeFor(item.badgeKey) : 0;
           return (
             <button
               key={item.id}
@@ -46,17 +57,22 @@ const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
                 className={`h-5 w-5 shrink-0 ${active ? "text-indigo-600" : "text-slate-400"}`}
                 aria-hidden
               />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <span className="min-w-0 flex-1 whitespace-nowrap md:whitespace-normal">{item.label}</span>
+              {n > 0 && (
+                <span className="shrink-0 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                  {n > 99 ? "99+" : n}
+                </span>
+              )}
             </button>
           );
         })}
       </nav>
       <div className="mt-auto shrink-0 border-t border-slate-100 p-3">
         <p className="truncate text-xs font-medium text-slate-500">Signed in</p>
-        <p className="truncate text-sm font-semibold text-slate-800">{coordinatorName}</p>
+        <p className="truncate text-sm font-semibold text-slate-800">{staffName || "Advisor"}</p>
       </div>
     </aside>
   );
 };
 
-export default CoordinatorSidebar;
+export default AdvisorSidebar;
