@@ -17,6 +17,9 @@ import {
   WEEK_STATUS,
   STATUS_LABELS,
   ensureWeeklyLogbookForInternship,
+  companyReviewWeek,
+  getLogbookForApplication,
+  getLogbookScope,
   updateWeekForInternship,
   updateWeeklyLogbookMeta,
 } from "../utils/weeklyLogbook";
@@ -32,12 +35,6 @@ import {
   getFinalEvaluation,
   submitFinalEvaluation,
 } from "../utils/finalEvaluations";
-import {
-  getAdvisorEvaluation,
-  ADVISOR_EVAL_STATUS,
-} from "../utils/advisorEvaluations";
-import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
-
 // ─── session helper ───────────────────────────────────────────────────────────
 const getValidCompanySession = () => {
   try {
@@ -444,7 +441,6 @@ const InternsPage = ({ companySession }) => {
   const [finalEvalRecord, setFinalEvalRecord] = useState(null);
   /** True after "Start Final Evaluation" so the form shows while status is still NOT_STARTED */
   const [finalEvalDraftOpen, setFinalEvalDraftOpen] = useState(false);
-  const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
   const companyId = companySession?.id || companySession?.company_id;
 
   const emptyFinalFormData = () => ({
@@ -467,7 +463,7 @@ const InternsPage = ({ companySession }) => {
       const students = JSON.parse(localStorage.getItem("students")) || [];
       const cName = companySession?.companyName || companySession?.company_name;
       const activeInterns = allApps
-        .filter(app => (app.companyId === companyId || app.companyName === cName) && app.finalInternshipStatus === "ACTIVE_INTERN")
+        .filter(app => (String(app.companyId ?? "") === String(companyId ?? "") || app.companyName === cName) && app.finalInternshipStatus === "ACTIVE_INTERN")
         .map(app => ({ ...app, studentFull: students.find(s => s.studentId === app.studentId || s.name === app.studentName) }));
       setInterns(activeInterns);
     };
@@ -477,19 +473,18 @@ const InternsPage = ({ companySession }) => {
   }, [companyId, companySession]);
 
   useEffect(() => {
-    const bump = () => setAdvisorEvalNonce((n) => n + 1);
-    window.addEventListener("storage", bump);
-    window.addEventListener("advisor-evaluation-updated", bump);
-    return () => {
-      window.removeEventListener("storage", bump);
-      window.removeEventListener("advisor-evaluation-updated", bump);
+    if (!selectedIntern) return;
+    const refreshRecord = () => {
+      setSelectedRecord(getLogbookForApplication(selectedIntern));
     };
-  }, []);
-
-  const internAdvisorEval = useMemo(() => {
-    if (!selectedIntern) return null;
-    return getAdvisorEvaluation(selectedIntern.studentId);
-  }, [selectedIntern, advisorEvalNonce]);
+    refreshRecord();
+    window.addEventListener("storage", refreshRecord);
+    window.addEventListener("weekly-logbook-updated", refreshRecord);
+    return () => {
+      window.removeEventListener("storage", refreshRecord);
+      window.removeEventListener("weekly-logbook-updated", refreshRecord);
+    };
+  }, [selectedIntern]);
 
   // Auto-reminders: which interns have evaluations not yet submitted
   const reminders = useMemo(() => {
@@ -510,8 +505,7 @@ const InternsPage = ({ companySession }) => {
     setInternDetailTab("logbook");
     setOpenEvalMonth(null);
     setFinalEvalDraftOpen(false);
-    const record = ensureWeeklyLogbookForInternship({ studentId: intern.studentId, internshipId: intern.internshipId || intern.id, companyId: intern.companyId || intern.companyName || "", advisorId: intern.advisorName || "" });
-    setSelectedRecord(record);
+    setSelectedRecord(getLogbookForApplication(intern));
     loadEvalRecords(intern);
     // Load final evaluation
     const finalEval = getFinalEvaluation(intern.studentId);
@@ -522,18 +516,45 @@ const InternsPage = ({ companySession }) => {
     if (!selectedIntern || !selectedRecord) return;
     const weekSlice = formPayload.weeks?.[0];
     if (!weekSlice) return;
-    updateWeeklyLogbookMeta({ studentId: selectedIntern.studentId, internshipId: selectedIntern.internshipId || selectedIntern.id, companyId: selectedIntern.companyId || selectedIntern.companyName || "", advisorId: selectedIntern.advisorName || "" }, { supervisorName: formPayload.supervisorName || "" });
-    const updated = updateWeekForInternship({ studentId: selectedIntern.studentId, internshipId: selectedIntern.internshipId || selectedIntern.id, companyId: selectedIntern.companyId || selectedIntern.companyName || "", advisorId: selectedIntern.advisorName || "" }, weekSlice.weekNumber, (week) => ({ ...week, days: week.days.map((day, i) => ({ ...day, supervisorComment: weekSlice.days[i]?.supervisorComment ?? day.supervisorComment })) }));
+    const scope = getLogbookScope(selectedIntern);
+    updateWeeklyLogbookMeta(scope, { supervisorName: formPayload.supervisorName || "" });
+    const updated = updateWeekForInternship(scope, weekSlice.weekNumber, (week) => ({ ...week, days: week.days.map((day, i) => ({ ...day, supervisorComment: weekSlice.days[i]?.supervisorComment ?? day.supervisorComment })) }));
     setSelectedRecord(updated);
   }, [selectedIntern, selectedRecord]);
 
   const updateCompanyDecision = (weekNumber, action) => {
     if (!selectedIntern) return;
-    const updated = updateWeekForInternship({ studentId: selectedIntern.studentId, internshipId: selectedIntern.internshipId || selectedIntern.id, companyId: selectedIntern.companyId || selectedIntern.companyName || "", advisorId: selectedIntern.advisorName || "" }, weekNumber, (week) => {
-      if (week.status !== WEEK_STATUS.PENDING_COMPANY) return week;
-      return action === "approve" ? { ...week, companyStatus: "APPROVED", status: WEEK_STATUS.PENDING_ADVISOR } : { ...week, companyStatus: "REJECTED", status: WEEK_STATUS.REJECTED_COMPANY };
-    });
+    const updated = companyReviewWeek(selectedIntern, weekNumber, action);
     setSelectedRecord(updated);
+
+    const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+    notifications.push({
+      id: Date.now(),
+      type: action === "approve" ? "info" : "error",
+      title: action === "approve" ? "Weekly logbook approved by company" : "Weekly logbook needs revision",
+      message:
+        action === "approve"
+          ? `Week ${weekNumber} was approved by your company and sent to your advisor for review.`
+          : `Week ${weekNumber} was returned by your company. Please edit and resubmit.`,
+      date: new Date().toISOString(),
+      studentId: selectedIntern.studentId,
+      studentName: selectedIntern.studentName,
+      read: false,
+    });
+    if (action === "approve" && selectedIntern.advisorName) {
+      notifications.push({
+        id: Date.now() + 1,
+        type: "info",
+        title: "Weekly logbook awaiting your approval",
+        message: `${selectedIntern.studentName} — Week ${weekNumber} was approved by the company. Open Logbook queue to review.`,
+        date: new Date().toISOString(),
+        advisorName: selectedIntern.advisorName,
+        studentId: selectedIntern.studentId,
+        studentName: selectedIntern.studentName,
+        read: false,
+      });
+    }
+    localStorage.setItem("notifications", JSON.stringify(notifications));
   };
 
   const handleEvalSubmit = (month, formData) => {
@@ -692,12 +713,6 @@ const InternsPage = ({ companySession }) => {
               </button>
               <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "final" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <ClipboardList className="w-4 h-4" /> Company Final Evaluation
-              </button>
-              <button type="button" onClick={() => { setInternDetailTab("advisor-eval"); setOpenEvalMonth(null); setFinalEvalDraftOpen(false); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "advisor-eval" ? "app-tab-active" : "app-tab-inactive"}`}>
-                <GraduationCap className="w-4 h-4" /> Advisor evaluation
-                {internAdvisorEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
-                  <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Submitted by advisor" />
-                )}
               </button>
             </div>
 
@@ -878,46 +893,6 @@ const InternsPage = ({ companySession }) => {
                 </div>
               );
             })()}
-
-            {internDetailTab === "advisor-eval" && selectedIntern && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  The university academic advisor&apos;s evaluation for this intern (read only).
-                </p>
-                {!internAdvisorEval ||
-                internAdvisorEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
-                    The academic advisor has not submitted their evaluation for this student yet.
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-500">
-                      Submitted {new Date(internAdvisorEval.submittedAt).toLocaleString()}
-                      {internAdvisorEval.advisorName && (
-                        <span className="block mt-1 font-semibold text-gray-800">
-                          Advisor: {internAdvisorEval.advisorName}
-                        </span>
-                      )}
-                    </p>
-                    <AdvisorStudentEvaluationForm
-                      readOnly
-                      initialData={{
-                        ...(internAdvisorEval.formData || {}),
-                        studentName: selectedIntern.studentName || "",
-                        idNo: selectedIntern.studentId || "",
-                        department: selectedIntern.department || "",
-                        organization: selectedIntern.companyName || "",
-                        supervisorName:
-                          internAdvisorEval.formData?.supervisorName ||
-                          internAdvisorEval.advisorName ||
-                          internAdvisorEval.formData?.advisorName ||
-                          "",
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}

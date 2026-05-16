@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getInternships } from "../mock/internshipApi";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
@@ -13,9 +13,9 @@ import {
   WEEK_STATUS,
   STATUS_LABELS,
   canStudentEditWeek,
-  ensureWeeklyLogbookForInternship,
-  updateWeekForInternship,
-  updateWeeklyLogbookMeta,
+  getLogbookForApplication,
+  getLogbookScope,
+  submitWeekForInternship,
 } from "../utils/weeklyLogbook";
 import {
   getDocumentsByStudentId,
@@ -32,6 +32,10 @@ import {
   findExaminerEvalForStaffField,
 } from "../utils/examinerEvaluations";
 import { computeOverallEvaluation, getOverallApprovals } from "../utils/overallEvaluation";
+import {
+  getStudentCompanyEvaluationSummaries,
+  studentCompanyEvalStatusPill,
+} from "../utils/studentCompanyEvalStatus";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
@@ -688,6 +692,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
+  const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
+  const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
 
   useEffect(() => {
     const loadActive = () => {
@@ -713,13 +719,9 @@ const MyInternshipView = ({ studentId, studentName }) => {
           companyFull: company,
           internshipFull: internship
         });
-        const logbookRecord = ensureWeeklyLogbookForInternship({
-          studentId: found.studentId,
-          internshipId: found.internshipId || found.id,
-          companyId: found.companyId || found.companyName || "",
-          advisorId: found.advisorName || "",
-        });
-        setWeeklyLogbook(logbookRecord);
+        setWeeklyLogbook(
+          getLogbookForApplication({ ...found, studentId: found.studentId || studentId })
+        );
       } else {
         setActiveApp(null);
         setWeeklyLogbook(null);
@@ -727,8 +729,13 @@ const MyInternshipView = ({ studentId, studentName }) => {
     };
 
     loadActive();
+    const onLogbookUpdated = () => loadActive();
     window.addEventListener("storage", loadActive);
-    return () => window.removeEventListener("storage", loadActive);
+    window.addEventListener("weekly-logbook-updated", onLogbookUpdated);
+    return () => {
+      window.removeEventListener("storage", loadActive);
+      window.removeEventListener("weekly-logbook-updated", onLogbookUpdated);
+    };
   }, [studentId, studentName]);
 
   const docStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
@@ -779,6 +786,17 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const approvalStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
 
   const overallApprovals = useMemo(() => getOverallApprovals(approvalStudentKey), [approvalStudentKey, overallEvalNonce]);
+
+  const companyEvalSummaries = useMemo(
+    () => getStudentCompanyEvaluationSummaries(approvalStudentKey),
+    [approvalStudentKey, companyEvalNonce]
+  );
+
+  useEffect(() => {
+    const bump = () => setCompanyEvalNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    return () => window.removeEventListener("storage", bump);
+  }, []);
 
   const overallForStudent = useMemo(() => {
     if (!activeApp) return null;
@@ -879,47 +897,50 @@ const MyInternshipView = ({ studentId, studentName }) => {
   };
 
   const handleLogbookFormSubmit = (payload) => {
-    if (!activeApp || !selectedWeek) return;
-    const weekPayload = payload?.weeks?.[0];
-    if (!weekPayload) return;
+    if (!activeApp || !selectedWeek) {
+      alert("Unable to submit: no active internship week selected.");
+      return;
+    }
 
-    updateWeeklyLogbookMeta(
-      {
-        studentId: activeApp.studentId,
-        internshipId: activeApp.internshipId || activeApp.id,
-        companyId: activeApp.companyId || activeApp.companyName || "",
-        advisorId: activeApp.advisorName || "",
-      },
-      {
-        studentName: payload.studentName || "",
-        companyName: payload.companyName || "",
-        safetyBrief: payload.safetyBrief || "",
-      }
-    );
+    const scope = getLogbookScope({
+      ...activeApp,
+      studentId: activeApp.studentId || studentId,
+    });
+    const weekNum = Number(selectedWeek.weekNumber);
+    const weekPayload =
+      payload?.weeks?.find((w) => Number(w.weekNumber) === weekNum) ||
+      payload?.weeks?.[0];
+
+    if (!weekPayload?.days?.length) {
+      alert("Please fill in your daily work log before submitting.");
+      return;
+    }
+
+    const hasWork = weekPayload.days.some((d) => String(d.workPerformed || "").trim());
+    if (!hasWork) {
+      alert("Please enter at least one day of work performed before submitting.");
+      return;
+    }
 
     const mergedDays = weekPayload.days.map((d, i) => ({
       dayNumber: selectedWeek.days[i]?.dayNumber ?? i + 1,
-      workPerformed: d.workPerformed,
+      workPerformed: d.workPerformed ?? "",
       supervisorComment: selectedWeek.days[i]?.supervisorComment ?? "",
     }));
 
-    const updated = updateWeekForInternship(
-      {
-        studentId: activeApp.studentId,
-        internshipId: activeApp.internshipId || activeApp.id,
-        companyId: activeApp.companyId || activeApp.companyName || "",
-        advisorId: activeApp.advisorName || "",
+    const updated = submitWeekForInternship(scope, weekNum, {
+      meta: {
+        studentName: payload.studentName || activeApp.studentName || studentName || "",
+        companyName: payload.companyName || activeApp.companyName || "",
+        safetyBrief: payload.safetyBrief || "",
       },
-      selectedWeek.weekNumber,
-      (week) => ({
-        ...week,
-        days: mergedDays,
-        status: WEEK_STATUS.PENDING_COMPANY,
-        companyStatus: "PENDING",
-        advisorStatus: "PENDING",
-      })
-    );
+      days: mergedDays,
+      status: WEEK_STATUS.PENDING_COMPANY,
+    });
+
     setWeeklyLogbook(updated);
+    setLogbookSubmitSuccess(true);
+    window.setTimeout(() => setLogbookSubmitSuccess(false), 4000);
     closeWeek();
   };
 
@@ -1069,6 +1090,21 @@ const MyInternshipView = ({ studentId, studentName }) => {
           </button>
           <button
             type="button"
+            onClick={() => {
+              setInternshipSubTab("company-evals");
+              setCompanyEvalNonce((n) => n + 1);
+            }}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+              internshipSubTab === "company-evals"
+                ? "app-tab-active"
+                : "app-tab-inactive"
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Company evaluations
+          </button>
+          <button
+            type="button"
             onClick={() => setInternshipSubTab("advisor-eval")}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
               internshipSubTab === "advisor-eval"
@@ -1116,6 +1152,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
         {internshipSubTab === "logbook" && (
           <>
+            {logbookSubmitSuccess && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                Week submitted — sent to your company for review. After company approval it goes to your advisor.
+              </div>
+            )}
             <div className="mb-4">
               <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
               <p className="text-sm text-gray-600">
@@ -1259,6 +1300,56 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 </ul>
               )}
             </div>
+          </div>
+        )}
+
+        {internshipSubTab === "company-evals" && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Company evaluations</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Your host company submits these forms. You can track submission and advisor approval status only — form contents, scores, and comments are not visible to students.
+              </p>
+            </div>
+            <ul className="space-y-4">
+              {companyEvalSummaries.map((item) => (
+                <li
+                  key={item.key}
+                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <p className="font-bold text-gray-900">{item.title}</p>
+                    <span
+                      className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shrink-0 ${studentCompanyEvalStatusPill(item.label)}`}
+                    >
+                      {item.label}
+                    </span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
+                      <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        Submitted to advisor
+                      </dt>
+                      <dd className="mt-1 font-semibold text-gray-800">
+                        {item.submittedAt
+                          ? new Date(item.submittedAt).toLocaleString()
+                          : "—"}
+                      </dd>
+                    </div>
+                    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
+                      <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                        Approved by advisor
+                      </dt>
+                      <dd className="mt-1 font-semibold text-gray-800">
+                        {item.approvedAt
+                          ? new Date(item.approvedAt).toLocaleString()
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

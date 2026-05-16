@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { id: "documents", label: "Document queue", icon: FileText, badgeKey: "docs" },
   { id: "advisor-my-evals", label: "My evaluations", icon: ClipboardList, badgeKey: null },
   { id: "advisor-examiner-evals", label: "Examiner evaluations", icon: GraduationCap, badgeKey: null },
-  { id: "queue", label: "Logbook queue", icon: BookOpen, badgeKey: null },
+  { id: "queue", label: "Logbook queue", icon: BookOpen, badgeKey: "logbook" },
   { id: "monthly", label: "Monthly evaluations", icon: ClipboardList, badgeKey: "monthly" },
   { id: "final", label: "Final evaluations", icon: ClipboardList, badgeKey: "final" },
 ];
@@ -24,11 +24,13 @@ const AdvisorSidebar = ({
   pendingDocs = 0,
   pendingMonthly = 0,
   pendingFinal = 0,
+  pendingLogbook = 0,
 }) => {
   const badgeFor = (key) => {
     if (key === "docs") return pendingDocs;
     if (key === "monthly") return pendingMonthly;
     if (key === "final") return pendingFinal;
+    if (key === "logbook") return pendingLogbook;
     return 0;
   };
 

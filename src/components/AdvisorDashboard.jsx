@@ -23,8 +23,9 @@ import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
-  ensureWeeklyLogbookForInternship,
-  updateWeekForInternship,
+  advisorFinalizeWeek,
+  countPendingAdvisorWeeks,
+  getLogbookForApplication,
 } from "../utils/weeklyLogbook";
 import {
   EVAL_STATUS,
@@ -304,6 +305,8 @@ const AdvisorDashboard = () => {
   const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [docQueueComment, setDocQueueComment] = useState("");
+  const [logbookNonce, setLogbookNonce] = useState(0);
+  const [focusLogbookWeek, setFocusLogbookWeek] = useState(null);
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
@@ -327,15 +330,22 @@ const AdvisorDashboard = () => {
     const loadAssigned = () => {
       const allApps = JSON.parse(localStorage.getItem("applications")) || [];
       const active = allApps.filter((app) => {
-        const isActiveIntern = app.finalInternshipStatus === "ACTIVE_INTERN";
+        if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
         const assignedAdvisor = String(app.advisorName || "").trim().toLowerCase();
-        return isActiveIntern && assignedAdvisor === advisorIdentity;
+        if (assignedAdvisor && assignedAdvisor === advisorIdentity) return true;
+        const rec = getLogbookForApplication(app);
+        const onRecord = String(rec.advisorId || "").trim().toLowerCase();
+        return onRecord && onRecord === advisorIdentity;
       });
       setAssignedStudents(active);
     };
     loadAssigned();
     window.addEventListener("storage", loadAssigned);
-    return () => window.removeEventListener("storage", loadAssigned);
+    window.addEventListener("weekly-logbook-updated", loadAssigned);
+    return () => {
+      window.removeEventListener("storage", loadAssigned);
+      window.removeEventListener("weekly-logbook-updated", loadAssigned);
+    };
   }, [advisorIdentity]);
 
   // Load monthly evals whenever assigned students change or storage updates
@@ -367,19 +377,52 @@ const AdvisorDashboard = () => {
     return () => window.removeEventListener("examiner-evaluation-updated", bumpExaminer);
   }, []);
 
+  useEffect(() => {
+    const bumpLogbook = () => setLogbookNonce((n) => n + 1);
+    window.addEventListener("storage", bumpLogbook);
+    window.addEventListener("weekly-logbook-updated", bumpLogbook);
+    return () => {
+      window.removeEventListener("storage", bumpLogbook);
+      window.removeEventListener("weekly-logbook-updated", bumpLogbook);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStudent) return;
+    const refresh = () => {
+      setSelectedLogbook(getLogbookForApplication(selectedStudent));
+    };
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener("weekly-logbook-updated", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("weekly-logbook-updated", refresh);
+    };
+  }, [selectedStudent]);
+
   const pendingWeeksCount = useMemo(() => {
     let n = 0;
     for (const app of assignedStudents) {
-      const rec = ensureWeeklyLogbookForInternship({
-        studentId: app.studentId,
-        internshipId: app.internshipId || app.id,
-        companyId: app.companyId || app.companyName || "",
-        advisorId: app.advisorName || "",
-      });
-      n += (rec.weeks || []).filter((w) => w.status === WEEK_STATUS.PENDING_ADVISOR).length;
+      n += countPendingAdvisorWeeks(app);
     }
     return n;
-  }, [assignedStudents]);
+  }, [assignedStudents, logbookNonce]);
+
+  const pendingLogbookQueue = useMemo(() => {
+    const items = [];
+    for (const app of assignedStudents) {
+      const rec = getLogbookForApplication(app);
+      for (const week of rec.weeks || []) {
+        if (week.status === WEEK_STATUS.PENDING_ADVISOR) {
+          items.push({ app, week, record: rec });
+        }
+      }
+    }
+    return items.sort(
+      (a, b) => Number(a.week.weekNumber) - Number(b.week.weekNumber)
+    );
+  }, [assignedStudents, logbookNonce]);
 
   // Monthly evals submitted to this advisor (matched by advisorName or studentId fallback)
   const pendingMonthlyEvals = useMemo(() => {
@@ -476,57 +519,48 @@ const AdvisorDashboard = () => {
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
     for (const app of assignedStudents) {
-      const rec = ensureWeeklyLogbookForInternship({
-        studentId: app.studentId,
-        internshipId: app.internshipId || app.id,
-        companyId: app.companyId || app.companyName || "",
-        advisorId: app.advisorName || "",
-      });
+      const rec = getLogbookForApplication(app);
       n += (rec.weeks || []).filter((w) => w.status === WEEK_STATUS.APPROVED).length;
     }
     return n;
-  }, [assignedStudents]);
+  }, [assignedStudents, logbookNonce]);
 
-  const openStudent = (studentApp, initialDetailTab = "logbook") => {
-    const record = ensureWeeklyLogbookForInternship({
-      studentId: studentApp.studentId,
-      internshipId: studentApp.internshipId || studentApp.id,
-      companyId: studentApp.companyId || studentApp.companyName || "",
-      advisorId: studentApp.advisorName || session?.username || "",
-    });
+  const openStudent = (studentApp, initialDetailTab = "logbook", weekNumber = null) => {
     setSelectedStudent(studentApp);
-    setSelectedLogbook(record);
+    setSelectedLogbook(getLogbookForApplication(studentApp));
     setStudentDetailTab(initialDetailTab);
+    setFocusLogbookWeek(weekNumber != null ? Number(weekNumber) : null);
   };
+
+  useEffect(() => {
+    if (focusLogbookWeek == null || !selectedStudent) return;
+    const el = document.getElementById(`advisor-logbook-week-${focusLogbookWeek}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setFocusLogbookWeek(null);
+    }
+  }, [focusLogbookWeek, selectedStudent, selectedLogbook]);
 
   const handleAdvisorDecision = (weekNumber, action) => {
     if (!selectedStudent) return;
-    const updated = updateWeekForInternship(
-      {
-        studentId: selectedStudent.studentId,
-        internshipId: selectedStudent.internshipId || selectedStudent.id,
-        companyId: selectedStudent.companyId || selectedStudent.companyName || "",
-        advisorId: selectedStudent.advisorName || session?.username || "",
-      },
-      weekNumber,
-      (week) => {
-        if (week.status !== WEEK_STATUS.PENDING_ADVISOR) return week;
-        if (action === "approve") {
-          return {
-            ...week,
-            advisorStatus: "APPROVED",
-            status: WEEK_STATUS.APPROVED,
-          };
-        }
-        return {
-          ...week,
-          advisorStatus: "REJECTED",
-          status: WEEK_STATUS.REJECTED_ADVISOR,
-        };
-      }
-    );
+    const updated = advisorFinalizeWeek(selectedStudent, weekNumber, action);
     setSelectedLogbook(updated);
-    window.dispatchEvent(new Event("storage"));
+
+    const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+    notifications.push({
+      id: Date.now(),
+      type: action === "approve" ? "success" : "error",
+      title: action === "approve" ? "Weekly logbook approved" : "Weekly logbook returned",
+      message:
+        action === "approve"
+          ? `Your advisor approved week ${weekNumber} of your internship logbook.`
+          : `Your advisor returned week ${weekNumber} for revision. Please update and resubmit.`,
+      date: new Date().toISOString(),
+      studentId: selectedStudent.studentId,
+      studentName: selectedStudent.studentName,
+      read: false,
+    });
+    localStorage.setItem("notifications", JSON.stringify(notifications));
   };
 
   const handleAdvisorMonthlyDecision = ({ action, comment }) => {
@@ -628,6 +662,7 @@ const AdvisorDashboard = () => {
           pendingDocs={pendingAdvisorDocuments.length}
           pendingMonthly={pendingMonthlyEvals.length}
           pendingFinal={pendingFinalEvals.length}
+          pendingLogbook={pendingWeeksCount}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -677,6 +712,11 @@ const AdvisorDashboard = () => {
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <p className="text-xs text-gray-500 font-medium">Click to review placement &amp; evaluations</p>
+                          {countPendingAdvisorWeeks(app) > 0 && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                              {countPendingAdvisorWeeks(app)} logbook week{countPendingAdvisorWeeks(app) !== 1 ? "s" : ""} pending
+                            </span>
+                          )}
                           {getAdvisorEvaluation(app.studentId)?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
                             <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
                               My evaluation submitted
@@ -693,39 +733,42 @@ const AdvisorDashboard = () => {
             {activeTab === "queue" && (
               <div className="app-card p-6">
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Pending advisor approvals</h2>
-                  <p className="text-gray-600">Weeks awaiting your decision (same as opening a student below).</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Logbook queue</h2>
+                  <p className="text-gray-600">
+                    Weeks your company partner approved — open each to review and finalize (approve or return).
+                  </p>
                 </div>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : pendingLogbookQueue.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No logbook weeks waiting for your approval.</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      When a company approves a student&apos;s weekly log, it will appear here.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-3">
-                    {assignedStudents.map((app) => {
-                      const rec = ensureWeeklyLogbookForInternship({
-                        studentId: app.studentId,
-                        internshipId: app.internshipId || app.id,
-                        companyId: app.companyId || app.companyName || "",
-                        advisorId: app.advisorName || "",
-                      });
-                      const pending = (rec.weeks || []).filter((w) => w.status === WEEK_STATUS.PENDING_ADVISOR);
-                      if (pending.length === 0) return null;
-                      return (
-                        <button
-                          key={app.id}
-                          type="button"
-                          onClick={() => openStudent(app)}
-                          className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50/50 hover:border-indigo-200 hover:bg-indigo-50/40 transition flex justify-between items-center gap-4"
-                        >
-                          <div>
-                            <p className="font-bold text-gray-900">{app.studentName}</p>
-                            <p className="text-sm text-gray-500">{app.companyName}</p>
-                          </div>
-                          <span className="shrink-0 px-3 py-1 rounded-full text-xs font-black uppercase bg-yellow-100 text-yellow-800 border border-yellow-200">
-                            {pending.length} week{pending.length !== 1 ? "s" : ""}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {pendingLogbookQueue.map(({ app, week }) => (
+                      <button
+                        key={`${app.id}-w${week.weekNumber}`}
+                        type="button"
+                        onClick={() => openStudent(app, "logbook", week.weekNumber)}
+                        className="w-full text-left p-4 rounded-xl border border-amber-200 bg-amber-50/40 hover:border-indigo-300 hover:bg-indigo-50/50 transition flex justify-between items-center gap-4"
+                      >
+                        <div>
+                          <p className="font-bold text-gray-900">{app.studentName}</p>
+                          <p className="text-sm text-gray-500">{app.companyName}</p>
+                          <p className="text-xs font-semibold text-indigo-700 mt-1">
+                            Week {week.weekNumber} · {STATUS_LABELS[WEEK_STATUS.PENDING_ADVISOR]}
+                          </p>
+                        </div>
+                        <span className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">
+                          Review &amp; approve
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1223,7 +1266,13 @@ const AdvisorDashboard = () => {
                       if (week.status === WEEK_STATUS.PENDING_COMPANY) badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
 
                       return (
-                        <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 sm:p-6 space-y-4 bg-gray-50/30">
+                        <div
+                          key={week.weekNumber}
+                          id={`advisor-logbook-week-${week.weekNumber}`}
+                          className={`border rounded-xl p-4 sm:p-6 space-y-4 bg-gray-50/30 ${
+                            isPending ? "border-amber-300 ring-2 ring-amber-100" : "border-gray-200"
+                          }`}
+                        >
                           <div className="flex flex-wrap justify-between items-center gap-2">
                             <p className="font-black text-gray-900">Week {week.weekNumber}</p>
                             <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeClass}`}>

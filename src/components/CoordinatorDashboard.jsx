@@ -10,7 +10,7 @@ import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
-  ensureWeeklyLogbookForInternship,
+  getLogbookForApplication,
 } from "../utils/weeklyLogbook";
 import {
   EVAL_STATUS,
@@ -607,28 +607,53 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     window.dispatchEvent(new Event("storage"));
   };
 
-  const openInternDetail = (app) => {
-    const record = ensureWeeklyLogbookForInternship({
-      studentId: app.studentId,
-      internshipId: app.internshipId || app.id,
-      companyId: app.companyId || app.companyName || "",
-      advisorId: app.advisorName || "",
-    });
-    setLogbookRecord(record);
+  const openStudentDetail = (app) => {
+    setLogbookRecord(getLogbookForApplication(app));
     setInternDetailTab("logbook");
     setSelectedIntern(app);
   };
+
+  const closeStudentDetail = () => {
+    setSelectedIntern(null);
+    setLogbookRecord(null);
+  };
+
+  useEffect(() => {
+    if (!selectedIntern) return;
+    const fresh = activeInterns.find((a) => a.id === selectedIntern.id);
+    if (fresh) {
+      setSelectedIntern(fresh);
+      setLogbookRecord(getLogbookForApplication(fresh));
+    }
+  }, [activeInterns, selectedIntern?.id]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-           <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Academic Assignments</h2>
-           <p className="text-gray-500 text-sm font-medium">Assign one academic advisor and two internal examiners per intern in {coordinatorDept}</p>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">
+            {selectedIntern ? "Intern details" : "Active interns"}
+          </h2>
+          <p className="text-gray-500 text-sm font-medium">
+            {selectedIntern
+              ? selectedIntern.studentName
+              : `Select a student to view details and assign staff · ${coordinatorDept}`}
+          </p>
         </div>
-        <button className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition" onClick={onBack}>
-          ← Back to Dashboard
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {selectedIntern && (
+            <button
+              type="button"
+              className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition"
+              onClick={closeStudentDetail}
+            >
+              ← Back to list
+            </button>
+          )}
+          <button className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition" onClick={onBack}>
+            ← Dashboard
+          </button>
+        </div>
       </div>
 
       {activeInterns.length === 0 ? (
@@ -637,11 +662,37 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
           <h3 className="text-base font-semibold text-slate-900">No active interns yet</h3>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">Students appear here after coordinator approval is finalized.</p>
         </div>
+      ) : !selectedIntern ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {activeInterns.map((app) => {
+            const done = app.advisorName && app.examinerName && app.examiner2Name;
+            return (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => openStudentDetail(app)}
+                className="group text-left rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-lg font-bold text-white">
+                    {app.studentName?.[0] || "S"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-bold text-slate-900">{app.studentName}</h3>
+                    <p className="text-xs text-slate-500">ID {app.studentId}</p>
+                  </div>
+                </div>
+                <p className="mt-3 truncate text-sm text-slate-600">{app.companyName}</p>
+                <p className="mt-3 text-xs font-semibold text-indigo-600">View details →</p>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <ul className="divide-y divide-slate-200">
-            {activeInterns.map((app) => (
-              <li key={app.id} className="px-4 py-5 sm:px-6 sm:py-6 hover:bg-slate-50/50">
+            {activeInterns.filter((a) => a.id === selectedIntern.id).map((app) => (
+              <li key={app.id} className="px-4 py-5 sm:px-6 sm:py-6">
                 <div className="flex flex-col gap-6 xl:flex-row xl:justify-between">
                   <div className="min-w-0 flex-1 space-y-4">
                     <div className="flex items-start gap-3">
@@ -666,15 +717,6 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openInternDetail(app)}
-                      className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-100"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View progress
-                    </button>
-
                     {(() => {
                       const overall = computeOverallEvaluation(app);
                       const approvals = getOverallApprovals(app.studentId);
@@ -851,36 +893,9 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
               </li>
             ))}
           </ul>
-        </div>
-      )}
 
-      {/* ── Student progress modal (read-only) ── */}
-      {selectedIntern && (
-        <div className="fixed inset-0 bg-black/60 z-[200] p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto my-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">{selectedIntern.studentName}</h3>
-                <p className="text-sm text-gray-500">
-                  {selectedIntern.internshipTitle || "Internship"} · {selectedIntern.companyName}
-                </p>
-                <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
-                  {selectedIntern.advisorName && <span>Advisor: <strong>{selectedIntern.advisorName}</strong></span>}
-                  {selectedIntern.examinerName && <span>Examiner 1: <strong>{selectedIntern.examinerName}</strong></span>}
-                  {selectedIntern.examiner2Name && <span>Examiner 2: <strong>{selectedIntern.examiner2Name}</strong></span>}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setSelectedIntern(null); setLogbookRecord(null); }}
-                className="text-sm font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 border border-gray-200 rounded-lg"
-              >
-                Close
-              </button>
-            </div>
-
-            {/* Inner tabs */}
+          <div className="border-t border-slate-200 p-4 sm:p-6">
+            <h4 className="mb-4 text-sm font-black uppercase tracking-widest text-slate-700">Internship progress</h4>
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
               <button
                 type="button"

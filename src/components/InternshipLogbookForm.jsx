@@ -39,6 +39,28 @@ const InternshipLogbookForm = ({
   const skipNotifyRef = useRef(true);
 
   useEffect(() => {
+    if (!initialData) return;
+    setFormData((prev) => ({
+      studentName: initialData.studentName ?? prev.studentName,
+      companyName: initialData.companyName ?? prev.companyName,
+      supervisorName: initialData.supervisorName ?? prev.supervisorName,
+      safetyBrief: initialData.safetyBrief ?? prev.safetyBrief,
+      weeks:
+        Array.isArray(initialData.weeks) && initialData.weeks.length > 0
+          ? initialData.weeks
+          : prev.weeks,
+    }));
+  }, [
+    initialData?.studentName,
+    initialData?.companyName,
+    initialData?.supervisorName,
+    initialData?.safetyBrief,
+    initialData?.weeks?.length,
+    initialData?.weeks?.[0]?.weekNumber,
+    initialData?.weeks?.[0]?.status,
+  ]);
+
+  useEffect(() => {
     if (!isCompany || readOnly || typeof onValuesChange !== "function") return;
     if (skipNotifyRef.current) {
       skipNotifyRef.current = false;
