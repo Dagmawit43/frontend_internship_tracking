@@ -5,6 +5,7 @@ import {
   ClipboardList,
   GraduationCap,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { id: "queue", label: "Logbook queue", icon: BookOpen, badgeKey: "logbook" },
   { id: "monthly", label: "Monthly evaluations", icon: ClipboardList, badgeKey: "monthly" },
   { id: "final", label: "Final evaluations", icon: ClipboardList, badgeKey: "final" },
+  { id: "overall-queue", label: "Overall evaluation queue", icon: BarChart3, badgeKey: "overall" },
 ];
 
 const AdvisorSidebar = ({
@@ -25,12 +27,14 @@ const AdvisorSidebar = ({
   pendingMonthly = 0,
   pendingFinal = 0,
   pendingLogbook = 0,
+  pendingOverall = 0,
 }) => {
   const badgeFor = (key) => {
     if (key === "docs") return pendingDocs;
     if (key === "monthly") return pendingMonthly;
     if (key === "final") return pendingFinal;
     if (key === "logbook") return pendingLogbook;
+    if (key === "overall") return pendingOverall;
     return 0;
   };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut } from "lucide-react";
+import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
@@ -1373,6 +1373,20 @@ function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorC
   };
 }
 
+function getCoordinatorActiveInterns(coordinatorDept) {
+  const allApps = JSON.parse(localStorage.getItem("applications") || "[]");
+  const students = JSON.parse(localStorage.getItem("students") || "[]");
+  const deptNorm = String(coordinatorDept || "").trim().toLowerCase();
+  return allApps.filter((app) => {
+    if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
+    const student = students.find(
+      (s) => String(s.studentId) === String(app.studentId) || String(s.name) === String(app.studentName)
+    );
+    if (!student) return false;
+    return String(student.department || "").trim().toLowerCase() === deptNorm;
+  });
+}
+
 const CoordinatorDashboard = () => {
   const [coordinatorDept, setCoordinatorDept] = useState(() => getCoordinatorDepartment());
   const [coordinatorName, setCoordinatorName] = useState(() => getCoordinatorName());
@@ -1393,6 +1407,7 @@ const CoordinatorDashboard = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [toast, setToast] = useState({ show: false, message: "" });
   const [homeMetricsNonce, setHomeMetricsNonce] = useState(0);
+  const [overallNonce, setOverallNonce] = useState(0);
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -1411,6 +1426,38 @@ const CoordinatorDashboard = () => {
       window.removeEventListener("eligibleStudentsUpdated", bump);
     };
   }, [view]);
+
+  useEffect(() => {
+    const bump = () => setOverallNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    window.addEventListener("overall-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("overall-evaluation-updated", bump);
+    };
+  }, []);
+
+  const coordinatorActiveInterns = useMemo(
+    () => getCoordinatorActiveInterns(coordinatorDept),
+    [coordinatorDept, overallNonce, view]
+  );
+
+  const pendingOverallQueue = useMemo(
+    () =>
+      coordinatorActiveInterns
+        .map((app) => {
+          const approvals = getOverallApprovals(app.studentId);
+          if (approvals.coordinatorApproved) return null;
+          if (!approvals.advisorApproved || !approvals.examiner1Approved || !approvals.examiner2Approved) {
+            return null;
+          }
+          const overall = computeOverallEvaluation(app);
+          if (!overall.complete) return null;
+          return { app, overall, approvals };
+        })
+        .filter(Boolean),
+    [coordinatorActiveInterns, overallNonce]
+  );
 
   const homeMetrics = useMemo(
     () =>
@@ -1599,6 +1646,7 @@ const CoordinatorDashboard = () => {
           currentView={view}
           coordinatorName={coordinatorName}
           onNavigate={navigateCoordinator}
+          pendingOverall={pendingOverallQueue.length}
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
@@ -1693,6 +1741,111 @@ const CoordinatorDashboard = () => {
           {/* ACTIVE INTERNSHIP STUDENTS (Academic Assignment) */}
           {view === "active-students" && (
             <ActiveInternsManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
+          )}
+
+          {view === "overall-queue" && (
+            <div className="max-w-5xl">
+              <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
+                  <p className="text-gray-600">
+                    Final sign-off for your department. Approve after advisor and both examiners have approved.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition"
+                  onClick={() => navigateCoordinator("home")}
+                >
+                  ← Back
+                </button>
+              </div>
+              {coordinatorActiveInterns.length === 0 ? (
+                <p className="text-center py-8 text-gray-500">No active interns in your department.</p>
+              ) : pendingOverallQueue.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                  <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No overall evaluations waiting for coordinator approval.</p>
+                  <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                    Items appear when all component evaluations are complete and advisor plus both examiners have approved.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6" key={overallNonce}>
+                  {pendingOverallQueue.map(({ app, overall, approvals }) => (
+                    <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-white shadow-sm space-y-4">
+                      <div className="flex flex-wrap justify-between items-start gap-3">
+                        <div>
+                          <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                          <p className="text-sm text-gray-500">{app.companyName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                          <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                          <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
+                          <p className="text-base font-bold text-gray-900 mt-1">
+                            {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
+                          </p>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                          <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
+                          <p className="text-base font-bold text-gray-900 mt-1">
+                            {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
+                          </p>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                          <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
+                          <p className="text-base font-bold text-gray-900 mt-1">
+                            {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
+                          </p>
+                        </div>
+                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                          <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
+                          <p className="text-base font-bold text-gray-900 mt-1">
+                            {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                          Advisor: Approved
+                        </span>
+                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                          Examiner 1: Approved
+                        </span>
+                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                          Examiner 2: Approved
+                        </span>
+                        <span
+                          className={`px-3 py-1 rounded-full border ${
+                            approvals.coordinatorApproved
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                          }`}
+                        >
+                          Coordinator: {approvals.coordinatorApproved ? "Approved" : "Pending"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          approveOverallAsCoordinator(app.studentId);
+                          setOverallNonce((n) => n + 1);
+                          showToast(`Overall evaluation approved for ${app.studentName}.`);
+                        }}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                      >
+                        Approve overall evaluation (Coordinator)
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* UPLOAD */}

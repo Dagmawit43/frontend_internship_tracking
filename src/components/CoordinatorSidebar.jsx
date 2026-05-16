@@ -8,6 +8,7 @@ import {
   ClipboardList,
   BookOpen,
   Upload,
+  BarChart3,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,11 +18,14 @@ const NAV_ITEMS = [
   { id: "examiners", label: "Assigned examiners", icon: GraduationCap },
   { id: "internships", label: "Internship approvals", icon: Briefcase },
   { id: "active-students", label: "Active interns", icon: ClipboardList },
+  { id: "overall-queue", label: "Overall evaluation queue", icon: BarChart3, badgeKey: "overall" },
   { id: "students", label: "Manage students", icon: BookOpen },
   { id: "upload", label: "Upload eligible list", icon: Upload },
 ];
 
-const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
+const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName, pendingOverall = 0 }) => {
+  const badgeFor = (key) => (key === "overall" ? pendingOverall : 0);
+
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:w-56 md:min-h-0 md:self-stretch md:border-b-0 md:border-r md:border-slate-200">
       <div className="shrink-0 border-b border-slate-100 px-4 py-3 md:pt-4">
@@ -31,6 +35,7 @@ const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = currentView === item.id;
+          const n = item.badgeKey ? badgeFor(item.badgeKey) : 0;
           return (
             <button
               key={item.id}
@@ -46,7 +51,12 @@ const CoordinatorSidebar = ({ currentView, onNavigate, coordinatorName }) => {
                 className={`h-5 w-5 shrink-0 ${active ? "text-indigo-600" : "text-slate-400"}`}
                 aria-hidden
               />
-              <span className="whitespace-nowrap">{item.label}</span>
+              <span className="min-w-0 flex-1 whitespace-nowrap md:whitespace-normal">{item.label}</span>
+              {n > 0 && (
+                <span className="shrink-0 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                  {n > 99 ? "99+" : n}
+                </span>
+              )}
             </button>
           );
         })}

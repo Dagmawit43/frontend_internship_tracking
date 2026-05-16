@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Clock,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import AdvisorSidebar from "./AdvisorSidebar";
@@ -306,6 +307,7 @@ const AdvisorDashboard = () => {
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [docQueueComment, setDocQueueComment] = useState("");
   const [logbookNonce, setLogbookNonce] = useState(0);
+  const [overallNonce, setOverallNonce] = useState(0);
   const [focusLogbookWeek, setFocusLogbookWeek] = useState(null);
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
@@ -366,9 +368,14 @@ const AdvisorDashboard = () => {
       setInternshipDocsNonce((n) => n + 1);
       setAdvisorEvalNonce((n) => n + 1);
       setExaminerEvalNonce((n) => n + 1);
+      setOverallNonce((n) => n + 1);
     };
     window.addEventListener("storage", bump);
-    return () => window.removeEventListener("storage", bump);
+    window.addEventListener("overall-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("overall-evaluation-updated", bump);
+    };
   }, []);
 
   useEffect(() => {
@@ -465,6 +472,20 @@ const AdvisorDashboard = () => {
       (d) => d.advisorStatus === ROLE_DOC_STATUS.PENDING
     );
   }, [advisorIdentity, assignedStudents, internshipDocsNonce]);
+
+  const pendingOverallQueue = useMemo(
+    () =>
+      assignedStudents
+        .map((app) => {
+          const approvals = getOverallApprovals(app.studentId);
+          if (approvals.advisorApproved) return null;
+          const overall = computeOverallEvaluation(app);
+          if (!overall.complete) return null;
+          return { app, overall, approvals };
+        })
+        .filter(Boolean),
+    [assignedStudents, advisorEvalNonce, examinerEvalNonce, overallNonce]
+  );
 
   const selectedAdvisorEval = useMemo(() => {
     if (!selectedStudent) return null;
@@ -652,7 +673,7 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="app-shell flex min-h-screen flex-col">
-      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length} />
+      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length + pendingOverallQueue.length} />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <AdvisorSidebar
@@ -663,6 +684,7 @@ const AdvisorDashboard = () => {
           pendingMonthly={pendingMonthlyEvals.length}
           pendingFinal={pendingFinalEvals.length}
           pendingLogbook={pendingWeeksCount}
+          pendingOverall={pendingOverallQueue.length}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -1088,6 +1110,90 @@ const AdvisorDashboard = () => {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "overall-queue" && (
+              <div className="app-card p-6 max-w-5xl">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
+                  <p className="text-gray-600">
+                    Students with all component evaluations complete. Approve the overall report as academic advisor.
+                  </p>
+                </div>
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : pendingOverallQueue.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No overall evaluations waiting for your approval.</p>
+                    <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                      Items appear when advisor, examiner, and company evaluations are submitted and you have not approved yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6" key={overallNonce}>
+                    {pendingOverallQueue.map(({ app, overall }) => (
+                      <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
+                        <div className="flex flex-wrap justify-between items-start gap-3">
+                          <div>
+                            <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                            <p className="text-sm text-gray-500">{app.companyName}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                            <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              approveOverallAsAdvisor(app.studentId);
+                              setOverallNonce((n) => n + 1);
+                            }}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                          >
+                            Approve overall evaluation
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openStudent(app, "overall-eval")}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border-2 border-indigo-200 text-indigo-800 text-sm font-bold hover:bg-indigo-50"
+                          >
+                            Open student record
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

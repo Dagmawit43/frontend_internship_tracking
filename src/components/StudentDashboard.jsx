@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getInternships } from "../mock/internshipApi";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3 } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, Bot, MessageCircle, Send, X, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
@@ -112,6 +112,154 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
   );
 };
 
+const CHATBOT_EXAMPLE_MESSAGES = [
+  {
+    id: "bot-1",
+    role: "bot",
+    text: "Hi! I'm your internship assistant. Ask me about logbooks, evaluations, or your placement status.",
+    time: "9:41 AM",
+  },
+  {
+    id: "user-1",
+    role: "user",
+    text: "When will my overall evaluation appear?",
+    time: "9:42 AM",
+  },
+  {
+    id: "bot-2",
+    role: "bot",
+    text: "Your overall mark is published after your advisor, both examiners, and the coordinator approve it. Check My Internship → Overall Evaluation for progress.",
+    time: "9:42 AM",
+  },
+];
+
+/** UI-only AI chatbot — no backend or real messaging */
+const StudentHeaderChatbot = () => {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // UI preview only — no message handling
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:px-4"
+        aria-label="Open AI assistant"
+      >
+        <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-violet-500 shadow-inner transition-transform duration-200 group-hover:scale-105">
+          <Sparkles className="h-4 w-4 text-white" aria-hidden />
+        </span>
+        <span className="hidden sm:inline">AI Assistant</span>
+        <MessageCircle className="h-4 w-4 sm:hidden" aria-hidden />
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[190] bg-slate-900/40 backdrop-blur-[2px] transition-opacity"
+            aria-label="Close chat"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="student-chatbot-title"
+            className="fixed z-[200] flex w-[min(100vw-1.5rem,24rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-indigo-900/15 transition-all duration-300 ease-out bottom-4 right-4 sm:bottom-auto sm:right-6 sm:top-24 max-h-[min(32rem,calc(100vh-6rem))]"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-slate-900 px-4 py-3.5 text-white">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+                  <Bot className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <h2 id="student-chatbot-title" className="truncate text-sm font-bold tracking-tight">
+                    Internship AI Assistant
+                  </h2>
+                  <p className="flex items-center gap-1.5 text-[11px] text-indigo-100/90">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+                    Preview · UI only
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="shrink-0 rounded-lg p-2 text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                aria-label="Close assistant"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/80 p-4">
+              {CHATBOT_EXAMPLE_MESSAGES.map((msg) =>
+                msg.role === "bot" ? (
+                  <div key={msg.id} className="flex gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                      <Bot className="h-4 w-4" aria-hidden />
+                    </div>
+                    <div className="max-w-[85%]">
+                      <div className="rounded-2xl rounded-tl-md border border-slate-100 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-slate-700 shadow-sm">
+                        {msg.text}
+                      </div>
+                      <p className="mt-1 pl-1 text-[10px] font-medium text-slate-400">{msg.time}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={msg.id} className="flex justify-end">
+                    <div className="max-w-[85%]">
+                      <div className="rounded-2xl rounded-tr-md bg-gradient-to-br from-indigo-600 to-indigo-700 px-3.5 py-2.5 text-sm leading-relaxed text-white shadow-md shadow-indigo-200/50">
+                        {msg.text}
+                      </div>
+                      <p className="mt-1 pr-1 text-right text-[10px] font-medium text-slate-400">{msg.time}</p>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="border-t border-slate-100 bg-white p-3"
+            >
+              <div className="flex items-end gap-2">
+                <label htmlFor="student-chatbot-input" className="sr-only">
+                  Message
+                </label>
+                <input
+                  id="student-chatbot-input"
+                  type="text"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="Type a message… (preview)"
+                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-colors focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  autoComplete="off"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-200 transition-all duration-200 hover:bg-indigo-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-95"
+                  aria-label="Send message"
+                >
+                  <Send className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+              <p className="mt-2 text-center text-[10px] text-slate-400">
+                Demo interface — messages are not sent or stored.
+              </p>
+            </form>
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
 // Welcome header (inlined)
 const WelcomeHeader = ({ studentName, department, college, internshipStatus, advisor, examiner, examiner2 }) => {
   const getStatusConfig = (status) => {
@@ -151,7 +299,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
     <div className="app-hero">
       <div className="flex flex-col gap-6">
         {/* Top Row: Name and Status */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome, {studentName || "Student"}</h1>
             <div className="flex flex-wrap gap-4 text-sm md:text-base">
@@ -170,13 +318,16 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
             </div>
           </div>
 
-          <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
-          >
-            <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
-            <div>
-              <p className={`text-xs font-medium ${statusConfig.color} opacity-70`}>Internship Status</p>
-              <p className={`text-sm font-bold ${statusConfig.color}`}>{internshipStatus || "Not Applied"}</p>
+          <div className="flex flex-col items-stretch gap-3 sm:items-end shrink-0">
+            <StudentHeaderChatbot />
+            <div
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
+            >
+              <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
+              <div>
+                <p className={`text-xs font-medium ${statusConfig.color} opacity-70`}>Internship Status</p>
+                <p className={`text-sm font-bold ${statusConfig.color}`}>{internshipStatus || "Not Applied"}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -714,8 +865,10 @@ const MyInternshipView = ({ studentId, studentName }) => {
       if (found) {
         const company = companies.find(c => c.company_id === found.companyId || c.id === found.companyId || c.companyName === found.companyName);
         const internship = internships.find(i => i.id === found.internshipId);
+        const canonicalStudentId = String(found.studentId ?? studentId ?? "").trim();
         setActiveApp({
           ...found,
+          studentId: canonicalStudentId || found.studentId || studentId,
           companyFull: company,
           internshipFull: internship
         });
@@ -767,7 +920,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
-    const all = getExaminerEvaluationsForStudent(String(activeApp.studentId ?? studentId));
+    const sid = String(activeApp.studentId ?? studentId ?? "").trim();
+    const all = getExaminerEvaluationsForStudent(sid);
     const picked = [];
     const seen = new Set();
     const pushSlot = (field) => {
@@ -793,22 +947,36 @@ const MyInternshipView = ({ studentId, studentName }) => {
   );
 
   useEffect(() => {
-    const bump = () => setCompanyEvalNonce((n) => n + 1);
+    const bump = () => {
+      setCompanyEvalNonce((n) => n + 1);
+      setOverallEvalNonce((n) => n + 1);
+    };
     window.addEventListener("storage", bump);
-    return () => window.removeEventListener("storage", bump);
+    window.addEventListener("advisor-evaluation-updated", bump);
+    return () => {
+      window.removeEventListener("storage", bump);
+      window.removeEventListener("advisor-evaluation-updated", bump);
+    };
   }, []);
 
-  const overallForStudent = useMemo(() => {
+  const overallComputed = useMemo(() => {
     if (!activeApp) return null;
+    return computeOverallEvaluation({ ...activeApp, studentId: approvalStudentKey });
+  }, [activeApp, approvalStudentKey, examinerEvalNonce, advisorOwnEval, overallEvalNonce, companyEvalNonce]);
+
+  const overallPublished = useMemo(() => {
+    if (!activeApp || !overallComputed) return null;
     const approvals = getOverallApprovals(approvalStudentKey);
     if (
       !approvals.advisorApproved ||
       !approvals.examiner1Approved ||
       !approvals.examiner2Approved ||
       !approvals.coordinatorApproved
-    ) return null;
-    return computeOverallEvaluation(activeApp);
-  }, [activeApp, approvalStudentKey, examinerEvalNonce, advisorOwnEval, overallEvalNonce]);
+    ) {
+      return null;
+    }
+    return overallComputed;
+  }, [activeApp, overallComputed, approvalStudentKey, overallEvalNonce]);
 
   useEffect(() => {
     const bump = () => setExaminerEvalNonce((n) => n + 1);
@@ -821,23 +989,18 @@ const MyInternshipView = ({ studentId, studentName }) => {
   }, []);
 
   useEffect(() => {
-    const bumpOverall = (e) => {
-      const sid = e?.detail?.studentId;
-      if (sid == null || sid === "") {
-        setOverallEvalNonce((n) => n + 1);
-        return;
-      }
-      if (String(sid) === approvalStudentKey || String(sid) === String(studentId)) {
-        setOverallEvalNonce((n) => n + 1);
-      }
-    };
+    const bumpOverall = () => setOverallEvalNonce((n) => n + 1);
     window.addEventListener("storage", bumpOverall);
     window.addEventListener("overall-evaluation-updated", bumpOverall);
+    window.addEventListener("advisor-evaluation-updated", bumpOverall);
+    window.addEventListener("examiner-evaluation-updated", bumpOverall);
     return () => {
       window.removeEventListener("storage", bumpOverall);
       window.removeEventListener("overall-evaluation-updated", bumpOverall);
+      window.removeEventListener("advisor-evaluation-updated", bumpOverall);
+      window.removeEventListener("examiner-evaluation-updated", bumpOverall);
     };
-  }, [approvalStudentKey, studentId]);
+  }, []);
 
   const handleDocFile = (e) => {
     const file = e.target.files?.[0];
@@ -957,24 +1120,25 @@ const MyInternshipView = ({ studentId, studentName }) => {
   };
 
   const internshipTabs = [
-    { id: "logbook", label: "Weekly Logbook", icon: BookOpen },
-    { id: "documents", label: "Document Upload", icon: Upload },
-    { id: "company-evals", label: "Company Evaluations", icon: ClipboardList },
-    { id: "advisor-eval", label: "Advisor Evaluation", icon: FileText },
-    { id: "examiner-eval", label: "Examiner Evaluation", icon: FileText },
-    { id: "overall-eval", label: "Overall Evaluation", icon: BarChart3 },
+    { id: "logbook", label: "Weekly Logbook", shortLabel: "Logbook", icon: BookOpen },
+    { id: "documents", label: "Document Upload", shortLabel: "Documents", icon: Upload },
+    { id: "company-evals", label: "Company Evaluations", shortLabel: "Company", icon: ClipboardList },
+    { id: "advisor-eval", label: "Advisor Evaluation", shortLabel: "Advisor", icon: FileText },
+    { id: "examiner-eval", label: "Examiner Evaluation", shortLabel: "Examiner", icon: FileText },
+    { id: "overall-eval", label: "Overall Evaluation", shortLabel: "Overall", icon: BarChart3 },
   ];
 
   const selectInternshipTab = (tabId) => {
     if (tabId === "company-evals") setCompanyEvalNonce((n) => n + 1);
-    setInternshipSubTab((prev) => (prev === tabId ? null : tabId));
+    if (tabId === "overall-eval") setOverallEvalNonce((n) => n + 1);
+    setInternshipSubTab(tabId);
   };
 
   const internshipTabClass = (tabId) =>
-    `flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition-all border ${
+    `inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-3.5 sm:py-2.5 sm:text-sm ${
       internshipSubTab === tabId
-        ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-200"
-        : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
+        ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+        : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
 
   if (!activeApp) {
@@ -1008,26 +1172,27 @@ const MyInternshipView = ({ studentId, studentName }) => {
           </div>
         </div>
         
-        <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Internship sections</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            {internshipTabs.map(({ id, label, icon: Icon }) => (
+        <div className="border-b border-slate-100 bg-slate-50/50 px-3 py-3 sm:px-5">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+            {internshipTabs.map(({ id, label, shortLabel, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => selectInternshipTab(id)}
                 className={internshipTabClass(id)}
+                title={label}
               >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                <span className="text-center leading-tight">{label}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
+                <span className="whitespace-nowrap sm:hidden">{shortLabel}</span>
+                <span className="hidden whitespace-nowrap sm:inline">{label}</span>
                 {id === "advisor-eval" && advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" title="Available" />
                 )}
                 {id === "examiner-eval" && examinerEvalsVisible.length > 0 && (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" title="Available" />
                 )}
-                {id === "overall-eval" && overallForStudent && (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Report available" />
+                {id === "overall-eval" && overallPublished && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" title="Report available" />
                 )}
               </button>
             ))}
@@ -1035,12 +1200,77 @@ const MyInternshipView = ({ studentId, studentName }) => {
         </div>
 
         {internshipSubTab == null && (
-          <div className="border-t border-dashed border-slate-200 bg-slate-50/40 px-6 py-12 text-center">
-            <Layers className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-            <p className="text-sm font-semibold text-slate-700">Select a section above</p>
-            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-              Choose Weekly Logbook, Document Upload, or another tab to view and manage that part of your internship.
-            </p>
+          <div className="border-t border-slate-100 bg-white p-6 sm:p-8">
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-12">
+              <div className="space-y-5">
+                <div className="flex w-fit items-center gap-3 border-b-2 border-indigo-400 pb-2">
+                  <Building2 className="h-5 w-5 text-indigo-600" />
+                  <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Partner Organization</h4>
+                </div>
+                <div className="space-y-4">
+                  <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 font-medium text-gray-600">
+                    <MapPin className="h-4 w-4 shrink-0 text-indigo-600" />
+                    <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
+                  </div>
+                  <p className="border-l-4 border-gray-100 pl-4 text-sm italic leading-relaxed text-gray-600">
+                    &ldquo;{activeApp.companyFull?.description || "A registered host organization participating in the AASTU internship tracking program."}&rdquo;
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="flex w-fit items-center gap-3 border-b-2 border-indigo-300/60 pb-2">
+                  <Briefcase className="h-5 w-5 text-indigo-700" />
+                  <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Internship Role</h4>
+                </div>
+                <div className="space-y-4">
+                  <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/80 p-3 sm:p-4">
+                      <p className="mb-1 text-[10px] font-black uppercase text-indigo-800">Timeframe</p>
+                      <p className="text-xs font-bold text-gray-700">
+                        {activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/80 p-3 sm:p-4">
+                      <p className="mb-1 text-[10px] font-black uppercase text-indigo-800">Weekly Commitment</p>
+                      <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="mb-3 text-[10px] font-black uppercase text-gray-400">Academic Supervision</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+                      <div>
+                        <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Academic Advisor</p>
+                        <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[10px] font-black uppercase text-indigo-700">Internal Examiner 1</p>
+                        <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Internal Examiner 2</p>
+                        <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-white p-4">
+                    <p className="mb-2 text-[10px] font-black uppercase text-gray-400">Required Skills &amp; Focus Areas</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
+                        <span
+                          key={i}
+                          className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[10px] font-bold text-gray-600"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1261,7 +1491,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
               <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
                 No active internship record found.
               </p>
-            ) : overallForStudent ? (
+            ) : overallPublished ? (
               <div className="border border-gray-200 rounded-xl p-5 bg-white">
                 <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-2">
                   Overall report
@@ -1270,46 +1500,82 @@ const MyInternshipView = ({ studentId, studentName }) => {
                   <div>
                     <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
                     <p className="text-2xl font-black text-green-700">
-                      {overallForStudent.overallMark100} / 100
+                      {overallPublished.overallMark100} / 100
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Company: {overallForStudent.companyTotal40 ?? "—"} / 40 · Academic: {overallForStudent.academicOverall100} / 100
+                      Company: {overallPublished.companyTotal40 ?? "—"} / 40 · Academic: {overallPublished.academicOverall100} / 100
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-gray-700">
                     <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Advisor: {overallForStudent.advisorMark != null ? `${overallForStudent.advisorMark} / 35` : "—"}
+                      Advisor: {overallPublished.advisorMark != null ? `${overallPublished.advisorMark} / 35` : "—"}
                     </div>
                     <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Examiner 1: {overallForStudent.ex1Mark != null ? `${overallForStudent.ex1Mark} / 25` : "—"}
+                      Examiner 1: {overallPublished.ex1Mark != null ? `${overallPublished.ex1Mark} / 25` : "—"}
                     </div>
                     <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Examiner 2: {overallForStudent.ex2Mark != null ? `${overallForStudent.ex2Mark} / 25` : "—"}
+                      Examiner 2: {overallPublished.ex2Mark != null ? `${overallPublished.ex2Mark} / 25` : "—"}
                     </div>
                     <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Company: {overallForStudent.companyTotal40 != null ? `${overallForStudent.companyTotal40} / 40` : "—"}
+                      Company: {overallPublished.companyTotal40 != null ? `${overallPublished.companyTotal40} / 40` : "—"}
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="border border-amber-200 bg-amber-50/40 rounded-xl p-5 space-y-4">
-                <p className="text-sm font-semibold text-amber-900">
-                  Your overall report is not published yet. Each role below must approve the overall evaluation in order.
-                </p>
-                <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
-                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                    Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                    Examiner 1 {overallApprovals.examiner1Approved ? "✓" : "…"}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                    Examiner 2 {overallApprovals.examiner2Approved ? "✓" : "…"}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                    Coordinator {overallApprovals.coordinatorApproved ? "✓" : "…"}
-                  </span>
+              <div className="space-y-4">
+                {overallComputed?.complete && (
+                  <div className="rounded-xl border border-gray-200 bg-white p-5">
+                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">
+                      Calculated overall (pending approval)
+                    </p>
+                    <p className="mb-3 text-2xl font-black text-indigo-700">{overallComputed.overallMark100} / 100</p>
+                    <div className="grid grid-cols-1 gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        Advisor: {overallComputed.advisorMark != null ? `${overallComputed.advisorMark} / 35` : "—"}
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        Examiner 1: {overallComputed.ex1Mark != null ? `${overallComputed.ex1Mark} / 25` : "—"}
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        Examiner 2: {overallComputed.ex2Mark != null ? `${overallComputed.ex2Mark} / 25` : "—"}
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        Company: {overallComputed.companyTotal40 != null ? `${overallComputed.companyTotal40} / 40` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 space-y-4">
+                  <p className="text-sm font-semibold text-amber-900">
+                    {overallComputed?.complete
+                      ? "Your overall report is not published yet. Each role below must approve the overall evaluation."
+                      : "Not all component evaluations are complete yet."}
+                  </p>
+                  {overallComputed?.missing && !overallComputed.complete && (
+                    <ul className="list-disc list-inside text-sm text-amber-900/90 space-y-1">
+                      {overallComputed.missing.advisor && <li>Academic advisor evaluation</li>}
+                      {overallComputed.missing.examiner1 && <li>Internal examiner 1 evaluation</li>}
+                      {overallComputed.missing.examiner2 && <li>Internal examiner 2 evaluation</li>}
+                      {overallComputed.missing.month1 && <li>Company month 1 evaluation</li>}
+                      {overallComputed.missing.month2 && <li>Company month 2 evaluation</li>}
+                      {overallComputed.missing.finalCompany && <li>Company final evaluation</li>}
+                    </ul>
+                  )}
+                  <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Examiner 1 {overallApprovals.examiner1Approved ? "✓" : "…"}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Examiner 2 {overallApprovals.examiner2Approved ? "✓" : "…"}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                      Coordinator {overallApprovals.coordinatorApproved ? "✓" : "…"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1400,83 +1666,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
         )}
           </div>
         )}
-        <div className="border-t border-slate-100 bg-white p-6 sm:p-8">
-          <p className="mb-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Placement details</p>
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
-            {/* Company Deep Dive */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-400 w-fit">
-                 <Building2 className="w-5 h-5 text-indigo-600" />
-                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Partner Organization</h4>
-              </div>
-              <div className="space-y-4">
-                 <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
-                 <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <MapPin className="w-4 h-4 text-indigo-600" />
-                    <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
-                 </div>
-                 <p className="text-gray-600 leading-relaxed italic text-sm border-l-4 border-gray-100 pl-4">
-                   "{activeApp.companyFull?.description || "A registered host organization participating in the AASTU internship tracking program."}"
-                 </p>
-              </div>
-            </div>
-
-            {/* Position Details */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-300/60 w-fit">
-                 <Briefcase className="w-5 h-5 text-indigo-700" />
-                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Role</h4>
-              </div>
-              <div className="space-y-4">
-                 <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
-                 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
-                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Timeframe</p>
-                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}</p>
-                    </div>
-                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
-                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Weekly Commitment</p>
-                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
-                    </div>
-                 </div>
-
-                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Academic Advisor</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-700 uppercase mb-1">Internal Examiner 1</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Internal Examiner 2</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="p-4 bg-white rounded-xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Required Skills & Focus Areas</p>
-                    <div className="flex flex-wrap gap-2">
-                       {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
-                         <span key={i} className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
-                           {skill}
-                         </span>
-                       ))}
-                    </div>
-                 </div>
-              </div>
-            </div>
-
-
-          </div>
-        </div>
       </div>
-
       {selectedWeek && draftWeek && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 overflow-y-auto">
           <div className="max-w-4xl mx-auto mt-8 mb-8 bg-white rounded-xl shadow-xl border border-gray-200 p-4 sm:p-6">

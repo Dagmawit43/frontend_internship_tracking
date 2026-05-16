@@ -28,12 +28,16 @@ export const getAllFinalEvaluations = () => {
   }
 };
 
-const saveAll = (list) => localStorage.setItem(KEY, JSON.stringify(list));
+const saveAll = (list) => {
+  localStorage.setItem(KEY, JSON.stringify(list));
+  window.dispatchEvent(new Event("storage"));
+};
 
 /** Return the final evaluation record for a specific student, or null */
 export const getFinalEvaluation = (studentId) => {
+  const sid = String(studentId ?? "");
   const all = getAllFinalEvaluations();
-  return all.find((e) => e.studentId === studentId) || null;
+  return all.find((e) => String(e.studentId) === sid) || null;
 };
 
 /**

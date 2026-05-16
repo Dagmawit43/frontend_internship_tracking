@@ -91,7 +91,7 @@ export const approveOverallAsExaminerSlot = (studentId, slot /* 1|2 */) => {
  *   overall = academicOverall100 * 0.60 + companyTotal40
  */
 export const computeOverallEvaluation = (studentApp) => {
-  const studentId = studentApp?.studentId;
+  const studentId = String(studentApp?.studentId ?? "").trim() || null;
   const advisorRec = studentId ? getAdvisorEvaluation(studentId) : null;
   const examinerList = studentId ? getExaminerEvaluationsForStudent(studentId) : [];
 

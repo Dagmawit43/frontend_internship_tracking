@@ -26,12 +26,16 @@ export const getAllEvaluations = () => {
   }
 };
 
-const saveAll = (list) => localStorage.setItem(KEY, JSON.stringify(list));
+const saveAll = (list) => {
+  localStorage.setItem(KEY, JSON.stringify(list));
+  window.dispatchEvent(new Event("storage"));
+};
 
 /** Return the evaluation record for a specific student + month, or null */
 export const getEvaluation = (studentId, month) => {
+  const sid = String(studentId ?? "");
   const all = getAllEvaluations();
-  return all.find((e) => e.studentId === studentId && e.month === month) || null;
+  return all.find((e) => String(e.studentId) === sid && e.month === month) || null;
 };
 
 /**
