@@ -89,6 +89,7 @@ const InternshipEvaluationForm = ({
   onAdvisorAction,
   onExaminerAction,
 }) => {
+  const fieldsLocked = readOnly || advisorView || examinerView;
   const [form, setForm] = useState(() => normalizeInitial(initialData));
   const [advisorComment, setAdvisorComment] = useState(existingAdvisorComment);
   const [examinerComment, setExaminerComment] = useState(existingExaminerComment);
@@ -100,14 +101,14 @@ const InternshipEvaluationForm = ({
   }, [initialData, existingAdvisorComment, existingExaminerComment]);
 
   const handleRating = (section, index, value) => {
-    if (readOnly) return;
+    if (fieldsLocked) return;
     const updated = [...form[section]];
     updated[index] = Number(value);
     setForm({ ...form, [section]: updated });
   };
 
   const setField = (key, value) => {
-    if (readOnly) return;
+    if (fieldsLocked) return;
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -121,17 +122,17 @@ const InternshipEvaluationForm = ({
     onSubmit?.({ ...form, total, finalMark: Number(finalMark) });
   };
 
-  const inputClass = readOnly
+  const inputClass = fieldsLocked
     ? "border border-gray-200 p-2 rounded bg-gray-50 text-gray-600 cursor-not-allowed"
     : "border border-gray-300 p-2 rounded focus:ring-2 focus:ring-indigo-500 outline-none";
 
-  const selectClass = readOnly
+  const selectClass = fieldsLocked
     ? "border border-gray-200 rounded p-2 bg-gray-50 cursor-not-allowed"
     : "border border-gray-300 rounded p-2";
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white shadow rounded-xl">
-      {readOnly && (
+      {fieldsLocked && (
         <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 font-medium">
           <Lock className="w-4 h-4 text-gray-400 shrink-0" />
           This evaluation is locked and read-only.
@@ -148,35 +149,35 @@ const InternshipEvaluationForm = ({
             placeholder="Student Name"
             className={inputClass}
             value={form.studentName}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("studentName", e.target.value)}
           />
           <input
             placeholder="ID No"
             className={inputClass}
             value={form.idNo}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("idNo", e.target.value)}
           />
           <input
             placeholder="Department"
             className={inputClass}
             value={form.department}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("department", e.target.value)}
           />
           <input
             placeholder="Organization"
             className={inputClass}
             value={form.organization}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("organization", e.target.value)}
           />
           <input
             placeholder="Duration (e.g. June–Aug 2026)"
             className={`${inputClass} sm:col-span-2`}
             value={form.duration}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("duration", e.target.value)}
           />
         </div>
@@ -190,7 +191,7 @@ const InternshipEvaluationForm = ({
             <select
               className={selectClass}
               value={String(form.sectionA[i])}
-              disabled={readOnly}
+              disabled={fieldsLocked}
               onChange={(e) => handleRating("sectionA", i, e.target.value)}
             >
               {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -211,7 +212,7 @@ const InternshipEvaluationForm = ({
             <select
               className={selectClass}
               value={String(form.sectionB[i])}
-              disabled={readOnly}
+              disabled={fieldsLocked}
               onChange={(e) => handleRating("sectionB", i, e.target.value)}
             >
               {[0, 1, 2, 3, 4, 5].map((n) => (
@@ -227,10 +228,10 @@ const InternshipEvaluationForm = ({
           Section C - Comments
         </h3>
         <textarea
-          className={`border w-full p-2 rounded min-h-[100px] ${readOnly ? "bg-gray-50 cursor-not-allowed" : "border-gray-300"}`}
+          className={`border w-full p-2 rounded min-h-[100px] ${fieldsLocked ? "bg-gray-50 cursor-not-allowed" : "border-gray-300"}`}
           placeholder="Supervisor comments..."
           value={form.comments}
-          readOnly={readOnly}
+          readOnly={fieldsLocked}
           onChange={(e) => setField("comments", e.target.value)}
         />
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -238,7 +239,7 @@ const InternshipEvaluationForm = ({
           <select
             className={selectClass}
             value={form.jobOffer}
-            disabled={readOnly}
+            disabled={fieldsLocked}
             onChange={(e) => setField("jobOffer", e.target.value)}
           >
             <option value="">Select</option>
@@ -252,14 +253,14 @@ const InternshipEvaluationForm = ({
             placeholder="Supervisor name"
             className={inputClass}
             value={form.supervisorName}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("supervisorName", e.target.value)}
           />
           <input
             placeholder="Position / title"
             className={inputClass}
             value={form.position}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             onChange={(e) => setField("position", e.target.value)}
           />
         </div>
@@ -291,7 +292,7 @@ const InternshipEvaluationForm = ({
           </div>
         )}
 
-        {!readOnly && !advisorView && !examinerView && onSubmit && (
+        {!fieldsLocked && onSubmit && (
           <div className="mt-6">
             <button
               type="submit"

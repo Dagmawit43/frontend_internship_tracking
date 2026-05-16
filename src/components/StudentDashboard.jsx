@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getInternships } from "../mock/internshipApi";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
@@ -680,7 +680,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [draftWeek, setDraftWeek] = useState(null);
-  const [internshipSubTab, setInternshipSubTab] = useState("logbook");
+  const [internshipSubTab, setInternshipSubTab] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [docTitle, setDocTitle] = useState("");
   const [docDescription, setDocDescription] = useState("");
@@ -956,6 +956,27 @@ const MyInternshipView = ({ studentId, studentName }) => {
     return map[status] || map[WEEK_STATUS.NOT_SUBMITTED];
   };
 
+  const internshipTabs = [
+    { id: "logbook", label: "Weekly Logbook", icon: BookOpen },
+    { id: "documents", label: "Document Upload", icon: Upload },
+    { id: "company-evals", label: "Company Evaluations", icon: ClipboardList },
+    { id: "advisor-eval", label: "Advisor Evaluation", icon: FileText },
+    { id: "examiner-eval", label: "Examiner Evaluation", icon: FileText },
+    { id: "overall-eval", label: "Overall Evaluation", icon: BarChart3 },
+  ];
+
+  const selectInternshipTab = (tabId) => {
+    if (tabId === "company-evals") setCompanyEvalNonce((n) => n + 1);
+    setInternshipSubTab((prev) => (prev === tabId ? null : tabId));
+  };
+
+  const internshipTabClass = (tabId) =>
+    `flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition-all border ${
+      internshipSubTab === tabId
+        ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-200"
+        : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
+    }`;
+
   if (!activeApp) {
     return (
       <div className="app-card p-16 text-center">
@@ -972,14 +993,14 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-700 to-slate-900 p-8 text-white relative">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+        <div className="bg-gradient-to-r from-indigo-700 to-slate-900 px-6 py-5 text-white relative sm:px-8">
           <div className="absolute top-0 right-0 p-8 opacity-10">
              <Building2 className="w-32 h-32" />
           </div>
           <div className="relative z-10">
-            <p className="text-indigo-100 font-bold uppercase tracking-widest text-xs mb-2">Official Placement</p>
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight">Intern at {activeApp.companyName}</h2>
+            <p className="text-indigo-100 font-bold uppercase tracking-widest text-xs mb-2">My Internship</p>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Intern at {activeApp.companyName}</h2>
             <div className="mt-4 inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/30 text-xs font-black uppercase">
               <CheckCircle className="w-4 h-4" />
               Verified & Active
@@ -987,169 +1008,44 @@ const MyInternshipView = ({ studentId, studentName }) => {
           </div>
         </div>
         
-        <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            
-            {/* Company Deep Dive */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-400 w-fit">
-                 <Building2 className="w-5 h-5 text-indigo-600" />
-                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Partner Organization</h4>
-              </div>
-              <div className="space-y-4">
-                 <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
-                 <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <MapPin className="w-4 h-4 text-indigo-600" />
-                    <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
-                 </div>
-                 <p className="text-gray-600 leading-relaxed italic text-sm border-l-4 border-gray-100 pl-4">
-                   "{activeApp.companyFull?.description || "A registered host organization participating in the AASTU internship tracking program."}"
-                 </p>
-              </div>
-            </div>
-
-            {/* Position Details */}
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-300/60 w-fit">
-                 <Briefcase className="w-5 h-5 text-indigo-700" />
-                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Role</h4>
-              </div>
-              <div className="space-y-4">
-                 <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
-                 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
-                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Timeframe</p>
-                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}</p>
-                    </div>
-                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
-                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Weekly Commitment</p>
-                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
-                    </div>
-                 </div>
-
-                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Academic Advisor</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-700 uppercase mb-1">Internal Examiner 1</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
-                       </div>
-                       <div>
-                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Internal Examiner 2</p>
-                          <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="p-4 bg-white rounded-xl border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Required Skills & Focus Areas</p>
-                    <div className="flex flex-wrap gap-2">
-                       {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
-                         <span key={i} className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
-                           {skill}
-                         </span>
-                       ))}
-                    </div>
-                 </div>
-              </div>
-            </div>
-
+        <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-6">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Internship sections</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {internshipTabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => selectInternshipTab(id)}
+                className={internshipTabClass(id)}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                <span className="text-center leading-tight">{label}</span>
+                {id === "advisor-eval" && advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
+                )}
+                {id === "examiner-eval" && examinerEvalsVisible.length > 0 && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
+                )}
+                {id === "overall-eval" && overallForStudent && (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Report available" />
+                )}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
 
-      <div className="app-card p-6">
-        <div className="app-tab-shell mb-4 flex flex-wrap gap-2 border-b-0 pb-0">
-          <button
-            type="button"
-            onClick={() => setInternshipSubTab("logbook")}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "logbook"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            Weekly logbook
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternshipSubTab("documents")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "documents"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            Document upload
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setInternshipSubTab("company-evals");
-              setCompanyEvalNonce((n) => n + 1);
-            }}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "company-evals"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            Company evaluations
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternshipSubTab("advisor-eval")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "advisor-eval"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Advisor evaluation
-            {advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternshipSubTab("examiner-eval")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "examiner-eval"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Examiner evaluation
-            {examinerEvalsVisible.length > 0 && (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Available" />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternshipSubTab("overall-eval")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              internshipSubTab === "overall-eval"
-                ? "app-tab-active"
-                : "app-tab-inactive"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Overall evaluation
-            {overallForStudent && (
-              <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" title="Approved — report available" />
-            )}
-          </button>
-        </div>
+        {internshipSubTab == null && (
+          <div className="border-t border-dashed border-slate-200 bg-slate-50/40 px-6 py-12 text-center">
+            <Layers className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <p className="text-sm font-semibold text-slate-700">Select a section above</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+              Choose Weekly Logbook, Document Upload, or another tab to view and manage that part of your internship.
+            </p>
+          </div>
+        )}
 
+        {internshipSubTab != null && (
+          <div className="border-t border-slate-100 px-4 py-6 sm:px-6">
         {internshipSubTab === "logbook" && (
           <>
             {logbookSubmitSuccess && (
@@ -1502,7 +1398,83 @@ const MyInternshipView = ({ studentId, studentName }) => {
             )}
           </div>
         )}
+          </div>
+        )}
+        <div className="border-t border-slate-100 bg-white p-6 sm:p-8">
+          <p className="mb-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Placement details</p>
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
+            {/* Company Deep Dive */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-400 w-fit">
+                 <Building2 className="w-5 h-5 text-indigo-600" />
+                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Partner Organization</h4>
+              </div>
+              <div className="space-y-4">
+                 <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
+                 <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <MapPin className="w-4 h-4 text-indigo-600" />
+                    <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
+                 </div>
+                 <p className="text-gray-600 leading-relaxed italic text-sm border-l-4 border-gray-100 pl-4">
+                   "{activeApp.companyFull?.description || "A registered host organization participating in the AASTU internship tracking program."}"
+                 </p>
+              </div>
+            </div>
 
+            {/* Position Details */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-300/60 w-fit">
+                 <Briefcase className="w-5 h-5 text-indigo-700" />
+                 <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Role</h4>
+              </div>
+              <div className="space-y-4">
+                 <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
+                 
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
+                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Timeframe</p>
+                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.start_date} — {activeApp.internshipFull?.end_date}</p>
+                    </div>
+                    <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/80">
+                       <p className="text-[10px] font-black text-indigo-800 uppercase mb-1">Weekly Commitment</p>
+                       <p className="text-xs font-bold text-gray-700">{activeApp.internshipFull?.total_hours || "160"} Total Hrs</p>
+                    </div>
+                 </div>
+
+                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase mb-3">Academic Supervision</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                       <div>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Academic Advisor</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
+                       </div>
+                       <div>
+                          <p className="text-[10px] font-black text-indigo-700 uppercase mb-1">Internal Examiner 1</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
+                       </div>
+                       <div>
+                          <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Internal Examiner 2</p>
+                          <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="p-4 bg-white rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Required Skills & Focus Areas</p>
+                    <div className="flex flex-wrap gap-2">
+                       {(activeApp.internshipFull?.required_skills || ["Professional Development"]).map((skill, i) => (
+                         <span key={i} className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-[10px] font-bold text-gray-600">
+                           {skill}
+                         </span>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
       </div>
 
       {selectedWeek && draftWeek && (

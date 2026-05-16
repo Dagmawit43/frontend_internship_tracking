@@ -110,6 +110,7 @@ const InternshipMonthlyEvaluation = ({
   advisorComment: existingAdvisorComment = "",
   onAdvisorAction,
 }) => {
+  const fieldsLocked = readOnly || advisorView;
   const [formData, setFormData] = useState({ ...EMPTY_FORM, ...initialData });
   const [advisorComment, setAdvisorComment] = useState(existingAdvisorComment);
   const [errors, setErrors] = useState({});
@@ -121,7 +122,7 @@ const InternshipMonthlyEvaluation = ({
   }, [initialData, existingAdvisorComment]);
 
   const handleChange = (e) => {
-    if (readOnly) return;
+    if (fieldsLocked) return;
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: false }));
@@ -151,7 +152,7 @@ const InternshipMonthlyEvaluation = ({
 
   return (
     <div className="bg-white rounded-xl">
-      {readOnly && (
+      {fieldsLocked && (
         <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 font-medium">
           <Lock className="w-4 h-4 text-gray-400" />
           This evaluation is locked and read-only.
@@ -172,13 +173,13 @@ const InternshipMonthlyEvaluation = ({
         {/* Basic Information */}
         <SectionTitle title="Basic Information" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-          <InputField label="Month" name="month" value={formData.month} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Company Name" name="companyName" value={formData.companyName} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Supervisor Name" name="supervisorName" value={formData.supervisorName} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Phone Number" name="phoneNo" value={formData.phoneNo} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Student Full Name" name="studentName" value={formData.studentName} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Student ID" name="studentId" value={formData.studentId} onChange={handleChange} readOnly={readOnly} />
-          <InputField label="Department" name="department" value={formData.department} onChange={handleChange} readOnly={readOnly} />
+          <InputField label="Month" name="month" value={formData.month} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Company Name" name="companyName" value={formData.companyName} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Supervisor Name" name="supervisorName" value={formData.supervisorName} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Phone Number" name="phoneNo" value={formData.phoneNo} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Student Full Name" name="studentName" value={formData.studentName} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Student ID" name="studentId" value={formData.studentId} onChange={handleChange} readOnly={fieldsLocked} />
+          <InputField label="Department" name="department" value={formData.department} onChange={handleChange} readOnly={fieldsLocked} />
         </div>
 
         {/* General Performance */}
@@ -192,7 +193,7 @@ const InternshipMonthlyEvaluation = ({
             { label: "Professionalism (5%)", name: "professionalism" },
           ].map(({ label, name }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={readOnly} />
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
               {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
             </div>
           ))}
@@ -209,7 +210,7 @@ const InternshipMonthlyEvaluation = ({
             { label: "Cooperation with colleagues (5%)", name: "cooperation" },
           ].map(({ label, name }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={readOnly} />
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
               {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
             </div>
           ))}
@@ -226,7 +227,7 @@ const InternshipMonthlyEvaluation = ({
             { label: "Quality as a Team Member (20%)", name: "teamwork" },
           ].map(({ label, name }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={readOnly} />
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
               {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
             </div>
           ))}
@@ -251,10 +252,10 @@ const InternshipMonthlyEvaluation = ({
             name="additionalComment"
             value={formData.additionalComment}
             onChange={handleChange}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
             rows={4}
             className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-              readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
+              fieldsLocked ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
             }`}
             placeholder="Write additional comments here..."
           />
@@ -267,7 +268,7 @@ const InternshipMonthlyEvaluation = ({
             name="supervisorSignatureName"
             value={formData.supervisorSignatureName}
             onChange={handleChange}
-            readOnly={readOnly}
+            readOnly={fieldsLocked}
           />
         </div>
 
@@ -280,7 +281,7 @@ const InternshipMonthlyEvaluation = ({
         )}
 
         {/* ── Company submit button ── */}
-        {!readOnly && !advisorView && onSubmit && (
+        {!fieldsLocked && onSubmit && (
           <div className="mt-4">
             <button
               type="submit"

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
-  CheckCircle, ClipboardList, X, FileText, LogOut,
+  CheckCircle, ClipboardList, X, FileText, LogOut, BarChart3,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import ExaminerSidebar from "./ExaminerSidebar";
@@ -314,6 +314,7 @@ const ExaminerDashboard = () => {
   const [mainTab, setMainTab] = useState("students");
   const [studentModalTab, setStudentModalTab] = useState("eval");
   const [docQueueNonce, setDocQueueNonce] = useState(0);
+  const [overallNonce, setOverallNonce] = useState(0);
 
   useEffect(() => {
     const s = JSON.parse(localStorage.getItem("user"));
@@ -349,12 +350,15 @@ const ExaminerDashboard = () => {
     const bump = () => {
       setExaminerEvalNonce((n) => n + 1);
       setDocQueueNonce((n) => n + 1);
+      setOverallNonce((n) => n + 1);
     };
     window.addEventListener("storage", bump);
     window.addEventListener("examiner-evaluation-updated", bump);
+    window.addEventListener("overall-evaluation-updated", bump);
     return () => {
       window.removeEventListener("storage", bump);
       window.removeEventListener("examiner-evaluation-updated", bump);
+      window.removeEventListener("overall-evaluation-updated", bump);
     };
   }, []);
 
@@ -366,6 +370,34 @@ const ExaminerDashboard = () => {
       (d) => d.examinerStatus === ROLE_DOC_STATUS.PENDING
     );
   }, [examinerIdentity, assignedStudentIds, docQueueNonce]);
+
+  const getExaminerSlotForApp = (app) => {
+    if (!examinerIdentity || !app) return null;
+    const e1 = String(app.examinerName || "").trim().toLowerCase();
+    const e2 = String(app.examiner2Name || "").trim().toLowerCase();
+    if (e1 && e1 === examinerIdentity) return 1;
+    if (e2 && e2 === examinerIdentity) return 2;
+    return null;
+  };
+
+  const pendingOverallQueue = useMemo(() => {
+    if (!examinerIdentity) return [];
+    return assignedStudents
+      .map((app) => {
+        const slot = getExaminerSlotForApp(app);
+        if (!slot) return null;
+        const approvals = getOverallApprovals(app.studentId);
+        if (!approvals.advisorApproved) return null;
+        const overall = computeOverallEvaluation(app);
+        if (!overall.complete) return null;
+        const needsApproval =
+          (slot === 1 && !approvals.examiner1Approved) ||
+          (slot === 2 && !approvals.examiner2Approved);
+        if (!needsApproval) return null;
+        return { app, slot, overall, approvals };
+      })
+      .filter(Boolean);
+  }, [assignedStudents, examinerIdentity, examinerEvalNonce, overallNonce, docQueueNonce]);
 
   const examinerOwnEval = useMemo(() => {
     if (!selectedStudent || !examinerIdentity) return null;
@@ -383,12 +415,8 @@ const ExaminerDashboard = () => {
   }, [selectedStudent, examinerEvalNonce, docQueueNonce]);
 
   const examinerSlot = useMemo(() => {
-    if (!selectedStudent || !examinerIdentity) return null;
-    const e1 = String(selectedStudent.examinerName || "").trim().toLowerCase();
-    const e2 = String(selectedStudent.examiner2Name || "").trim().toLowerCase();
-    if (e1 && e1 === examinerIdentity) return 1;
-    if (e2 && e2 === examinerIdentity) return 2;
-    return null;
+    if (!selectedStudent) return null;
+    return getExaminerSlotForApp(selectedStudent);
   }, [selectedStudent, examinerIdentity]);
 
   const examinerEvalFormInitial = useMemo(() => {
@@ -419,12 +447,22 @@ const ExaminerDashboard = () => {
   const displayName = session.fullName || session.name || session.username || "Examiner";
   const department = session.department || "";
 
+  const openStudentWorkspace = (app, tab = "eval") => {
+    setSelectedStudent(app);
+    setStudentModalTab(tab);
+  };
+
+  const handleApproveOverall = (studentId, slot) => {
+    approveOverallAsExaminerSlot(studentId, slot);
+    setOverallNonce((n) => n + 1);
+  };
+
   return (
     <div className="app-shell flex min-h-screen flex-col">
       <StaffTopNavigation
         displayName={displayName}
         roleLabel="Internal Examiner"
-        notificationCount={pendingExaminerDocuments.length}
+        notificationCount={pendingExaminerDocuments.length + pendingOverallQueue.length}
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -433,6 +471,7 @@ const ExaminerDashboard = () => {
           onNavigate={setMainTab}
           staffName={displayName}
           pendingDocs={pendingExaminerDocuments.length}
+          pendingOverall={pendingOverallQueue.length}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -440,7 +479,7 @@ const ExaminerDashboard = () => {
           name={displayName}
           department={department}
           roleLabel="Internal Examiner"
-          subtitle="Review assigned students, submit examiner evaluations, and clear your document queue."
+          subtitle="Submit examiner evaluations, approve overall reports, and clear your document queue."
           statPrimary={assignedStudents.length}
         />
 
@@ -467,10 +506,7 @@ const ExaminerDashboard = () => {
                       <button
                         key={app.id}
                         type="button"
-                        onClick={() => {
-                          setStudentModalTab("eval");
-                          setSelectedStudent(app);
-                        }}
+                        onClick={() => openStudentWorkspace(app, "eval")}
                         className="rounded-xl border border-slate-200/90 bg-indigo-50/50 p-5 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
                       >
                         <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
@@ -501,6 +537,10 @@ const ExaminerDashboard = () => {
                   <span className="text-sm text-gray-600">Pending documents</span>
                   <span className="text-lg font-bold text-amber-600">{pendingExaminerDocuments.length}</span>
                 </div>
+                <div className="flex justify-between items-center mt-3">
+                  <span className="text-sm text-gray-600">Overall queue</span>
+                  <span className="text-lg font-bold text-indigo-600">{pendingOverallQueue.length}</span>
+                </div>
               </div>
 
               <div className="app-card p-6">
@@ -509,11 +549,186 @@ const ExaminerDashboard = () => {
                   Your role
                 </h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Open a student to fill the examiner evaluation and review their internship documents. Use{" "}
-                  <strong className="text-gray-800">Document queue</strong> for all pending files across students.
+                  Use <strong className="text-gray-800">My evaluations</strong> for your examiner forms,{" "}
+                  <strong className="text-gray-800">Overall evaluation queue</strong> after the advisor approves, and{" "}
+                  <strong className="text-gray-800">Document queue</strong> for student uploads.
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {mainTab === "my-evaluations" && (
+          <div className="app-card p-6 max-w-5xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
+              <p className="text-gray-600">
+                Your university examiner evaluation for each assigned student. Submit or update from here or from{" "}
+                <strong className="text-gray-800">Assigned students</strong>.
+              </p>
+            </div>
+            {assignedStudents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No students assigned.</div>
+            ) : (
+              <div className="space-y-8" key={examinerEvalNonce}>
+                {assignedStudents.map((app) => {
+                  const ev = getExaminerEvaluation(app.studentId, examinerIdentity);
+                  const submitted = Boolean(ev?.submittedAt);
+                  const slot = getExaminerSlotForApp(app);
+                  return (
+                    <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/30 space-y-3">
+                      <div className="flex flex-wrap justify-between items-start gap-3">
+                        <div>
+                          <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                          <p className="text-sm text-gray-500">
+                            {app.companyName} · {app.internshipTitle || "Internship"}
+                            {slot ? ` · You are Examiner ${slot}` : ""}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openStudentWorkspace(app, "eval")}
+                          className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                        >
+                          {submitted ? "Edit in workspace" : "Open to submit"}
+                        </button>
+                      </div>
+                      {submitted ? (
+                        <>
+                          <p className="text-xs text-gray-500">
+                            Submitted {new Date(ev.submittedAt).toLocaleString()}
+                          </p>
+                          <ExaminerUniversityEvaluationForm
+                            readOnly
+                            initialData={{
+                              ...(ev.formData || {}),
+                              studentName: app.studentName || "",
+                              idNo: app.studentId || "",
+                              department: app.department || "",
+                              organization: app.companyName || "",
+                              examinerName: ev.examinerName || ev.formData?.examinerName || displayName,
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                          You have not submitted your evaluation for this student yet.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {mainTab === "overall-queue" && (
+          <div className="app-card p-6 max-w-5xl">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
+              <p className="text-gray-600">
+                Advisor-approved overall reports that need your sign-off as internal examiner.
+              </p>
+            </div>
+            {assignedStudents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No students assigned.</div>
+            ) : pendingOverallQueue.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No overall evaluations waiting for your approval.</p>
+                <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                  Items appear here after the advisor approves the overall report and all component evaluations are complete.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6" key={overallNonce}>
+                {pendingOverallQueue.map(({ app, slot, overall, approvals }) => (
+                  <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
+                    <div className="flex flex-wrap justify-between items-start gap-3">
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                        <p className="text-sm text-gray-500">
+                          {app.companyName} · Examiner {slot}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                        <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                        <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">
+                          {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
+                        </p>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                        <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">
+                          {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
+                        </p>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                        <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">
+                          {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
+                        </p>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                        <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
+                        <p className="text-base font-bold text-gray-900 mt-1">
+                          {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                      <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                        Advisor: Approved
+                      </span>
+                      <span
+                        className={`px-3 py-1 rounded-full border ${
+                          approvals.examiner1Approved
+                            ? "bg-green-100 text-green-800 border-green-200"
+                            : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}
+                      >
+                        Examiner 1: {approvals.examiner1Approved ? "Approved" : "Pending"}
+                      </span>
+                      <span
+                        className={`px-3 py-1 rounded-full border ${
+                          approvals.examiner2Approved
+                            ? "bg-green-100 text-green-800 border-green-200"
+                            : "bg-amber-50 text-amber-800 border-amber-200"
+                        }`}
+                      >
+                        Examiner 2: {approvals.examiner2Approved ? "Approved" : "Pending"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveOverall(app.studentId, slot)}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                      >
+                        Approve overall (Examiner {slot})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openStudentWorkspace(app, "overall")}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg border-2 border-indigo-200 text-indigo-800 text-sm font-bold hover:bg-indigo-50"
+                      >
+                        Open full report
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -686,7 +901,7 @@ const ExaminerDashboard = () => {
                     <button
                       type="button"
                       disabled={!overall?.complete}
-                      onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 1)}
+                      onClick={() => handleApproveOverall(selectedStudent.studentId, 1)}
                       className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 1)
@@ -696,7 +911,7 @@ const ExaminerDashboard = () => {
                     <button
                       type="button"
                       disabled={!overall?.complete}
-                      onClick={() => approveOverallAsExaminerSlot(selectedStudent.studentId, 2)}
+                      onClick={() => handleApproveOverall(selectedStudent.studentId, 2)}
                       className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 2)

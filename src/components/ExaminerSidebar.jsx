@@ -1,12 +1,19 @@
 import React from "react";
-import { User, FileText } from "lucide-react";
+import { User, FileText, ClipboardList, BarChart3 } from "lucide-react";
 
 const NAV_ITEMS = [
   { id: "students", label: "Assigned students", icon: User },
+  { id: "my-evaluations", label: "My evaluations", icon: ClipboardList },
+  { id: "overall-queue", label: "Overall evaluation queue", icon: BarChart3, badgeKey: "overall" },
   { id: "doc-queue", label: "Document queue", icon: FileText, badgeKey: "docs" },
 ];
 
-const ExaminerSidebar = ({ currentView, onNavigate, staffName, pendingDocs = 0 }) => {
+const ExaminerSidebar = ({ currentView, onNavigate, staffName, pendingDocs = 0, pendingOverall = 0 }) => {
+  const badgeFor = (key) => {
+    if (key === "docs") return pendingDocs;
+    if (key === "overall") return pendingOverall;
+    return 0;
+  };
   return (
     <aside className="flex w-full shrink-0 flex-col border-b border-slate-200 bg-white md:w-56 md:min-h-0 md:self-stretch md:border-b-0 md:border-r md:border-slate-200">
       <div className="shrink-0 border-b border-slate-100 px-4 py-3 md:pt-4">
@@ -16,7 +23,7 @@ const ExaminerSidebar = ({ currentView, onNavigate, staffName, pendingDocs = 0 }
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = currentView === item.id;
-          const n = item.badgeKey === "docs" ? pendingDocs : 0;
+          const n = item.badgeKey ? badgeFor(item.badgeKey) : 0;
           return (
             <button
               key={item.id}

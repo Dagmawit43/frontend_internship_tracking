@@ -1725,7 +1725,7 @@ const AdvisorDashboard = () => {
             <InternshipEvaluationForm
               key={selectedFinalEval.eval.id}
               initialData={selectedFinalEval.eval.formData || {}}
-              readOnly={selectedFinalEval.eval.status !== FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL}
+              readOnly
               advisorView={selectedFinalEval.eval.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL}
               advisorComment={selectedFinalEval.eval.advisorComment || ""}
               examinerComment={selectedFinalEval.eval.examinerComment || ""}

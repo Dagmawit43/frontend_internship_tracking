@@ -7,6 +7,9 @@ import CoordinatorSidebar from "./CoordinatorSidebar";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
+import InternshipEvaluationForm from "./InternshipEvaluationForm";
+import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
+import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -17,6 +20,21 @@ import {
   EVAL_STATUS_LABELS,
   getEvaluation,
 } from "../utils/monthlyEvaluations";
+import {
+  FINAL_EVAL_STATUS,
+  FINAL_EVAL_STATUS_LABELS,
+  getFinalEvaluation,
+} from "../utils/finalEvaluations";
+import {
+  getAdvisorEvaluation,
+  ADVISOR_EVAL_STATUS,
+} from "../utils/advisorEvaluations";
+import { getExaminerEvaluationForAdvisorSlot } from "../utils/examinerEvaluations";
+import {
+  getDocumentsByStudentId,
+  getStudentDocumentSummary,
+  ROLE_DOC_STATUS,
+} from "../utils/internshipDocuments";
 import {
   computeOverallEvaluation,
   getOverallApprovals,
@@ -523,6 +541,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [logbookRecord, setLogbookRecord] = useState(null);
+  const [progressDataNonce, setProgressDataNonce] = useState(0);
+
+  const progressTabClass = (tab) =>
+    `flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
+      internDetailTab === tab
+        ? "bg-white text-indigo-600 shadow-sm"
+        : "text-gray-500 hover:text-gray-700"
+    }`;
 
   useEffect(() => {
     const loadData = () => {
@@ -626,6 +652,42 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       setLogbookRecord(getLogbookForApplication(fresh));
     }
   }, [activeInterns, selectedIntern?.id]);
+
+  useEffect(() => {
+    const bump = () => setProgressDataNonce((n) => n + 1);
+    window.addEventListener("storage", bump);
+    return () => window.removeEventListener("storage", bump);
+  }, []);
+
+  const studentDocuments = useMemo(() => {
+    if (!selectedIntern) return [];
+    return getDocumentsByStudentId(selectedIntern.studentId);
+  }, [selectedIntern, progressDataNonce]);
+
+  const studentAdvisorEval = useMemo(() => {
+    if (!selectedIntern) return null;
+    return getAdvisorEvaluation(selectedIntern.studentId);
+  }, [selectedIntern, progressDataNonce]);
+
+  const studentExaminerEvals = useMemo(() => {
+    if (!selectedIntern) return { ev1: null, ev2: null };
+    return {
+      ev1: getExaminerEvaluationForAdvisorSlot(
+        selectedIntern.studentId,
+        selectedIntern.examinerName
+      ),
+      ev2: getExaminerEvaluationForAdvisorSlot(
+        selectedIntern.studentId,
+        selectedIntern.examiner2Name
+      ),
+    };
+  }, [selectedIntern, progressDataNonce]);
+
+  const docStatusPill = (status) => {
+    if (status === ROLE_DOC_STATUS.APPROVED) return "bg-green-100 text-green-800 border-green-200";
+    if (status === ROLE_DOC_STATUS.REJECTED) return "bg-red-100 text-red-800 border-red-200";
+    return "bg-amber-100 text-amber-800 border-amber-200";
+  };
 
   return (
     <div className="space-y-6">
@@ -896,20 +958,31 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
 
           <div className="border-t border-slate-200 p-4 sm:p-6">
             <h4 className="mb-4 text-sm font-black uppercase tracking-widest text-slate-700">Internship progress</h4>
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6">
+            <div className="mb-6 flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1">
               <button
                 type="button"
                 onClick={() => setInternDetailTab("logbook")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "logbook" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                className={progressTabClass("logbook")}
               >
-                <BookOpen className="w-4 h-4" /> Weekly Logbook
+                <BookOpen className="h-4 w-4 shrink-0" /> Weekly Logbook
               </button>
-              <button
-                type="button"
-                onClick={() => setInternDetailTab("monthly")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${internDetailTab === "monthly" ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
+              <button type="button" onClick={() => setInternDetailTab("documents")} className={progressTabClass("documents")}>
+                <FileText className="h-4 w-4 shrink-0" /> Student Documents
+              </button>
+              <button type="button" onClick={() => setInternDetailTab("monthly")} className={progressTabClass("monthly")}>
+                <ClipboardList className="h-4 w-4 shrink-0" /> Company Monthly Evaluation
+              </button>
+              <button type="button" onClick={() => setInternDetailTab("company-final")} className={progressTabClass("company-final")}>
+                <ClipboardList className="h-4 w-4 shrink-0" /> Company Overall Evaluation
+              </button>
+              <button type="button" onClick={() => setInternDetailTab("advisor-eval")} className={progressTabClass("advisor-eval")}>
+                <GraduationCap className="h-4 w-4 shrink-0" /> Advisor Evaluation
+              </button>
+              <button type="button" onClick={() => setInternDetailTab("examiner-1")} className={progressTabClass("examiner-1")}>
+                <User className="h-4 w-4 shrink-0" /> Examiner 1 Evaluation
+              </button>
+              <button type="button" onClick={() => setInternDetailTab("examiner-2")} className={progressTabClass("examiner-2")}>
+                <User className="h-4 w-4 shrink-0" /> Examiner 2 Evaluation
               </button>
             </div>
 
@@ -1008,6 +1081,220 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
               </div>
             )}
           </div>
+            {internDetailTab === "documents" && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Files the student uploaded for advisor and examiner review (read only).
+                </p>
+                {studentDocuments.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No student documents uploaded yet.</p>
+                  </div>
+                ) : (
+                  <ul className="space-y-4">
+                    {studentDocuments.map((doc) => {
+                      const summary = getStudentDocumentSummary(doc);
+                      return (
+                        <li key={doc.id} className="rounded-xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5">
+                          <div className="flex flex-wrap justify-between gap-2 items-start">
+                            <div>
+                              <h4 className="font-bold text-gray-900">{doc.title}</h4>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Submitted {new Date(doc.submittedAt).toLocaleString()}
+                              </p>
+                              {doc.description && (
+                                <p className="text-sm text-gray-600 mt-2">{doc.description}</p>
+                              )}
+                            </div>
+                            <a
+                              href={doc.fileData}
+                              download={doc.fileName}
+                              className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
+                            >
+                              Download
+                            </a>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.advisorStatus)}`}>
+                              Advisor: {doc.advisorStatus}
+                            </span>
+                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.examinerStatus)}`}>
+                              Examiner: {doc.examinerStatus}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {internDetailTab === "company-final" && selectedIntern && (
+              <div className="space-y-6">
+                {(() => {
+                  const finalEval = getFinalEvaluation(selectedIntern.studentId);
+                  if (!finalEval) {
+                    return (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No company overall evaluation submitted yet.</p>
+                      </div>
+                    );
+                  }
+                  const badgeMap = {
+                    [FINAL_EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
+                    [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+                    [FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR]: "bg-green-100 text-green-700 border-green-200",
+                    [FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL]: "bg-yellow-100 text-yellow-700 border-yellow-200",
+                    [FINAL_EVAL_STATUS.FINAL_APPROVED]: "bg-green-100 text-green-700 border-green-200",
+                    [FINAL_EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
+                  };
+                  return (
+                    <div className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-gray-900">Company Overall Evaluation</h4>
+                        <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[finalEval.status] || badgeMap[FINAL_EVAL_STATUS.NOT_STARTED]}`}>
+                          {FINAL_EVAL_STATUS_LABELS[finalEval.status]}
+                        </span>
+                      </div>
+                      {finalEval.total !== undefined && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
+                            <p className="text-xs text-gray-400 font-medium mb-1">Total Score</p>
+                            <p className="text-2xl font-bold text-indigo-700">{finalEval.total} / 60</p>
+                          </div>
+                          <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
+                            <p className="text-xs text-gray-400 font-medium mb-1">Final Mark</p>
+                            <p className="text-2xl font-bold text-green-700">{finalEval.finalMark} / 20</p>
+                          </div>
+                        </div>
+                      )}
+                      <InternshipEvaluationForm
+                        key={`coord-final-${selectedIntern.studentId}`}
+                        initialData={finalEval.formData || {}}
+                        readOnly
+                        advisorComment={finalEval.advisorComment || ""}
+                        examinerComment={finalEval.examinerComment || ""}
+                      />
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {internDetailTab === "advisor-eval" && selectedIntern && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Academic advisor evaluation for this student (read only).
+                </p>
+                {!studentAdvisorEval || studentAdvisorEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <GraduationCap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Advisor has not submitted their evaluation yet.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      Submitted {new Date(studentAdvisorEval.submittedAt).toLocaleString()}
+                      {studentAdvisorEval.advisorName && (
+                        <span className="block mt-1 font-semibold text-gray-800">
+                          Advisor: {studentAdvisorEval.advisorName}
+                        </span>
+                      )}
+                    </p>
+                    <AdvisorStudentEvaluationForm
+                      readOnly
+                      initialData={{
+                        ...(studentAdvisorEval.formData || {}),
+                        studentName: selectedIntern.studentName || "",
+                        idNo: selectedIntern.studentId || "",
+                        department: selectedIntern.department || "",
+                        organization: selectedIntern.companyName || "",
+                        supervisorName:
+                          studentAdvisorEval.formData?.supervisorName ||
+                          studentAdvisorEval.advisorName ||
+                          studentAdvisorEval.formData?.advisorName ||
+                          "",
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {internDetailTab === "examiner-1" && selectedIntern && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                  Examiner 1{selectedIntern.examinerName ? ` — ${selectedIntern.examinerName}` : ""}
+                </h4>
+                {!selectedIntern.examinerName ? (
+                  <p className="text-sm text-gray-500">No examiner 1 assigned.</p>
+                ) : !studentExaminerEvals.ev1 ? (
+                  <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                    Examiner 1 has not submitted an evaluation yet.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Submitted {new Date(studentExaminerEvals.ev1.submittedAt).toLocaleString()}
+                    </p>
+                    <ExaminerUniversityEvaluationForm
+                      readOnly
+                      initialData={{
+                        ...(studentExaminerEvals.ev1.formData || {}),
+                        studentName: selectedIntern.studentName || "",
+                        idNo: selectedIntern.studentId || "",
+                        department: selectedIntern.department || "",
+                        organization: selectedIntern.companyName || "",
+                        examinerName:
+                          studentExaminerEvals.ev1.examinerName ||
+                          studentExaminerEvals.ev1.formData?.examinerName ||
+                          "",
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
+            {internDetailTab === "examiner-2" && selectedIntern && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                  Examiner 2{selectedIntern.examiner2Name ? ` — ${selectedIntern.examiner2Name}` : ""}
+                </h4>
+                {!selectedIntern.examiner2Name ? (
+                  <p className="text-sm text-gray-500">No examiner 2 assigned.</p>
+                ) : !studentExaminerEvals.ev2 ? (
+                  <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                    Examiner 2 has not submitted an evaluation yet.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Submitted {new Date(studentExaminerEvals.ev2.submittedAt).toLocaleString()}
+                    </p>
+                    <ExaminerUniversityEvaluationForm
+                      readOnly
+                      initialData={{
+                        ...(studentExaminerEvals.ev2.formData || {}),
+                        studentName: selectedIntern.studentName || "",
+                        idNo: selectedIntern.studentId || "",
+                        department: selectedIntern.department || "",
+                        organization: selectedIntern.companyName || "",
+                        examinerName:
+                          studentExaminerEvals.ev2.examinerName ||
+                          studentExaminerEvals.ev2.formData?.examinerName ||
+                          "",
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+            )}
+
         </div>
       )}
     </div>
