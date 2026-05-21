@@ -1,0 +1,4321 @@
+{
+  "info": {
+    "_postman_id": "e1d3d2b0-e538-4c72-b3a2-bdc0ea6602b6",
+    "name": "Internship Management System – Complete API Collection",
+    "description": "Full test collection for the Internship Management System backend.\n\nSetup before running:\n1. Start the server: python manage.py runserver\n2. In Django admin create at least one Department.\n3. Pre-register a student (PreRegisteredStudent) and staff/coordinator/advisor (PreRegisteredStaff).\n4. Fill in the collection variables below with real values for your environment.\n\nFull workflow order:\n  Student registers → Mentor registers → Coordinator/Advisor register\n  → Admin approves company → Company creates position\n  → Student applies → Mentor reviews → Coordinator assigns advisor\n  → Advisor reviews → Student accepts offer → Mentor starts internship\n  → Student checks in/out → Student submits logbook/report\n  → Evaluations → Dashboards/Analytics\n\nTokens are auto-saved by the login and OTP-verify test scripts.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "49798411"
+  },
+  "item": [
+    {
+      "name": "00 – API Docs",
+      "item": [
+        {
+          "name": "OpenAPI Schema (JSON)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/schema/?format=json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "schema",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Swagger UI",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/docs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "docs",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Redoc UI",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/redoc/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "redoc",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 – Auth: Student",
+      "item": [
+        {
+          "name": "Register Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('studentAccessToken', j.tokens.access); pm.collectionVariables.set('studentRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } if (j.user) pm.collectionVariables.set('studentUserPk', j.user.id); }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"{{studentDepartmentName}}\",\n  \"student_id\": \"{{studentId}}\",\n  \"user\": {\n    \"username\": \"{{studentUsername}}\",\n    \"email\": \"{{studentEmail}}\",\n    \"password\": \"{{studentPassword}}\",\n    \"phone\": \"{{studentPhone}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/student/register/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "student",
+                "register",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resend Student OTP",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-otp/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "resend-otp",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Student OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('studentAccessToken', j.tokens.access); pm.collectionVariables.set('studentRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"otp\": \"{{studentOtp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('studentAccessToken', j.tokens.access); pm.collectionVariables.set('studentRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout Student",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{studentRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset – Request Link",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/password-reset/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "password-reset",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Password Reset – Confirm",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"<base64-uid-from-email>\",\n  \"token\": \"<reset-token-from-email>\",\n  \"new_password\": \"NewPassword123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/password-reset/confirm/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "password-reset",
+                "confirm",
+                ""
+              ]
+            },
+            "description": "Get uid and token from the reset link logged in the server terminal (DEBUG mode)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 – Auth: Company Mentor",
+      "item": [
+        {
+          "name": "Register Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('companyAccessToken', j.tokens.access); pm.collectionVariables.set('companyRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } if (j.user && j.user.company_id) pm.collectionVariables.set('companyId', j.user.company_id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": {\n    \"username\": \"{{companyUsername}}\",\n    \"email\": \"{{companyEmail}}\",\n    \"password\": \"{{companyPassword}}\",\n    \"phone\": \"+251900000002\"\n  },\n  \"company_name\": \"{{companyName}}\",\n  \"registration_number\": \"REG-001\",\n  \"industry_type\": \"Software\",\n  \"address\": \"Addis Ababa\",\n  \"contact_email\": \"{{companyEmail}}\",\n  \"contact_phone\": \"+251900000002\",\n  \"website\": \"https://example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/company/register/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "company",
+                "register",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Company OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('companyAccessToken', j.tokens.access); pm.collectionVariables.set('companyRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{companyEmail}}\",\n  \"otp\": \"{{companyOtp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Company Mentor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('companyAccessToken', j.tokens.access); pm.collectionVariables.set('companyRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{companyEmail}}\",\n  \"password\": \"{{companyPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 – Auth: Coordinator",
+      "item": [
+        {
+          "name": "Register Coordinator (Pre-registered with role=COORDINATOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('coordinatorAccessToken', j.tokens.access); pm.collectionVariables.set('coordinatorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{coordinatorEmail}}\",\n  \"username\": \"{{coordinatorUsername}}\",\n  \"password\": \"{{coordinatorPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/register/staff/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "register",
+                "staff",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Coordinator OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('coordinatorAccessToken', j.tokens.access); pm.collectionVariables.set('coordinatorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{coordinatorEmail}}\",\n  \"otp\": \"{{coordinatorOtp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Coordinator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('coordinatorAccessToken', j.tokens.access); pm.collectionVariables.set('coordinatorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{coordinatorEmail}}\",\n  \"password\": \"{{coordinatorPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 – Auth: Advisor",
+      "item": [
+        {
+          "name": "Register Advisor (Pre-registered with role=ADVISOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('advisorAccessToken', j.tokens.access); pm.collectionVariables.set('advisorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{advisorEmail}}\",\n  \"username\": \"{{advisorUsername}}\",\n  \"password\": \"{{advisorPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/register/staff/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "register",
+                "staff",
+                ""
+              ]
+            },
+            "description": "The PreRegisteredStaff record for this email must have role=ADVISOR."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Advisor OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('advisorAccessToken', j.tokens.access); pm.collectionVariables.set('advisorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{advisorEmail}}\",\n  \"otp\": \"{{advisorOtp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Advisor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('advisorAccessToken', j.tokens.access); pm.collectionVariables.set('advisorRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{advisorEmail}}\",\n  \"password\": \"{{advisorPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 – Auth: Admin",
+      "item": [
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) { const j = pm.response.json(); if (j.tokens) { pm.collectionVariables.set('adminAccessToken', j.tokens.access); pm.collectionVariables.set('adminRefreshToken', j.tokens.refresh); pm.collectionVariables.set('accessToken', j.tokens.access); } }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 – Profile (Me)",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile – JSON (no avatar)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"phone\": \"+251911000000\",\n  \"bio\": \"Updated bio\",\n  \"location\": \"Addis Ababa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile – Multipart with avatar",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "first_name",
+                  "value": "Avatar",
+                  "type": "text"
+                },
+                {
+                  "key": "bio",
+                  "value": "With avatar",
+                  "type": "text"
+                },
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": "{{avatarFilePath}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/me/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 – Users & Roles",
+      "item": [
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin – Assign Any Role",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": \"{{targetUserEmail}}\",\n  \"role\": \"{{targetRoleName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/admin-assign-role/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "admin-assign-role",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator – Assign ADVISOR or EXAMINER role",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": \"{{targetUserEmail}}\",\n  \"role\": \"ADVISOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/coordinator-assign-role/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "coordinator-assign-role",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 – Departments",
+      "item": [
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Department",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); pm.collectionVariables.set('departmentId', j.id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department_code\": \"CS\",\n  \"department_name\": \"Computer Science\",\n  \"college\": \"Engineering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Department Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/{{departmentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                "{{departmentId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Partial Update Department",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"college\": \"College of Computing\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/departments/{{departmentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments",
+                "{{departmentId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 – Companies",
+      "item": [
+        {
+          "name": "List Verified Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/verified/?search=Software&ordering=company_name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "verified",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Software"
+                },
+                {
+                  "key": "ordering",
+                  "value": "company_name"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin – Approve Company",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/company/{{companyId}}/approve/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "company",
+                "{{companyId}}",
+                "approve",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin – Reject Company",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/company/{{companyId}}/approve/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "company",
+                "{{companyId}}",
+                "approve",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Company Mentor – List Applicants",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/{{companyId}}/applicants/?dept_status=APPROVED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "company",
+                "{{companyId}}",
+                "applicants",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "dept_status",
+                  "value": "APPROVED"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 – Advisor Management",
+      "item": [
+        {
+          "name": "Coordinator – List Advisors in Department",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/advisors/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "advisors",
+                ""
+              ]
+            },
+            "description": "Returns advisors in coordinator's own department."
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator – Assign Advisor to Student",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"advisor_id\": {{advisorId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentUserPk}}/assign-advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentUserPk}}",
+                "assign-advisor",
+                ""
+              ]
+            },
+            "description": "pk in URL is the student's USER pk (from /api/students/ list)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 – Internship Positions (Job Postings)",
+      "item": [
+        {
+          "name": "List Active Positions (with capacity)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Available Positions (slots remaining)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-positions/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-positions",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Company Mentor – Create Position",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { const j = pm.response.json(); pm.collectionVariables.set('positionId', j.id); if (j.company) pm.collectionVariables.set('companyId', j.company); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Backend Developer Intern\",\n  \"description\": \"Build REST APIs with Django.\",\n  \"required_skills\": [],\n  \"duration_weeks\": 12,\n  \"application_deadline\": \"2026-12-31\",\n  \"is_active\": true,\n  \"max_applicants\": 10,\n  \"working_days\": [\"MONDAY\",\"TUESDAY\",\"WEDNESDAY\",\"THURSDAY\",\"FRIDAY\"],\n  \"daily_start_time\": \"08:30:00\",\n  \"daily_end_time\": \"17:30:00\",\n  \"is_remote\": false,\n  \"work_latitude\": 9.0300,\n  \"work_longitude\": 38.7400,\n  \"allowed_radius_meters\": 300\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Position Detail",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{positionId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{positionId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Company Mentor – Update Position",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_applicants\": 15,\n  \"is_remote\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{positionId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{positionId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 – Application Workflow",
+      "item": [
+        {
+          "name": "Step 1 – Student Applies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('applicationId', pm.response.json().id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{positionId}}/apply/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{positionId}}",
+                "apply",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 2 – Mentor Reviews (accept)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"accept\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/mentor-review/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "mentor-review",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 2b – Mentor Reviews (reject) [alt]",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/mentor-review/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "mentor-review",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 3 – Coordinator Assigns Advisor (see 10 - Advisor Management)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"advisor_id\": {{advisorId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentUserPk}}/assign-advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "students",
+                "{{studentUserPk}}",
+                "assign-advisor",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 4 – Advisor Reviews (approve)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\",\n  \"notes\": \"Student profile looks good.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/advisor-review/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "advisor-review",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 4b – Advisor Reviews (reject) [alt]",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"reject\",\n  \"notes\": \"Missing prerequisites.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/advisor-review/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "advisor-review",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Step 5 – Student Accepts Offer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('internshipId', pm.response.json().internship_id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-09-01\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/accept-offer/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "accept-offer",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Legacy – Coordinator Dept Review (approve)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approve\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{applicationId}}/dept-review/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{applicationId}}",
+                "dept-review",
+                ""
+              ]
+            },
+            "description": "Legacy endpoint kept for backward compatibility."
+          },
+          "response": []
+        }
+      ],
+      "description": "Full flow: Apply → Mentor accepts → Coordinator assigns advisor → Advisor approves → Student accepts"
+    },
+    {
+      "name": "13 – Internship Lifecycle",
+      "item": [
+        {
+          "name": "Mentor – Bulk Start Internships by Position",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/position/{{positionId}}/start/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "position",
+                "{{positionId}}",
+                "start",
+                ""
+              ]
+            },
+            "description": "Starts ALL NOT_STARTED internships under this position. today >= start_date required."
+          },
+          "response": []
+        },
+        {
+          "name": "Mentor – Update Internship Notes (append)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Week 1: good progress.\",\n  \"mode\": \"append\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/notes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{internshipId}}",
+                "notes",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor – Add Advisor Notes (append)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Student is meeting expectations.\",\n  \"mode\": \"append\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/advisor-notes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{internshipId}}",
+                "advisor-notes",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor – Overwrite Notes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Final summary note.\",\n  \"mode\": \"overwrite\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/advisor-notes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{internshipId}}",
+                "advisor-notes",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mentor / Coordinator – Complete Internship",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/complete/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{internshipId}}",
+                "complete",
+                ""
+              ]
+            },
+            "description": "Sets status=COMPLETED, sums attendance hours. Internship must be ONGOING."
+          },
+          "response": []
+        },
+        {
+          "name": "Student – Cancel Internship (before start)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/cancel/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                "{{internshipId}}",
+                "cancel",
+                ""
+              ]
+            },
+            "description": "Only allowed if status=NOT_STARTED and today < start_date."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14 – Attendance",
+      "item": [
+        {
+          "name": "Student – Check In (with GPS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('attendanceId', pm.response.json().attendance_id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internship_id\": {{internshipId}},\n  \"latitude\": 9.0300,\n  \"longitude\": 38.7400,\n  \"accuracy\": 10,\n  \"notes\": \"On time today.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/check-in/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "check-in",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student – Check In (remote / no GPS)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internship_id\": {{internshipId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/check-in/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "check-in",
+                ""
+              ]
+            },
+            "description": "For remote positions GPS is optional. is_remote=true on position = auto-verified."
+          },
+          "response": []
+        },
+        {
+          "name": "Student – Check Out",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internship_id\": {{internshipId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/check-out/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "check-out",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance (role-filtered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Filter by date",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?date=2026-05-13",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-05-13"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Filter by status=LATE",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?status=LATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "LATE"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Date range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?start_date=2026-05-01&end_date=2026-05-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2026-05-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-05-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Filter by internship",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?internship={{internshipId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "internship",
+                  "value": "{{internshipId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Location verified only",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?is_location_verified=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "is_location_verified",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Search by student name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?search=Dagim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Dagim"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance – Ordered by date asc",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/?ordering=date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "ordering",
+                  "value": "date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Attendance Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/{{attendanceId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "{{attendanceId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Attendance Notes",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Arrived slightly late due to traffic.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/{{attendanceId}}/notes/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "attendance",
+                "{{attendanceId}}",
+                "notes",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15 – Notifications",
+      "item": [
+        {
+          "name": "List All My Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Unread Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/?is_read=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "is_read",
+                  "value": "false"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by Type – Report Submitted",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/?type=REPORT_SUBMITTED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "REPORT_SUBMITTED"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by Type – Internship Status Changed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/?type=INTERNSHIP_STATUS_CHANGED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "INTERNSHIP_STATUS_CHANGED"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Single Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/read/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "read",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark ALL Notifications as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "16 – Search & Filtering (Internship Records)",
+      "item": [
+        {
+          "name": "List All Internship Records (role-filtered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by status=ONGOING",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?status=ONGOING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ONGOING"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by status=COMPLETED",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?status=COMPLETED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "COMPLETED"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by company ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?company={{companyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "company",
+                  "value": "{{companyId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by company name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?company=Acme",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "company",
+                  "value": "Acme"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by student name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?student=Dagim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "student",
+                  "value": "Dagim"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by department",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?department={{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "{{departmentId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by advisor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?advisor={{advisorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "advisor",
+                  "value": "{{advisorId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by start date range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?start_date_after=2026-01-01&start_date_before=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "start_date_after",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "start_date_before",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Full-text search (student / company / position)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?search=backend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "backend"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order by start_date ascending",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?ordering=start_date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "ordering",
+                  "value": "start_date"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Combine: ONGOING + company + search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/internship-records/?status=ONGOING&company=Acme&search=developer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internship-records",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ONGOING"
+                },
+                {
+                  "key": "company",
+                  "value": "Acme"
+                },
+                {
+                  "key": "search",
+                  "value": "developer"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Searches the Internship execution model. Different from /internships/ which lists job postings (InternshipPosition)."
+    },
+    {
+      "name": "17 – Logbooks & Reports",
+      "item": [
+        {
+          "name": "Student – Create Weekly Logbook",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) { pm.collectionVariables.set('logbookId', pm.response.json().id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"week_number\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logbooks/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "logbooks",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student – Add Daily Log Entry",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"day_number\": 1,\n  \"work_date\": \"2026-06-02\",\n  \"work_performed\": \"Implemented user authentication endpoint.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logbooks/{{logbookId}}/entries/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "logbooks",
+                "{{logbookId}}",
+                "entries",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student – Submit Final Report (multipart)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Final Internship Report",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "Use any file for test",
+                  "src": "{{avatarFilePath}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/final/{{reportStudentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "final",
+                "{{reportStudentId}}",
+                ""
+              ]
+            },
+            "description": "reportStudentId is the Student model pk (NOT user pk)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get / Download Final Report",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/final/{{reportStudentId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "final",
+                "{{reportStudentId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor – List Assigned Students' Final Reports",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/advisor/reports/final/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "advisor",
+                "reports",
+                "final",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor – List Assigned Students' Weekly Logbooks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/advisor/logbooks/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "advisor",
+                "logbooks",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "18 – Evaluations",
+      "item": [
+        {
+          "name": "List / Create Final Industry Evaluations",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/final-industry/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "final-industry",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Company Mentor – Submit Final Industry Evaluation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if ([200,201].includes(pm.response.code)) { pm.collectionVariables.set('evaluationId', pm.response.json().id); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internship\": {{applicationId}},\n  \"knowledge_about_task\": 4,\n  \"problem_solving\": 4,\n  \"quality_of_work\": 5,\n  \"punctuality_in_production\": 4,\n  \"initiative\": 3,\n  \"dedication\": 4,\n  \"cooperation\": 5,\n  \"discipline\": 4,\n  \"responsibility\": 4,\n  \"socialization\": 3,\n  \"communication\": 4,\n  \"decision_making\": 3,\n  \"student_potential\": \"Shows great potential.\",\n  \"overall_comments\": \"Excellent intern.\",\n  \"would_offer_job\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/final-industry/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "final-industry",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Final Industry Evaluation Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/final-industry/{{evaluationId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "final-industry",
+                "{{evaluationId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List / Create Advisor Evaluations",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "advisor",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor – Submit Evaluation",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internship\": {{applicationId}},\n  \"technical_followup_score\": 4,\n  \"communication_score\": 4,\n  \"attendance_followup_score\": 5,\n  \"professionalism_score\": 4,\n  \"report_quality_score\": 3,\n  \"comments\": \"Student has met all requirements.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "advisor",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Advisor Evaluation Detail",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations/advisor/{{evaluationId}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "evaluations",
+                "advisor",
+                "{{evaluationId}}",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "19 – Dashboards",
+      "item": [
+        {
+          "name": "Student Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/student/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "student",
+                ""
+              ]
+            },
+            "description": "Returns active internship, attendance summary, reports, evaluations, advisor info, recent notifications."
+          },
+          "response": []
+        },
+        {
+          "name": "Advisor Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{advisorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "advisor",
+                ""
+              ]
+            },
+            "description": "Returns assigned students, active internships, pending reports, attendance flags."
+          },
+          "response": []
+        },
+        {
+          "name": "Mentor Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/mentor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "mentor",
+                ""
+              ]
+            },
+            "description": "Returns company internship counts, pending applications, attendance overview, intern summaries."
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/coordinator/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "coordinator",
+                ""
+              ]
+            },
+            "description": "Returns department students, advisors, internship counts, placement rate, advisor workload."
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/admin/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "admin",
+                ""
+              ]
+            },
+            "description": "Returns global stats: user counts by role, companies, positions, internships by status, evaluations."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "20 – Analytics",
+      "item": [
+        {
+          "name": "Placement Analytics – All",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/placements/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "placements",
+                ""
+              ]
+            },
+            "description": "Returns total placed, placement rate, breakdown by status/department/company/year."
+          },
+          "response": []
+        },
+        {
+          "name": "Placement Analytics – Filter by department",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/placements/?department={{departmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "placements",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "department",
+                  "value": "{{departmentId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Placement Analytics – Filter by year",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/placements/?year=2026",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "placements",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Placement Analytics – Filter by company",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/placements/?company={{companyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "placements",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "company",
+                  "value": "{{companyId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Company Performance Summary",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/company-performance/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "company-performance",
+                ""
+              ]
+            },
+            "description": "Returns per-company internship counts, completion rate, avg evaluation scores. Sorted by completion rate."
+          },
+          "response": []
+        },
+        {
+          "name": "Department Statistics – All (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "departments",
+                ""
+              ]
+            },
+            "description": "Returns per-department student/advisor counts, internship counts, placement/completion rates."
+          },
+          "response": []
+        },
+        {
+          "name": "Department Statistics – Own dept (Coordinator)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{coordinatorAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/departments/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "departments",
+                ""
+              ]
+            },
+            "description": "Coordinator sees only their department's statistics."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "21 – Permission Smoke Tests",
+      "item": [
+        {
+          "name": "No token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401 without token', () => pm.expect(pm.response.code).to.be.oneOf([401, 403]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student tries admin dashboard → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 for wrong role', () => pm.expect(pm.response.code).to.be.oneOf([403, 401]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/admin/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "admin",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student tries creating position → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 student cannot create position', () => pm.expect(pm.response.code).to.be.oneOf([403, 400]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Should Fail\",\n  \"description\": \"Students cannot create positions.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "internships",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mentor tries advisor dashboard → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 mentor cannot access advisor dashboard', () => pm.expect(pm.response.code).to.be.oneOf([403, 401]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/advisor/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "advisor",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Student tries analytics → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 student cannot access analytics', () => pm.expect(pm.response.code).to.be.oneOf([403, 401]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/placements/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "analytics",
+                "placements",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mentor views another company applicants → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('403 cross-company applicant access', () => pm.expect(pm.response.code).to.be.oneOf([403, 404]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{companyAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/999/applicants/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "company",
+                "999",
+                "applicants",
+                ""
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Verify that unauthorized access is correctly rejected."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('No 500 error', () => pm.expect(pm.response.code).to.not.equal(500));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "description": "Active token – set automatically by login/verify scripts"
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "studentAccessToken",
+      "value": ""
+    },
+    {
+      "key": "studentRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "companyAccessToken",
+      "value": ""
+    },
+    {
+      "key": "companyRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "coordinatorAccessToken",
+      "value": ""
+    },
+    {
+      "key": "coordinatorRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "advisorAccessToken",
+      "value": ""
+    },
+    {
+      "key": "advisorRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "adminAccessToken",
+      "value": ""
+    },
+    {
+      "key": "adminRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "studentEmail",
+      "value": "student@example.com"
+    },
+    {
+      "key": "studentPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "studentUsername",
+      "value": "student1"
+    },
+    {
+      "key": "studentPhone",
+      "value": "+251900000001"
+    },
+    {
+      "key": "studentId",
+      "value": "ETS001",
+      "description": "Pre-registered student_id"
+    },
+    {
+      "key": "studentDepartmentName",
+      "value": "Computer Science"
+    },
+    {
+      "key": "studentOtp",
+      "value": "123456",
+      "description": "Paste OTP from server terminal (DEBUG mode)"
+    },
+    {
+      "key": "studentUserPk",
+      "value": "1",
+      "description": "User pk returned after registration"
+    },
+    {
+      "key": "companyEmail",
+      "value": "mentor@company.com"
+    },
+    {
+      "key": "companyPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "companyUsername",
+      "value": "companymentor1"
+    },
+    {
+      "key": "companyName",
+      "value": "Acme Software PLC"
+    },
+    {
+      "key": "companyOtp",
+      "value": "123456"
+    },
+    {
+      "key": "companyId",
+      "value": "1"
+    },
+    {
+      "key": "coordinatorEmail",
+      "value": "coordinator@example.com"
+    },
+    {
+      "key": "coordinatorPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "coordinatorUsername",
+      "value": "coordinator1"
+    },
+    {
+      "key": "coordinatorOtp",
+      "value": "123456"
+    },
+    {
+      "key": "advisorEmail",
+      "value": "advisor@example.com"
+    },
+    {
+      "key": "advisorPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "advisorUsername",
+      "value": "advisor1"
+    },
+    {
+      "key": "advisorOtp",
+      "value": "123456"
+    },
+    {
+      "key": "advisorId",
+      "value": "1",
+      "description": "Advisor model pk"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Password123!"
+    },
+    {
+      "key": "departmentId",
+      "value": "1"
+    },
+    {
+      "key": "positionId",
+      "value": "1",
+      "description": "InternshipPosition pk"
+    },
+    {
+      "key": "applicationId",
+      "value": "1",
+      "description": "InternshipApplication pk"
+    },
+    {
+      "key": "internshipId",
+      "value": "1",
+      "description": "Internship (execution) pk"
+    },
+    {
+      "key": "attendanceId",
+      "value": "1"
+    },
+    {
+      "key": "notificationId",
+      "value": "1"
+    },
+    {
+      "key": "logbookId",
+      "value": "1"
+    },
+    {
+      "key": "reportStudentId",
+      "value": "1",
+      "description": "Student model pk for report upload"
+    },
+    {
+      "key": "evaluationId",
+      "value": "1"
+    },
+    {
+      "key": "targetUserEmail",
+      "value": "someuser@example.com"
+    },
+    {
+      "key": "targetRoleName",
+      "value": "ADVISOR"
+    },
+    {
+      "key": "avatarFilePath",
+      "value": "",
+      "description": "Absolute local path to an image file"
+    }
+  ]
+}

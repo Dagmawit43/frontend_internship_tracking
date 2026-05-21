@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api";
 import { DEPARTMENTS } from "../constants/departments";
+import { authService } from "../services/authService";
+import { toast } from "../utils/toast";
 
 const RegistrationForm = () => {
   const navigate = useNavigate();
@@ -34,6 +35,10 @@ const RegistrationForm = () => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setIsSubmitting(true);
+
+    console.log("🔵 Form submitted with role:", formData.role);
+    console.log("📋 Form data:", formData);
 
     const {
       role,
@@ -48,165 +53,169 @@ const RegistrationForm = () => {
       confirmPassword,
     } = formData;
 
-    if (role === "Student") {
-      if (!email.endsWith("@aastustudent.edu.et")) {
-        setError("Only AASTU email addresses are allowed for students.");
-        return;
-      }
-      if (!studentId) {
-        setError("Student ID is required for student registration.");
-        return;
-      }
-      if (!department) {
-        setError("Department is required for student registration.");
+    try {
+      // Common validation
+      const phoneRegex = /^[0-9]{9,15}$/;
+      if (!phoneRegex.test(phone)) {
+        setError("Enter a valid phone number (digits only, 9–15 characters).");
+        setIsSubmitting(false);
         return;
       }
 
-      const eligibleStudents = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
-      const isEligible = eligibleStudents.some(
-        (s) =>
-          String(s.studentId).toLowerCase() === String(studentId).toLowerCase() &&
-          String(s.email).toLowerCase() === String(email).toLowerCase() &&
-          String(s.department).trim().toLowerCase() === String(department).trim().toLowerCase()
-      );
-
-      if (!isEligible) {
-        setError("You are not eligible to register. Please check that your Student ID, Email, and Department exactly match the official eligibility list.");
-        return;
-      }
-    }
-
-    // For staff roles we will do a fake OTP flow locally (no backend yet)
-    if (staffRoles.includes(role)) {
-      if (!email) {
-        setError("Email is required for registration.");
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        setIsSubmitting(false);
         return;
       }
 
-      // Enforce invitation-based authorization for Advisors and Examiners
-      if (role === "Advisor" || role === "Examiner") {
-        const invitations = JSON.parse(localStorage.getItem("pendingInvitations") || "[]");
-        const invitation = invitations.find(
-          inv => String(inv.email).toLowerCase() === String(email).toLowerCase() &&
-                 inv.role === role &&
-                 String(inv.department).trim().toLowerCase() === String(department).trim().toLowerCase() &&
-                 inv.status === "pending"
-        );
+      // Student Registration
+      if (role === "Student") {
+        console.log("👤 Student Registration Flow");
+        // Accept common AASTU student and staff email domains
+        const allowedStudentDomains = ["@aastustudent.edu.et", "@aastu.edu.et"];
+        if (!allowedStudentDomains.some((d) => email.toLowerCase().endsWith(d))) {
+          setError("Only AASTU email addresses are allowed for students.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (!studentId) {
+          setError("Student ID is required for student registration.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (!department) {
+          setError("Department is required for student registration.");
+          setIsSubmitting(false);
+          return;
+        }
 
-        if (!invitation) {
-          setError("You are not authorized for this role.");
+        console.log("📤 Calling authService.registerStudent()");
+        const result = await authService.registerStudent({
+          email: email.toLowerCase(),
+          username: fullName,
+          phone,
+          student_id: studentId,
+          department,
+          password,
+        });
+
+        console.log("✅ Response received:", result);
+
+        if (result.success) {
+          console.log("🎉 Registration successful!");
+          toast.success("Registration successful! Redirecting to dashboard...");
+          setTimeout(() => navigate("/login"), 1500);
+          return;
+        } else {
+          console.error("❌ Registration failed:", result.error);
+          setError(result.error?.detail || result.error?.email?.[0] || result.error?.student_id?.[0] || "Registration failed. Please try again.");
+          setIsSubmitting(false);
           return;
         }
       }
 
-      // prepare pending user and trigger OTP step (fake)
-      const temp = {
-        id: `user-${Date.now()}`,
-        role,
-        fullName: String(fullName || ""),
-        email: String(email).toLowerCase(),
-        department: String(department || ""),
-        phone: String(phone || ""),
-        password: String(password || ""),
-        createdAt: new Date().toISOString(),
-        source: "local",
-      };
-      setPendingUser(temp);
-      setOtpSent(true);
-      return;
-    }
+      // Company Registration
+      if (role === "Company") {
+        console.log("🏢 Company Registration Flow");
+        if (!companyName) {
+          setError("Company name is required for company registration.");
+          setIsSubmitting(false);
+          return;
+        }
+        const tinRegex = /^\d{10}$/;
+        if (!tinRegex.test(String(tinNumber || "").trim())) {
+          setError("Please enter a valid 10-digit TIN number.");
+          setIsSubmitting(false);
+          return;
+        }
 
-    if (role === "Company") {
-      if (!companyName) {
-        setError("Company name is required for company registration.");
-        return;
-      }
-      const tinRegex = /^\d{10}$/;
-      if (!tinRegex.test(String(tinNumber || "").trim())) {
-        setError("Please enter a valid 10-digit TIN number.");
-        return;
-      }
-    }
+        console.log("📤 Calling authService.registerCompany()");
+        const result = await authService.registerCompany({
+          company_name: companyName,
+          email: email.toLowerCase(),
+          phone,
+          username: fullName,
+          tin_number: tinNumber,
+          password,
+        });
 
-    const phoneRegex = /^[0-9]{9,15}$/;
-    if (!phoneRegex.test(phone)) {
-      setError("Enter a valid phone number (digits only, 9–15 characters).");
-      return;
-    }
+        console.log("✅ Response received:", result);
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    if (role === "Student") {
-      const students = JSON.parse(localStorage.getItem("students") || "[]");
-      const exists = students.some(
-        (s) =>
-          String(s?.email || "").toLowerCase() === String(email || "").toLowerCase() ||
-          String(s?.studentId || s?.id || "").toLowerCase() === String(studentId || "").toLowerCase(),
-      );
-
-      if (exists) {
-        setError("This student is already registered locally. Please login.");
-        return;
+        if (result.success) {
+          console.log("🎉 Registration successful!");
+          toast.success("Registration successful! Redirecting to dashboard...");
+          setTimeout(() => navigate("/login"), 1500);
+          return;
+        } else {
+          console.error("❌ Registration failed:", result.error);
+          setError(result.error?.detail || result.error?.email?.[0] || result.error?.tin_number?.[0] || "Registration failed. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
       }
 
-      const localStudent = {
-        id: String(studentId) || `stu-${Date.now()}`,
-        studentId: String(studentId),
-        fullName: String(fullName),
-        email: String(email),
-        phone: String(phone),
-        password: String(password),
-        department: String(department),
-        createdAt: new Date().toISOString(),
-        source: "local",
-      };
-      students.push(localStudent);
-      localStorage.setItem("students", JSON.stringify(students));
-      setSuccess("Student registration saved locally. Redirecting to login...");
-      setTimeout(() => navigate("/login"), 1200);
-      return;
-    }
+      // Staff Registration (Coordinator, Advisor, Examiner)
+      if (staffRoles.includes(role)) {
+        console.log("👔 Staff Registration Flow -", role);
+        if (!email) {
+          setError("Email is required for registration.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (!department) {
+          setError("Department is required for registration.");
+          setIsSubmitting(false);
+          return;
+        }
 
-    if (role === "Company") {
-      const companies = JSON.parse(localStorage.getItem("companies") || "[]");
-      const localCompanyName = String(companyName || "").trim();
-      const localEmail = String(email || "").trim().toLowerCase();
-      const exists = companies.some(
-        (c) =>
-          String(c?.companyName || c?.company_name || "").trim().toLowerCase() === localCompanyName.toLowerCase() ||
-          String(c?.contactEmail || c?.representative_email || c?.email || "").trim().toLowerCase() === localEmail,
-      );
+        console.log("� Calling authService.registerStaff() (OTP skipped in dev mode)");
+        const result = await authService.registerStaff({
+          email: email.toLowerCase(),
+          username: fullName,
+          phone,
+          department,
+          role: role.toLowerCase(),
+          password,
+        });
 
-      if (exists) {
-        setError("This company is already registered locally. Please login.");
+        console.log("✅ Staff registration response:", result);
+
+        if (result.success) {
+          console.log("🎉 Staff registration successful!");
+          toast.success("Registration successful! Redirecting to dashboard...");
+          setTimeout(() => navigate("/login"), 1500);
+          return;
+        } else {
+          console.error("❌ Staff registration failed:", result.error);
+          setError(result.error?.detail || result.error?.email?.[0] || "Registration failed. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+        
+        /* 🔴 OTP FLOW COMMENTED OUT (dev mode skips OTP)
+        console.log("📝 Showing OTP modal for email:", email);
+
+        // Prepare user data for OTP flow
+        const temp = {
+          role,
+          full_name: fullName,
+          email: email.toLowerCase(),
+          department,
+          phone,
+          password,
+          tin_number: tinNumber,
+        };
+        setPendingUser(temp);
+        setOtpSent(true);
+        setIsSubmitting(false);
         return;
+        */
       }
-
-      const localCompany = {
-        id: Date.now(),
-        companyName: localCompanyName,
-        company_name: localCompanyName,
-        contactEmail: localEmail,
-        representative_email: localEmail,
-        contactPhone: String(phone || ""),
-        representative_name: String(fullName || ""),
-        tinNumber: String(tinNumber || ""),
-        tin_number: String(tinNumber || ""),
-        password: String(password),
-        verified: true,
-        status: "VERIFIED",
-        source: "local",
-        createdAt: new Date().toISOString(),
-      };
-
-      companies.push(localCompany);
-      localStorage.setItem("companies", JSON.stringify(companies));
-      setSuccess("Company registration saved locally. Redirecting to login...");
-      setTimeout(() => navigate("/login"), 1200);
-      return;
+    } catch (err) {
+      console.error("💥 Catch error:", err);
+      setError("An error occurred during registration. Please try again.");
+      console.error("Registration error:", err);
+      setIsSubmitting(false);
     }
   };
 
@@ -372,13 +381,14 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* OTP modal (fake) */}
+        {/* 🔴 OTP MODAL COMMENTED OUT (dev mode skips OTP verification) */}
+        {/* 
         {otpSent && pendingUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
             <div className="app-modal-panel w-full max-w-md p-6">
               <h3 className="mb-2 text-lg font-bold text-slate-900">Verify Email</h3>
               <p className="mb-4 text-sm text-slate-600">
-                A one-time code was sent to {pendingUser.email}. (Fake for now — enter any code.)
+                A one-time code was sent to {pendingUser.email}. Check your inbox.
               </p>
               <input
                 type="text"
@@ -386,48 +396,99 @@ const RegistrationForm = () => {
                 onChange={(e) => setOtpCode(e.target.value)}
                 placeholder="Enter OTP"
                 className="app-input mb-4"
+                disabled={isSubmitting}
               />
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  {error}
+                </div>
+              )}
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => { setOtpSent(false); setPendingUser(null); setOtpCode(""); }}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                  onClick={() => { 
+                    setOtpSent(false);
+                    setPendingUser(null);
+                    setOtpCode("");
+                    setError("");
+                  }}
+                  disabled={isSubmitting}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const users = JSON.parse(localStorage.getItem("otherUsers") || "[]");
-                    const exists = users.some((u) => u.email === pendingUser.email);
-                    if (!exists) {
-                      users.push(pendingUser);
-                      localStorage.setItem("otherUsers", JSON.stringify(users));
+                  onClick={async () => {
+                    console.log("🔵 Verify OTP button clicked");
+                    console.log("📝 OTP Code entered:", otpCode);
+                    console.log("📝 Pending user:", pendingUser);
 
-                      if (pendingUser.role === "Advisor" || pendingUser.role === "Examiner") {
-                        const invitations = JSON.parse(localStorage.getItem("pendingInvitations") || "[]");
-                        const updatedInvitations = invitations.map(inv =>
-                          String(inv.email).toLowerCase() === pendingUser.email.toLowerCase() && inv.role === pendingUser.role
-                            ? { ...inv, status: "accepted" }
-                            : inv
-                        );
-                        localStorage.setItem("pendingInvitations", JSON.stringify(updatedInvitations));
-                      }
+                    if (!otpCode.trim()) {
+                      console.log("❌ OTP code is empty");
+                      setError("Please enter the OTP code.");
+                      return;
                     }
-                    setOtpSent(false);
-                    setPendingUser(null);
-                    setOtpCode("");
-                    setSuccess("Registration complete. You can now log in.");
-                    setTimeout(() => navigate("/login"), 900);
+
+                    console.log("✅ OTP code valid, starting verification process");
+                    setIsSubmitting(true);
+                    setError("");
+
+                    console.log("📤 Calling authService.verifyOTP()");
+                    const result = await authService.verifyOTP(
+                      pendingUser.email,
+                      otpCode
+                    );
+
+                    console.log("✅ OTP verification response:", result);
+
+                    if (result.success) {
+                      console.log("🎉 OTP verified successfully!");
+                      toast.success("Email verified! Registering your account...");
+                      
+                      // Now register the staff member
+                      console.log("📤 Calling authService.registerStaff()");
+                      const registerResult = await authService.registerStaff({
+                        email: pendingUser.email,
+                        full_name: pendingUser.full_name,
+                        phone: pendingUser.phone,
+                        department: pendingUser.department,
+                        role: pendingUser.role.toLowerCase(),
+                        password: pendingUser.password,
+                      });
+
+                      console.log("✅ Staff registration response:", registerResult);
+
+                      if (registerResult.success) {
+                        console.log("🎉 Staff registration successful!");
+                        toast.success("Registration complete! Redirecting to login...");
+                        setTimeout(() => {
+                          setOtpSent(false);
+                          setPendingUser(null);
+                          setOtpCode("");
+                          navigate("/login");
+                        }, 1500);
+                      } else {
+                        console.error("❌ Staff registration failed:", registerResult.error);
+                        setError(registerResult.error?.detail || "Registration failed. Please try again.");
+                        setIsSubmitting(false);
+                      }
+                    } else {
+                      console.error("❌ OTP verification failed:", result.error);
+                      setError(result.error?.detail || "Invalid OTP. Please try again.");
+                      setIsSubmitting(false);
+                    }
                   }}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                  disabled={isSubmitting}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Verify
+                  {isSubmitting ? "Verifying..." : "Verify"}
                 </button>
               </div>
             </div>
           </div>
         )}
+        */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getInternships } from "../mock/internshipApi";
 import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, Bot, MessageCircle, Send, X, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
 import ApplicationModal from "./modals/ApplicationModal";
-import companiesMock from "../mock/companies.json";
 import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import {
@@ -380,115 +378,152 @@ const buildInitialAcceptanceForm = ({ student, internship, applicationData }) =>
   orgName: applicationData?.companyName || internship?.company_name || "",
 });
 
+import dataService from "../services/dataService";
+import userService from "../services/userService";
+
 const AvailableInternships = ({ studentId, studentDepartment, studentProfile, onApplicationSubmit }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedInternship, setSelectedInternship] = useState(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     loadInternships();
   }, [studentDepartment]);
 
   const loadInternships = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const localInternships = JSON.parse(localStorage.getItem("allInternships")) || null;
-      
-      let data = [];
-      if (localInternships) {
-        data = localInternships;
-      } else {
-        data = await getInternships();
+      const [internshipsResult, companiesResult] = await Promise.all([
+        dataService.getInternships(),
+        dataService.getCompanies(),
+      ]);
+
+      if (!internshipsResult.success) {
+        throw new Error(internshipsResult.error || "Failed to load internships.");
+      }
+      if (!companiesResult.success) {
+        // Companies are optional, so we can proceed without them but log an error
+        console.error("Failed to load companies:", companiesResult.error);
       }
 
-      const localCompanies = JSON.parse(localStorage.getItem("companies")) || [];
-      const allCompanies = [...localCompanies, ...companiesMock];
+      const internshipsData = internshipsResult.data || [];
+      const companiesData = companiesResult.data || [];
 
-      const processed = data
-        .map(internship => {
-          const comp = allCompanies.find(c => c.company_id === internship.company_id || c.id === internship.company_id || c.company_name === internship.company_name);
-          return {
+      console.log("Raw internships data:", internshipsData);
+      console.log("Raw companies data:", companiesData);
+      console.log("Student department for filtering:", studentDepartment);
+
+      const processed = internshipsData
+        .map((internship) => {
+          const comp = companiesData.find((c) =>
+            c.id === internship.company
+          );
+
+          const resolvedCompanyName = comp ? comp.name : "Unknown Company";
+
+          // Normalize department field from several possible shapes
+          const dept = internship.department?.name || internship.department || "";
+
+          // Normalize active/status
+          const isActive = Boolean(internship.is_active);
+
+          const processedInternship = {
             ...internship,
-            companyName: internship.company_name || (comp ? comp.companyName || comp.company_name : "Unknown Company")
+            companyName: resolvedCompanyName,
+            department: dept,
+            isActive,
           };
+          
+          console.log(`Processing internship ID ${internship.id}:`, {
+            original: internship,
+            foundCompany: comp,
+            processed: processedInternship
+          });
+
+          return processedInternship;
         })
-        .filter(i => {
-          const isActive = i.status !== "CLOSED" && i.status !== "FULL";
-          const deptMatch = !studentDepartment || 
-            String(i.department).trim().toLowerCase() === String(studentDepartment).trim().toLowerCase();
-            
-          return isActive && deptMatch;
+        .filter((i) => {
+          if (!i.isActive) {
+            console.log(`Filtering out internship ID ${i.id} because it's not active.`);
+            return false;
+          }
+
+          if (!studentDepartment) {
+            console.log(`Showing internship ID ${i.id} because student has no department set.`);
+            return true;
+          }
+          const internDept = String(i.department || "").trim().toLowerCase();
+          const studentDeptNorm = String(studentDepartment || "").trim().toLowerCase();
+          
+          if (!internDept) {
+            console.log(`Showing internship ID ${i.id} because internship has no department specified.`);
+            return true;
+          }
+          
+          const isMatch = internDept === studentDeptNorm;
+          console.log(`Filtering internship ID ${i.id} by department: internship_dept='${internDept}', student_dept='${studentDeptNorm}', match=${isMatch}`);
+          return isMatch;
         });
 
+      console.log("Final processed and filtered internships:", processed);
       setInternships(processed);
     } catch (error) {
       console.error("Error loading internships:", error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500">Loading internships...</div>;
+  if (loading) return <div className="py-8 text-center text-gray-500 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>Loading internships...</span></div>;
+  if (error) return <div className="py-8 text-center text-red-500">Error: {error}</div>;
 
   const handleApplySubmit = async (applicationData) => {
+    if (!selectedInternship) return;
+    
+    setIsApplying(true);
+    setError(null);
+
     try {
-      const studentName = JSON.parse(localStorage.getItem("student"))?.name || 
-                          JSON.parse(localStorage.getItem("student"))?.fullName || "Student";
-      
-      const applications = JSON.parse(localStorage.getItem("applications")) || [];
-      const existing = applications.find(
-        (app) =>
-          (app.studentId === studentId || app.studentName === studentName) &&
-          app.internshipId === selectedInternship.id
-      );
-
-      if (existing) {
-        alert("You have already applied to this internship.");
-        return;
-      }
-
-      const newApplication = {
-        id: Date.now(),
-        ...applicationData,
-        studentId,
-        studentName,
-        internshipId: selectedInternship.id,
-        internshipTitle: selectedInternship.title,
-        status: "Pending",
-        applicationStatus: "PENDING_COMPANY_REVIEW",
-        acceptanceForm: buildInitialAcceptanceForm({
-          student: studentProfile,
-          internship: selectedInternship,
-          applicationData,
-        }),
-        appliedAt: new Date().toISOString(),
+      // The data expected by the backend for the application
+      const payload = {
+        student: studentId,
+        internship: selectedInternship.id,
+        ...applicationData, // includes cover_letter, resume, etc.
       };
 
-      applications.push(newApplication);
-      localStorage.setItem("applications", JSON.stringify(applications));
+      const result = await internshipService.applyToPosition(selectedInternship.id, payload);
 
-      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      notifications.push({
-        id: Date.now(),
-        type: "info",
-        title: `Application submitted for ${selectedInternship.title} at ${applicationData.companyName}`,
-        message: "Your application is pending review",
-        date: new Date().toISOString(),
-        studentId,
-        studentName,
-      });
-      localStorage.setItem("notifications", JSON.stringify(notifications));
-
-      if (onApplicationSubmit) {
-        onApplicationSubmit(newApplication);
+      if (result.success) {
+        alert(`Successfully applied to ${selectedInternship.title}!`);
+        
+        // Optionally, refresh data or notify other components
+        if (onApplicationSubmit) {
+          onApplicationSubmit(result.data);
+        }
+        
+        setIsApplyModalOpen(false);
+        setSelectedInternship(null);
+        loadInternships(); // Refresh the list of internships
+      } else {
+        // Handle specific backend errors, e.g., "already applied"
+        const errorMessage = result.error?.detail || result.error || "An unknown error occurred.";
+        if (errorMessage.includes("already applied")) {
+          alert("You have already applied to this internship.");
+        } else {
+          alert(`Error: ${errorMessage}`);
+        }
+        throw new Error(errorMessage);
       }
-
-      alert(`Successfully applied to ${selectedInternship.title}!`);
-      setIsApplyModalOpen(false);
-      setSelectedInternship(null);
     } catch (error) {
       console.error("Error submitting internship application:", error);
-      alert("Error submitting application. Please try again.");
+      setError(error.message || "Failed to submit application. Please try again.");
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -2210,7 +2245,7 @@ const StudentDashboard = () => {
     };
   }, [studentData]);
 
-  const loadAssignment = (studentId, studentName, studentEmail, department) => {
+  const loadAssignment = async (studentId, studentName, studentEmail, department) => {
     try {
       const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
       const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
@@ -2219,10 +2254,25 @@ const StudentDashboard = () => {
       console.log("📋 Available assignments:", assignments);
       
       if (assignments.length === 0) {
-        console.log("❌ No assignments found in localStorage");
-        setAdvisor(null);
-        setExaminer(null);
-        setExaminer2(null);
+        console.log("❌ No assignments found in localStorage — falling back to API");
+        // Try API: get assigned advisors/examiners for this department
+        try {
+          const advisorsRes = await userService.getAssignedAdvisors({ department });
+          if (advisorsRes && advisorsRes.success && advisorsRes.data && advisorsRes.data.length > 0) {
+            // pick the first advisor for display
+            const adv = advisorsRes.data[0];
+            setAdvisor(adv.name || adv.user_name || adv.username || adv.email || null);
+          }
+          const examinersRes = await userService.getAssignedExaminers({ department });
+          if (examinersRes && examinersRes.success && examinersRes.data && examinersRes.data.length > 0) {
+            const ex = examinersRes.data[0];
+            setExaminer(ex.name || ex.user_name || ex.username || ex.email || null);
+            if (examinersRes.data.length > 1) setExaminer2(examinersRes.data[1].name || null);
+          }
+        } catch (apiErr) {
+          console.error("API fallback for assignments failed", apiErr);
+        }
+
         return;
       }
       

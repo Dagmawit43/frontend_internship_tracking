@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import CoordinatorSidebar from "./CoordinatorSidebar";
+import storageService from "../services/storageService";
+import userService from "../services/userService";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
@@ -107,11 +109,27 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
   const [pendingStudents, setPendingStudents] = useState([]);
   const [resolvedDeptForDisplay, setResolvedDeptForDisplay] = useState("");
 
-  const reloadLists = useCallback(() => {
+  const reloadLists = useCallback(async () => {
     const liveDept = (getCoordinatorDepartment() || coordinatorDept || "").trim();
-    const allEligible = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
-    const allRegistered = JSON.parse(localStorage.getItem("students") || "[]");
     const normalize = (s) => String(s || "").trim().toLowerCase();
+
+    // eligible students still read from localStorage (could be migrated later)
+    const allEligible = JSON.parse(localStorage.getItem("eligibleStudents") || "[]");
+
+    // Prefer API for registered students; fall back to localStorage
+    let allRegistered = [];
+    try {
+      // lazy-load dataService to avoid cyclic imports at top-level
+      const dataService = await import("../services/dataService");
+      const res = await dataService.default.getStudents();
+      if (res && res.success && Array.isArray(res.data)) {
+        allRegistered = res.data;
+      } else {
+        allRegistered = JSON.parse(localStorage.getItem("students") || "[]");
+      }
+    } catch (err) {
+      allRegistered = JSON.parse(localStorage.getItem("students") || "[]");
+    }
 
     const useDeptFilter = liveDept.length > 0;
     const deptEligible = useDeptFilter
@@ -624,6 +642,48 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     });
     localStorage.setItem("applications", JSON.stringify(updatedApps));
     window.dispatchEvent(new Event("storage"));
+  };
+
+  // Use API when assigning advisor to a student
+  const handleUpdateAssignmentApi = async (appId, field, name) => {
+    if (!name) return;
+    try {
+      if (field === "advisorName") {
+        // find the internship application to know the studentId
+        const allApps = JSON.parse(localStorage.getItem("applications") || "[]");
+        const app = allApps.find((a) => a.id === appId);
+        if (!app) throw new Error("Application not found");
+
+        const studentId = app.studentId || app.student_id || app.studentUserPk || app.studentUserId;
+        // find advisor id from current advisorsPool (fallback to assignedAdvisors in localStorage)
+        let advisorId = null;
+        const pool = advisorsPool && advisorsPool.length > 0 ? advisorsPool : JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+        const advisorObj = pool.find((p) => (p.name || p.user_name || p.username) === name || p.email === name || p.id === name);
+        if (advisorObj) advisorId = advisorObj.id || advisorObj.user_id || advisorObj.userId;
+
+        if (!advisorId) {
+          // can't call API without advisor id - fall back to local update
+          console.warn("Advisor id not found for name", name);
+          handleUpdateAssignment(appId, field, name);
+          return;
+        }
+
+        // Call backend endpoint: POST /students/{studentId}/assign-advisor/ { advisor_id }
+        const res = await userService.assignAdvisor(studentId, advisorId);
+        if (!res.success) throw new Error(res.error || "API assign failed");
+
+        // On success, apply the same local updates so UI reflects change
+        handleUpdateAssignment(appId, field, name);
+        showToast(`Advisor assigned to ${app.studentName || studentId}`);
+        return;
+      }
+
+      // For other fields, fall back to local update
+      handleUpdateAssignment(appId, field, name);
+    } catch (err) {
+      console.error("Failed to assign via API:", err);
+      alert(`Failed to assign: ${err.message || err}`);
+    }
   };
 
   const clearAssignment = (appId, field) => {
@@ -1391,16 +1451,8 @@ const CoordinatorDashboard = () => {
   const [coordinatorDept, setCoordinatorDept] = useState(() => getCoordinatorDepartment());
   const [coordinatorName, setCoordinatorName] = useState(() => getCoordinatorName());
   const [mockStaff, setMockStaff] = useState([]);
-  const [assignedAdvisors, setAssignedAdvisors] = useState(() => {
-    const dept = getCoordinatorDepartment();
-    const all = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
-    return all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase());
-  });
-  const [assignedExaminers, setAssignedExaminers] = useState(() => {
-    const dept = getCoordinatorDepartment();
-    const all = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
-    return all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase());
-  });
+  const [assignedAdvisors, setAssignedAdvisors] = useState([]);
+  const [assignedExaminers, setAssignedExaminers] = useState([]);
   const [view, setView] = useState("home");
   const [fileError, setFileError] = useState("");
   const [fileSuccess, setFileSuccess] = useState("");
@@ -1498,36 +1550,46 @@ const CoordinatorDashboard = () => {
     setTimeout(() => setToast({ show: false, message: "" }), 4000);
   };
 
-  const assignAsAdvisor = (staff) => {
-    const updatedStaff = { ...staff, status: "Advisor" };
-    
-    // 1. Update localStorage globally (safe merge)
-    const allGlobalAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
-    const filteredGlobal = allGlobalAdvisors.filter(a => a.id !== updatedStaff.id && a.email !== updatedStaff.email);
-    localStorage.setItem("assignedAdvisors", JSON.stringify([...filteredGlobal, updatedStaff]));
+  const assignAsAdvisor = async (staff) => {
+    try {
+      const res = await userService.assignStaffAsAdvisor(staff.id, { department: staff.department });
+      if (!res.success) throw new Error(res.error || "Assign failed");
 
-    // 2. Update local state (ui only)
-    setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
-    setAssignedAdvisors(prev => [...prev.filter(a => a.id !== updatedStaff.id), updatedStaff]);
-    
-    addPendingInvitation(staff, "Advisor");
-    showToast(`Invitation email sent to ${staff.email}. They can now register as an Advisor.`);
+      const updatedStaff = { ...staff, status: "Advisor" };
+      const allGlobalAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+      const filteredGlobal = allGlobalAdvisors.filter(a => a.id !== updatedStaff.id && a.email !== updatedStaff.email);
+      localStorage.setItem("assignedAdvisors", JSON.stringify([...filteredGlobal, updatedStaff]));
+
+      setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
+      setAssignedAdvisors(prev => [...prev.filter(a => a.id !== updatedStaff.id), updatedStaff]);
+
+      addPendingInvitation(staff, "Advisor");
+      showToast(`Invitation email sent to ${staff.email}.`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Failed to assign advisor: ${err.message || err}`);
+    }
   };
 
-  const assignAsExaminer = (staff) => {
-    const updatedStaff = { ...staff, status: "Examiner" };
+  const assignAsExaminer = async (staff) => {
+    try {
+      const res = await userService.assignStaffAsExaminer(staff.id, { department: staff.department });
+      if (!res.success) throw new Error(res.error || "Assign failed");
 
-    // 1. Update localStorage globally (safe merge)
-    const allGlobalExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
-    const filteredGlobal = allGlobalExaminers.filter(e => e.id !== updatedStaff.id && e.email !== updatedStaff.email);
-    localStorage.setItem("assignedExaminers", JSON.stringify([...filteredGlobal, updatedStaff]));
+      const updatedStaff = { ...staff, status: "Examiner" };
+      const allGlobalExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+      const filteredGlobal = allGlobalExaminers.filter(e => e.id !== updatedStaff.id && e.email !== updatedStaff.email);
+      localStorage.setItem("assignedExaminers", JSON.stringify([...filteredGlobal, updatedStaff]));
 
-    // 2. Update local state (ui only)
-    setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
-    setAssignedExaminers(prev => [...prev.filter(e => e.id !== updatedStaff.id), updatedStaff]);
+      setMockStaff(prev => prev.filter(s => s.id !== staff.id && s.email !== staff.email));
+      setAssignedExaminers(prev => [...prev.filter(e => e.id !== updatedStaff.id), updatedStaff]);
 
-    addPendingInvitation(staff, "Examiner");
-    showToast(`Invitation email sent to ${staff.email}. They can now register as an Examiner.`);
+      addPendingInvitation(staff, "Examiner");
+      showToast(`Invitation email sent to ${staff.email}.`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Failed to assign examiner: ${err.message || err}`);
+    }
   };
 
   const handleFileUpload = () => {
@@ -1551,43 +1613,87 @@ const CoordinatorDashboard = () => {
     reader.readAsText(selectedFile);
   };
 
-  // Populate mockStaff on mount, subtract already-assigned ones (dept-scoped)
+  // Load staff/advisors/examiners from API (fall back to localStorage/mock)
   useEffect(() => {
-    const deptRaw = (getCoordinatorDepartment() || coordinatorDept || "").trim();
-    const dept = deptRaw.length > 0 ? deptRaw : "Department";
-    const key = dept.toString().replace(/\s+/g, "").toLowerCase();
+    const fetchStaffData = async () => {
+      const deptRaw = (getCoordinatorDepartment() || coordinatorDept || "").trim();
+      const dept = deptRaw.length > 0 ? deptRaw : "";
 
-    // Only subtract staff that belong to THIS coordinator's department
-    const currAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
-    const currExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
-    const deptNorm = key;
+      try {
+        const [unassignedRes, advisorsRes, examinersRes] = await Promise.all([
+          userService.getUnassignedStaff({ department: dept }),
+          userService.getAssignedAdvisors({ department: dept }),
+          userService.getAssignedExaminers({ department: dept }),
+        ]);
 
-    const deptAdvisors = currAdvisors.filter(a => String(a.department || "").trim().toLowerCase() === deptNorm);
-    const deptExaminers = currExaminers.filter(e => String(e.department || "").trim().toLowerCase() === deptNorm);
+        if (advisorsRes && advisorsRes.success) {
+          setAssignedAdvisors(advisorsRes.data || []);
+          try { localStorage.setItem("assignedAdvisors", JSON.stringify(advisorsRes.data || [])); } catch {}
+        } else {
+          const all = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+          setAssignedAdvisors(all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase()));
+        }
 
-    // Build sets for both IDs and emails — handles old generic IDs and new namespaced IDs
-    const assignedIds = new Set([
-      ...deptAdvisors.map(a => a.id),
-      ...deptExaminers.map(e => e.id),
-    ]);
-    const assignedEmails = new Set([
-      ...deptAdvisors.map(a => String(a.email || "").toLowerCase()),
-      ...deptExaminers.map(e => String(e.email || "").toLowerCase()),
-    ]);
+        if (examinersRes && examinersRes.success) {
+          setAssignedExaminers(examinersRes.data || []);
+          try { localStorage.setItem("assignedExaminers", JSON.stringify(examinersRes.data || [])); } catch {}
+        } else {
+          const all = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+          setAssignedExaminers(all.filter(s => String(s.department || "").trim().toLowerCase() === String(dept).trim().toLowerCase()));
+        }
 
-    // Use dept-namespaced IDs so each coordinator has their own independent pool
-    const staff = Array.from({ length: 10 }).map((_, i) => {
-      const idx = i + 1;
-      return {
-        id: `${key}-staff-${idx}`,
-        name: `${dept}Staff${idx}`,
-        email: `${key}staff${idx}@mock.com`,
-        department: dept,
-        status: "unassigned",
-      };
-    }).filter(s => !assignedIds.has(s.id) && !assignedEmails.has(s.email.toLowerCase()));
+        console.log("unassignedRes", unassignedRes);
+        console.log("advisorsRes", advisorsRes);
+        console.log("examinersRes", examinersRes);
 
-    setMockStaff(staff);
+        if (unassignedRes && unassignedRes.success) {
+          setMockStaff(unassignedRes.data || []);
+        } else {
+          // Fallback: generate lightweight mock pool and subtract assigned
+          const key = (dept || "department").toString().replace(/\s+/g, "").toLowerCase();
+          const currAdvisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+          const currExaminers = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+          const deptNorm = String(dept || "").trim().toLowerCase();
+
+          const deptAdvisors = currAdvisors.filter(a => String(a.department || "").trim().toLowerCase() === deptNorm);
+          const deptExaminers = currExaminers.filter(e => String(e.department || "").trim().toLowerCase() === deptNorm);
+
+          const assignedIds = new Set([...deptAdvisors.map(a => a.id), ...deptExaminers.map(e => e.id)]);
+          const assignedEmails = new Set([...deptAdvisors.map(a => String(a.email || "").toLowerCase()), ...deptExaminers.map(e => String(e.email || "").toLowerCase())]);
+
+          const staff = Array.from({ length: 10 }).map((_, i) => {
+            const idx = i + 1;
+            return {
+              id: `${key}-staff-${idx}`,
+              name: `${dept || "Department"}Staff${idx}`,
+              email: `${key}staff${idx}@mock.com`,
+              department: dept || "",
+              status: "unassigned",
+            };
+          }).filter(s => !assignedIds.has(s.id) && !assignedEmails.has(s.email.toLowerCase()));
+
+          setMockStaff(staff);
+        }
+      } catch (err) {
+        console.error("Failed to fetch staff data", err);
+        // try localStorage fallback
+        const allA = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]");
+        const allE = JSON.parse(localStorage.getItem("assignedExaminers") || "[]");
+        setAssignedAdvisors(allA.filter(s => String(s.department || "").trim().toLowerCase() === String(deptRaw).trim().toLowerCase()));
+        setAssignedExaminers(allE.filter(s => String(s.department || "").trim().toLowerCase() === String(deptRaw).trim().toLowerCase()));
+        const key = (deptRaw || "department").toString().replace(/\s+/g, "").toLowerCase();
+        const staff = Array.from({ length: 10 }).map((_, i) => ({
+          id: `${key}-staff-${i+1}`,
+          name: `${deptRaw || "Department"}Staff${i+1}`,
+          email: `${key}staff${i+1}@mock.com`,
+          department: deptRaw || "",
+          status: "unassigned",
+        }));
+        setMockStaff(staff);
+      }
+    };
+
+    fetchStaffData();
   }, [coordinatorDept]);
 
   const navigateCoordinator = (next) => {

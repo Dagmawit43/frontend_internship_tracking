@@ -1,10 +1,10 @@
 import axios from "axios";
 
-export const BASE_URL = "https://internship-tracker-backend-ycc5.onrender.com/api";
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://internship-tracker-backend-ycc5.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 70000,
+  timeout: import.meta.env.VITE_API_TIMEOUT || 70000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -24,6 +24,7 @@ const clearAuth = () => {
 // Attach Authorization header to requests
 api.interceptors.request.use((cfg) => {
   const accessToken = getAccess();
+  console.log(`📡 API Request: ${cfg.method?.toUpperCase()} ${cfg.url}`, { data: cfg.data });
   if (accessToken) {
     cfg.headers.Authorization = `Bearer ${accessToken}`;
     // User requested to configure axios defaults as well

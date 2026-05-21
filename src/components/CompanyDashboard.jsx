@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import CompanySidebar from "./CompanySidebar";
+import storageService from "../services/storageService";
 import { DEPARTMENTS } from "../constants/departments";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
@@ -266,35 +267,40 @@ const AppliedStudentsPage = ({ companySession }) => {
   const cName = companySession?.companyName || companySession?.company_name || "";
 
   useEffect(() => {
-    const load = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const filtered = allApps.filter(app =>
-        app.companyName === cName ||
-        app.companyId === companySession?.id ||
-        app.companyId === companySession?.company_id
-      );
-      setApplications(filtered.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+    const load = async () => {
+      try {
+        const allApps = await storageService.getApplications();
+        const filtered = allApps.filter(app =>
+          app.companyName === cName ||
+          app.companyId === companySession?.id ||
+          app.companyId === companySession?.company_id
+        );
+        setApplications(filtered.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+      } catch (err) {
+        console.error("Failed to load applications:", err);
+        setApplications([]);
+      }
     };
     load();
-    window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
+    const interval = setInterval(load, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
   }, [cName, companySession]);
 
-  const handleUpdateStatus = (appId, acceptanceFormData) => {
+  const handleUpdateStatus = async (appId, acceptanceFormData) => {
     const newStatus = acceptanceFormData.accepted ? "accepted" : acceptanceFormData.rejected ? "rejected" : "Pending";
-    const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const allApps = await storageService.getApplications(false); // Force refresh
     const updated = allApps.map(app =>
       app.id === appId
         ? { ...app, acceptanceForm: acceptanceFormData, status: newStatus, applicationStatus: acceptanceFormData.accepted ? "COMPANY_ACCEPTED" : "COMPANY_REJECTED", updatedAt: new Date().toISOString() }
         : app
     );
-    localStorage.setItem("applications", JSON.stringify(updated));
+    storageService.saveApplications(updated);
     setApplications(updated.filter(app => app.companyName === cName || app.companyId === companySession?.id || app.companyId === companySession?.company_id));
     const targetApp = updated.find(a => a.id === appId);
     if (targetApp) {
-      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
+      const notifications = await storageService.getNotifications(false);
       notifications.push({ id: Date.now(), type: newStatus === "accepted" ? "success" : "error", title: "Application Status Updated", message: `${cName} has marked your application for ${targetApp.internshipTitle || "the internship"} as ${newStatus}.`, date: new Date().toISOString(), studentId: targetApp.studentId, studentName: targetApp.studentName, read: false });
-      localStorage.setItem("notifications", JSON.stringify(notifications));
+      storageService.saveNotifications(notifications);
     }
   };
 
@@ -388,16 +394,26 @@ const AppliedStudentsPage = ({ companySession }) => {
 
 // ─── InternshipPage ───────────────────────────────────────────────────────────
 const InternshipPage = ({ companySession }) => {
-  const [internships, setInternships] = useState(() => {
-    const saved = localStorage.getItem("allInternships");
-    return saved ? JSON.parse(saved) : [
-      { id: "1", title: "Software Engineer Intern", department: "Software Engineering", description: "Join our team to work on real-world projects.", required_skills: ["React", "JavaScript", "CSS"], company_name: companySession?.companyName || "AASTU Labs", location: "Addis Ababa", internship_type: "Onsite", start_date: "2026-06-01", end_date: "2026-09-01", total_hours: "160", days_in_week: "5", number_interns: "3", status: "ACTIVE" },
-    ];
-  });
+  const [internships, setInternships] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInternship, setEditingInternship] = useState(null);
 
-  useEffect(() => { localStorage.setItem("allInternships", JSON.stringify(internships)); }, [internships]);
+  useEffect(() => {
+    const loadInternships = async () => {
+      try {
+        setIsLoading(true);
+        const data = await storageService.getInternships();
+        setInternships(data && Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load internships:", err);
+        setInternships([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInternships();
+  }, []);
 
   const handleSubmit = (data) => {
     if (editingInternship) setInternships(internships.map(i => i.id === data.id ? data : i));
@@ -458,18 +474,23 @@ const InternsPage = ({ companySession }) => {
   });
 
   useEffect(() => {
-    const load = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const students = JSON.parse(localStorage.getItem("students")) || [];
-      const cName = companySession?.companyName || companySession?.company_name;
-      const activeInterns = allApps
-        .filter(app => (String(app.companyId ?? "") === String(companyId ?? "") || app.companyName === cName) && app.finalInternshipStatus === "ACTIVE_INTERN")
-        .map(app => ({ ...app, studentFull: students.find(s => s.studentId === app.studentId || s.name === app.studentName) }));
-      setInterns(activeInterns);
+    const load = async () => {
+      try {
+        const allApps = await storageService.getApplications();
+        const students = await storageService.getStudents();
+        const cName = companySession?.companyName || companySession?.company_name;
+        const activeInterns = allApps
+          .filter(app => (String(app.companyId ?? "") === String(companyId ?? "") || app.companyName === cName) && app.finalInternshipStatus === "ACTIVE_INTERN")
+          .map(app => ({ ...app, studentFull: students.find(s => s.studentId === app.studentId || s.name === app.studentName) }));
+        setInterns(activeInterns);
+      } catch (err) {
+        console.error("Failed to load interns:", err);
+        setInterns([]);
+      }
     };
     load();
-    window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
+    const interval = setInterval(load, 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
   }, [companyId, companySession]);
 
   useEffect(() => {

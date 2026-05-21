@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   ChevronDown,
@@ -17,6 +17,7 @@ import {
 import logoSrc from "../assets/aastu-logo.jpg";
 import AdvisorSidebar from "./AdvisorSidebar";
 import { useAuth } from "../contexts/AuthContext";
+import storageService from "../services/storageService";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
@@ -63,6 +64,32 @@ import {
 } from "../utils/overallEvaluation";
 
 const normStr = (s) => String(s || "").trim().toLowerCase();
+
+const readAdvisorProfile = () => {
+  try {
+    const rawAdvisor = localStorage.getItem("advisor");
+    if (rawAdvisor && rawAdvisor !== "null" && rawAdvisor !== "undefined") {
+      const p = JSON.parse(rawAdvisor);
+      if (p && typeof p === "object" && (p.fullName || p.name || p.username || p.email || p.department)) {
+        return p;
+      }
+    }
+    for (const key of ["activeStaffUser", "user"]) {
+      const raw = localStorage.getItem(key);
+      if (!raw || raw === "null" || raw === "undefined") continue;
+      const p = JSON.parse(raw);
+      if (!p || typeof p !== "object") continue;
+      const role = String(p.role || p.role_name || p.user_type || p.accountType || "").toLowerCase();
+      console.log(`readAdvisorProfile: key=${key}, role=${role}, hasIdFields=${!!(p.fullName || p.name || p.username || p.email || p.department)}`);
+      if (role !== "advisor") continue;
+      if (p.fullName || p.name || p.username || p.email || p.department) return p;
+    }
+  } catch (e) {
+    console.error("readAdvisorProfile error:", e);
+  }
+  console.log("readAdvisorProfile: returning null");
+  return null;
+};
 
 const AdvisorStudentDocumentsPanel = ({ studentId, advisorIdentity }) => {
   const [docs, setDocs] = useState([]);
@@ -287,6 +314,7 @@ const StaffWelcomeHeader = ({ name, department, roleLabel, subtitle, statPrimary
 
 const AdvisorDashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -314,13 +342,20 @@ const AdvisorDashboard = () => {
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
 
   useEffect(() => {
-    const activeSession = JSON.parse(localStorage.getItem("user"));
-    if (!activeSession || activeSession.role !== "Advisor") {
+    const stateUser = location?.state?.user;
+    const activeSession = stateUser || readAdvisorProfile();
+    if (!activeSession) {
       navigate("/login");
       return;
     }
+    if (stateUser) {
+      localStorage.setItem("user", JSON.stringify(stateUser));
+      if (String(stateUser.role || "").toLowerCase() === "advisor") {
+        localStorage.setItem("advisor", JSON.stringify(stateUser));
+      }
+    }
     setSession(activeSession);
-  }, [navigate]);
+  }, [location, navigate]);
 
   const advisorIdentity = useMemo(() => {
     const name = session?.fullName || session?.name || session?.username || "";
@@ -329,22 +364,29 @@ const AdvisorDashboard = () => {
 
   useEffect(() => {
     if (!advisorIdentity) return;
-    const loadAssigned = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const active = allApps.filter((app) => {
-        if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
-        const assignedAdvisor = String(app.advisorName || "").trim().toLowerCase();
-        if (assignedAdvisor && assignedAdvisor === advisorIdentity) return true;
-        const rec = getLogbookForApplication(app);
-        const onRecord = String(rec.advisorId || "").trim().toLowerCase();
-        return onRecord && onRecord === advisorIdentity;
-      });
-      setAssignedStudents(active);
+    const loadAssigned = async () => {
+      try {
+        const allApps = await storageService.getApplications();
+        const active = allApps.filter((app) => {
+          if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
+          const assignedAdvisor = String(app.advisorName || "").trim().toLowerCase();
+          if (assignedAdvisor && assignedAdvisor === advisorIdentity) return true;
+          const rec = getLogbookForApplication(app);
+          const onRecord = String(rec.advisorId || "").trim().toLowerCase();
+          return onRecord && onRecord === advisorIdentity;
+        });
+        setAssignedStudents(active);
+      } catch (err) {
+        console.error("Failed to load assigned students:", err);
+        setAssignedStudents([]);
+      }
     };
     loadAssigned();
+    const interval = setInterval(loadAssigned, 5000);
     window.addEventListener("storage", loadAssigned);
     window.addEventListener("weekly-logbook-updated", loadAssigned);
     return () => {
+      clearInterval(interval);
       window.removeEventListener("storage", loadAssigned);
       window.removeEventListener("weekly-logbook-updated", loadAssigned);
     };

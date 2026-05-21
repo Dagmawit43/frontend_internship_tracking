@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { UserCheck, Users } from "lucide-react";
+import userService from "../services/userService";
 
 const CreateAccounts = () => {
   const [staffList, setStaffList] = useState([]);
@@ -14,17 +15,28 @@ const CreateAccounts = () => {
     return activeStaff.department || "";
   };
 
-  // Load staff members (only those with role "Staff" from coordinator's department)
+  // Load staff members (prefer API, fallback to localStorage)
   useEffect(() => {
-    const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-    const coordinatorDept = getCoordinatorDepartment();
-    const staffMembers = otherUsers.filter(
-      (u) => u.role === "Staff" && u.department === coordinatorDept
-    );
-    setStaffList(staffMembers);
+    const load = async () => {
+      const coordinatorDept = getCoordinatorDepartment();
+      try {
+        const res = await userService.getUnassignedStaff({ department: coordinatorDept });
+        if (res && res.success) {
+          setStaffList(res.data || []);
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      const otherUsers = JSON.parse(localStorage.getItem("otherUsers") || "[]");
+      const staffMembers = otherUsers.filter((u) => u.role === "Staff" && u.department === coordinatorDept);
+      setStaffList(staffMembers);
+    };
+    load();
   }, [success]); // Reload when role is assigned
 
-  const handleAssignRole = () => {
+  const handleAssignRole = async () => {
     setError("");
     setSuccess("");
 
@@ -34,6 +46,21 @@ const CreateAccounts = () => {
     }
 
     const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+    const userObj = staffList.find((s) => (s.username || s.email || s.id) && (s.username === selectedStaff || s.id === selectedStaff));
+
+    // Call API if we have an id, otherwise fall back to localStorage update
+    try {
+      if (userObj && userObj.id) {
+        if (selectedRole === "Advisor") {
+          await userService.assignStaffAsAdvisor(userObj.id, { department: userObj.department });
+        } else {
+          await userService.assignStaffAsExaminer(userObj.id, { department: userObj.department });
+        }
+      }
+    } catch (err) {
+      console.error("API assignment failed", err);
+    }
+
     const updatedUsers = otherUsers.map((u) =>
       u.username === selectedStaff ? { ...u, role: selectedRole } : u
     );
