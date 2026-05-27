@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import { normalizeRole } from "../utils/roleUtils";
 
 const roleRoutes = {
   Student: "/student-dashboard",
@@ -31,12 +32,11 @@ const toCanonicalRole = (value) => {
 
 const inferRoleFromUser = (user) => {
   if (!user || typeof user !== "object") return null;
-
   return (
-    toCanonicalRole(user?.role) ||
-    toCanonicalRole(user?.role_name) ||
-    toCanonicalRole(user?.user_type) ||
-    toCanonicalRole(user?.accountType) ||
+    normalizeRole(user?.role) ||
+    normalizeRole(user?.role_name) ||
+    normalizeRole(user?.user_type) ||
+    normalizeRole(user?.accountType) ||
     null
   );
 };
@@ -72,10 +72,11 @@ const LoginForm = () => {
 
     setIsSubmitting(true);
     try {
-      // For API login, we use email as the primary credential
+      // For API login, we use email as the primary credential and include selected role
       const result = await login({
         email: credential,
         password,
+        role: accountType,
       });
 
       if (result.ok) {

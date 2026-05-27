@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { X, Upload, FileText } from "lucide-react";
 
-const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => {
+  import { getCurrentStudentId } from "../../utils/authHelpers";
+
+  const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => {
+    // prefer passed studentId, otherwise resolve from stored token/localStorage
+    const resolvedStudentId = studentId || getCurrentStudentId();
   const [formData, setFormData] = useState({
-    reason: "",
-    additionalDocument: null,
+    reason_for_joining: "",
+    cv_file: null,
     documentName: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18,22 +22,23 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFormData({
-          ...formData,
-          additionalDocument: event.target.result,
-          documentName: file.name,
-        });
-      };
-      reader.readAsDataURL(file);
+      setFormData((current) => ({
+        ...current,
+        cv_file: file,
+        documentName: file.name,
+      }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.reason.trim()) {
-      alert("Please provide a reason for choosing this company");
+    if (!formData.reason_for_joining.trim()) {
+      alert("Please provide a reason for choosing this opportunity");
+      return;
+    }
+
+    if (!formData.cv_file) {
+      alert("Please upload your CV or resume");
       return;
     }
 
@@ -45,7 +50,7 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
         companyId: company.id,
         companyName: company.companyName,
       });
-      setFormData({ reason: "", additionalDocument: null, documentName: "" });
+      setFormData({ reason_for_joining: "", cv_file: null, documentName: "" });
       onClose();
     } catch (error) {
       console.error("Error submitting application:", error);
@@ -101,7 +106,7 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
             </label>
             <input
               type="text"
-              value={studentId || ""}
+              value={resolvedStudentId || ""}
               disabled
               className="app-input cursor-not-allowed bg-slate-100 text-slate-600"
             />
@@ -113,13 +118,13 @@ const ApplicationModal = ({ company, studentId, isOpen, onClose, onSubmit }) => 
               Reason for Choosing This Company <span className="text-red-500">*</span>
             </label>
             <textarea
-              name="reason"
-              value={formData.reason}
+              name="reason_for_joining"
+              value={formData.reason_for_joining}
               onChange={handleChange}
               required
               rows={5}
               className="app-input min-h-[120px] resize-y py-3"
-              placeholder="Explain why you want to intern at this company..."
+              placeholder="Explain why you want to intern at this opportunity..."
             />
           </div>
 

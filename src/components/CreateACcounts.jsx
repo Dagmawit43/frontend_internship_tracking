@@ -30,7 +30,7 @@ const CreateAccounts = () => {
       }
 
       const otherUsers = JSON.parse(localStorage.getItem("otherUsers") || "[]");
-      const staffMembers = otherUsers.filter((u) => u.role === "Staff" && u.department === coordinatorDept);
+      const staffMembers = otherUsers.filter((u) => String(u.role || "").toLowerCase() === "staff" && u.department === coordinatorDept);
       setStaffList(staffMembers);
     };
     load();

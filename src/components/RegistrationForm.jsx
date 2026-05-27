@@ -1,12 +1,21 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DEPARTMENTS } from "../constants/departments";
 import { authService } from "../services/authService";
+import { useDepartments } from "../hooks/useAPI";
 import { toast } from "../utils/toast";
 
 const RegistrationForm = () => {
   const navigate = useNavigate();
   const staffRoles = ["Coordinator", "Advisor", "Examiner"];
+  const { data: departmentsData, loading: departmentsLoading } = useDepartments();
+  const departments = useMemo(() => {
+    return Array.isArray(departmentsData)
+      ? departmentsData
+          .map((department) => department?.department_name || department?.name || department)
+          .filter(Boolean)
+      : [];
+  }, [departmentsData]);
+
   const [formData, setFormData] = useState({
     role: "Student",
     fullName: "",
@@ -337,10 +346,19 @@ const RegistrationForm = () => {
                 onChange={handleChange}
                 required
                 className="app-select"
+                disabled={departmentsLoading || departments.length === 0}
               >
-                <option value="">Select Department</option>
-                {DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
+                <option value="">
+                  {departmentsLoading
+                    ? "Loading departments..."
+                    : departments.length === 0
+                    ? "No departments available"
+                    : "Select Department"}
+                </option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
                 ))}
               </select>
             </div>
@@ -356,10 +374,19 @@ const RegistrationForm = () => {
               onChange={handleChange}
               required
               className="app-select"
+              disabled={departmentsLoading || departments.length === 0}
             >
-              <option value="">Select Department</option>
-              {DEPARTMENTS.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+              <option value="">
+                {departmentsLoading
+                  ? "Loading departments..."
+                  : departments.length === 0
+                  ? "No departments available"
+                  : "Select Department"}
+              </option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
               ))}
             </select>
           </div>

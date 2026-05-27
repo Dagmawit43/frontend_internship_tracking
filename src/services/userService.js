@@ -5,14 +5,19 @@ export const userService = {
     if (!raw) return [];
     const arr = Array.isArray(raw) ? raw : (raw.results || raw.data || []);
     return arr.map((it) => {
-      const name = it.name || it.user_name || it.userName || it.fullName || it.username || "";
-      const email = it.email || it.user_email || it.userEmail || it.contactEmail || it.contact_email || "";
+      const name = it.name || it.user_name || it.userName || it.fullName || it.username || it.user_name || "";
+      const email = it.email || it.user_email || it.userEmail || it.contactEmail || it.contact_email || it.user_email || "";
+      const role = it.role || it.user_role || it.userRole || "";
       const department = it.department || it.department_name || it.departmentName || it.department_name || it.department_name || "";
       return {
         ...it,
         name,
         email,
+        role,
         department,
+        user_name: it.user_name || name,
+        user_email: it.user_email || email,
+        department_name: it.department_name || department,
       };
     });
   },
@@ -41,12 +46,48 @@ export const userService = {
   },
 
   /**
+   * Get eligible students (coordinator/admin)
+   */
+  async getEligibleStudents(params = {}) {
+    try {
+      const response = await api.get("/eligible-students/", { params });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Create a student record (coordinator/admin)
+   */
+  async createStudent(data = {}) {
+    try {
+      const response = await api.post(`/students/`, data);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Upload eligible students (coordinator/admin)
+   */
+  async uploadEligibleStudents(students = []) {
+    try {
+      const response = await api.post("/eligible-students/upload/", students);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
    * Get advisors for a department (coordinator only)
    */
   async getAdvisors(params = {}) {
     try {
       const response = await api.get("/advisors/", { params });
-      return { success: true, data: response.data };
+      return { success: true, data: this._normalizeStaffList(response.data) };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
@@ -60,6 +101,45 @@ export const userService = {
       const response = await api.post(`/students/${studentId}/assign-advisor/`, {
         advisor_id: advisorId,
       });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Remove advisor from student (coordinator only)
+   */
+  async removeAdvisor(studentId) {
+    try {
+      const response = await api.delete(`/students/${studentId}/assign-advisor/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Assign examiner to student (coordinator only)
+   */
+  async assignExaminer(studentId, examinerId) {
+    try {
+      const response = await api.post(`/students/${studentId}/assign-examiner/`, {
+        examiner_id: examinerId,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Remove examiner from student (coordinator only)
+   */
+  async removeExaminer(studentId, examinerId = null) {
+    try {
+      const config = examinerId ? { data: { examiner_id: examinerId } } : {};
+      const response = await api.delete(`/students/${studentId}/assign-examiner/`, config);
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -166,31 +246,38 @@ export const userService = {
    * Get unassigned staff (for coordinator)
    */
   async getUnassignedStaff(params = {}) {
-    const candidates = [
-      (p) => api.get("/advisors/unassigned/", { params: p }),
-      (p) => api.get("/staff/unassigned/", { params: p }),
-      (p) => api.get("/advisors/", { params: { ...p, unassigned: true } }),
-    ];
-    for (const attempt of candidates) {
-      try {
-        const response = await attempt(params);
-        // If the backend returned a wrapper object (e.g., { results: [...] }) normalize
-        const data = response.data && response.data.results ? response.data.results : response.data;
-        return { success: true, data: this._normalizeStaffList(data) };
-      } catch (error) {
-        // try next
-        // continue
-      }
+    try {
+      const response = await api.get("/staff/unassigned/", { params });
+      const data = response.data && response.data.results ? response.data.results : response.data;
+      return { success: true, data: this._normalizeStaffList(data) };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
     }
-    return { success: false, error: "No unassigned staff endpoint available" };
+  },
+
+  /**
+   * Get assigned staff
+   */
+  async getAssignedStaff(params = {}) {
+    try {
+      const response = await api.get("/staff/assigned/", { params });
+      const data = response.data && response.data.results ? response.data.results : response.data;
+      return { success: true, data: this._normalizeStaffList(data) };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
   },
 
   /**
    * Assign staff as advisor
    */
-  async assignStaffAsAdvisor(staffId, data = {}) {
+  async assignStaffAsAdvisor(userId, data = {}) {
     try {
-      const response = await api.post(`/students/${staffId}/assign-advisor/`, data);
+      const response = await api.post("/admin/users/coordinator-assign-role/", {
+        user_id: userId,
+        role: "ADVISOR",
+        ...data,
+      });
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -202,7 +289,11 @@ export const userService = {
    */
   async assignStaffAsExaminer(staffId, data = {}) {
     try {
-      const response = await api.post(`/staff/${staffId}/assign-examiner/`, data);
+      const response = await api.post("/admin/users/coordinator-assign-role/", {
+        user_id: staffId,
+        role: "EXAMINER",
+        ...data,
+      });
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -214,9 +305,12 @@ export const userService = {
    */
   async getAssignedAdvisors(params = {}) {
     try {
-      const response = await api.get("/advisors/", { params });
-      const data = response.data && response.data.results ? response.data.results : response.data;
-      return { success: true, data: this._normalizeStaffList(data) };
+      const assigned = await this.getAssignedStaff(params);
+      if (!assigned.success) return assigned;
+      return {
+        success: true,
+        data: assigned.data.filter((item) => String(item.role || "").toUpperCase() === "ADVISOR"),
+      };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
@@ -227,9 +321,12 @@ export const userService = {
    */
   async getAssignedExaminers(params = {}) {
     try {
-      const response = await api.get("/staff/examiners/", { params });
-      const data = response.data && response.data.results ? response.data.results : response.data;
-      return { success: true, data: this._normalizeStaffList(data) };
+      const assigned = await this.getAssignedStaff(params);
+      if (!assigned.success) return assigned;
+      return {
+        success: true,
+        data: assigned.data.filter((item) => String(item.role || "").toUpperCase() === "EXAMINER"),
+      };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
@@ -241,6 +338,18 @@ export const userService = {
   async getExaminers(params = {}) {
     try {
       const response = await api.get("/examiners/", { params });
+      return { success: true, data: this._normalizeStaffList(response.data) };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Mark staff as unassigned
+   */
+  async unassignStaff(staffId, params = {}) {
+    try {
+      const response = await api.post(`/staff/${staffId}/unassign/`, {}, { params });
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };

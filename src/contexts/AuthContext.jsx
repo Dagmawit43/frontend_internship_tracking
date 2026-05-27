@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import authService from "../services/authService";
+import { normalizeRole } from "../utils/roleUtils";
 
 const AuthContext = createContext(null);
 
@@ -26,11 +27,11 @@ export const AuthProvider = ({ children }) => {
     restoreAuth();
   }, []);
 
-  const login = async ({ email, password }) => {
+  const login = async ({ email, password, role }) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await authService.login(email, password);
+      const result = await authService.login(email, password, role);
       if (result.success) {
         setUser(result.data.user);
         return { ok: true, user: result.data.user };
@@ -153,10 +154,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const result = await authService.getProfile();
       if (result.success) {
-        setUser(result.data);
-        return { ok: true, data: result.data };
+        const raw = result.data;
+        const normalized = { ...raw, role: normalizeRole(raw.role) };
+        localStorage.setItem("user", JSON.stringify(normalized));
+        setUser(normalized);
+        return { ok: true, data: normalized };
       } else {
-        // User might be logged out
         setUser(null);
         return { ok: false, error: result.error };
       }

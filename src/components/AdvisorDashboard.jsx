@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -18,6 +18,9 @@ import logoSrc from "../assets/aastu-logo.jpg";
 import AdvisorSidebar from "./AdvisorSidebar";
 import { useAuth } from "../contexts/AuthContext";
 import storageService from "../services/storageService";
+import api from "../api";
+import internshipService from "../services/internshipService";
+import evaluationService from "../services/evaluationService";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
@@ -28,6 +31,9 @@ import {
   advisorFinalizeWeek,
   countPendingAdvisorWeeks,
   getLogbookForApplication,
+  getLogbookApiId,
+  groupApiLogbooksByStudent,
+  syncWeeklyLogbooksFromApi,
 } from "../utils/weeklyLogbook";
 import {
   EVAL_STATUS,
@@ -44,11 +50,10 @@ import {
   advisorDecideFinalEvaluation,
 } from "../utils/finalEvaluations";
 import {
-  getDocumentsByStudentId,
-  getDocumentsForAdvisorStudents,
+  getDocumentsByInternshipId,
   advisorDecideInternshipDocument,
-  documentBelongsToAdvisor,
   ROLE_DOC_STATUS,
+  syncInternshipDocumentsFromApi,
 } from "../utils/internshipDocuments";
 import {
   getAdvisorEvaluation,
@@ -62,8 +67,6 @@ import {
   getOverallApprovals,
   approveOverallAsAdvisor,
 } from "../utils/overallEvaluation";
-
-const normStr = (s) => String(s || "").trim().toLowerCase();
 
 const readAdvisorProfile = () => {
   try {
@@ -91,25 +94,41 @@ const readAdvisorProfile = () => {
   return null;
 };
 
-const AdvisorStudentDocumentsPanel = ({ studentId, advisorIdentity }) => {
+const AdvisorStudentDocumentsPanel = ({ studentId, internshipId, advisorIdentity }) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
 
-  const reload = () => {
-    const list = getDocumentsByStudentId(studentId).filter((d) =>
-      documentBelongsToAdvisor(d, normStr(advisorIdentity))
-    );
+  const reload = useCallback(() => {
+    const list = getDocumentsByInternshipId(internshipId || studentId);
     setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
-  };
+  }, [internshipId, studentId]);
 
   useEffect(() => {
     reload();
     window.addEventListener("storage", reload);
     return () => window.removeEventListener("storage", reload);
-  }, [studentId, advisorIdentity]);
+  }, [reload]);
 
-  const decide = (docId, action) => {
-    advisorDecideInternshipDocument(docId, action, commentByDoc[docId] || "");
+  const decide = async (docId, action) => {
+    const comment = commentByDoc[docId] || "";
+    const doc = docs.find((d) => d.id === docId);
+    // Prefer API-backed document if available
+    if (doc && doc.apiId) {
+      try {
+        const res = await internshipService.advisorReviewDocument(doc.apiId, action, comment);
+        if (res.success && res.data) {
+          // sync the returned item into local store
+          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          reload();
+          return;
+        }
+      } catch {
+        // fallthrough to local update
+      }
+    }
+
+    // Fallback: local-only update
+    advisorDecideInternshipDocument(docId, action, comment);
     reload();
   };
 
@@ -319,6 +338,7 @@ const AdvisorDashboard = () => {
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedLogbook, setSelectedLogbook] = useState(null);
+  const [logbookLoading, setLogbookLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("students");
   const [studentDetailTab, setStudentDetailTab] = useState("logbook");
 
@@ -332,11 +352,22 @@ const AdvisorDashboard = () => {
   const [selectedDocQueue, setSelectedDocQueue] = useState(null); // { doc, studentApp }
   const [internshipDocsNonce, setInternshipDocsNonce] = useState(0);
   const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
+  const [advisorEvalApiRecord, setAdvisorEvalApiRecord] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [docQueueComment, setDocQueueComment] = useState("");
   const [logbookNonce, setLogbookNonce] = useState(0);
   const [overallNonce, setOverallNonce] = useState(0);
   const [focusLogbookWeek, setFocusLogbookWeek] = useState(null);
+  // API-fetched examiner evaluations keyed by internship id
+  const [apiExaminerEvals, setApiExaminerEvals] = useState({});
+  // API-fetched company monthly evaluations keyed by internship id, then month number
+  const [apiMonthlyEvals, setApiMonthlyEvals] = useState({});
+  // API-fetched logbooks keyed by internship id (application PK)
+  const [apiLogbooksMap, setApiLogbooksMap] = useState({});
+  // API-fetched company final evaluations keyed by internship (application) PK
+  const [apiFinalEvals, setApiFinalEvals] = useState({});
+  // API-fetched overall evaluation keyed by internship (application) PK
+  const [apiOverallEval, setApiOverallEval] = useState(null);
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
@@ -348,13 +379,13 @@ const AdvisorDashboard = () => {
       navigate("/login");
       return;
     }
+    // Normalize role to title case so permission checks are consistent
+    const normalized = { ...activeSession, role: "Advisor" };
     if (stateUser) {
-      localStorage.setItem("user", JSON.stringify(stateUser));
-      if (String(stateUser.role || "").toLowerCase() === "advisor") {
-        localStorage.setItem("advisor", JSON.stringify(stateUser));
-      }
+      localStorage.setItem("user", JSON.stringify(normalized));
+      localStorage.setItem("advisor", JSON.stringify(normalized));
     }
-    setSession(activeSession);
+    setSession(normalized);
   }, [location, navigate]);
 
   const advisorIdentity = useMemo(() => {
@@ -363,26 +394,51 @@ const AdvisorDashboard = () => {
   }, [session]);
 
   useEffect(() => {
-    if (!advisorIdentity) return;
+    if (!session) return;
     const loadAssigned = async () => {
       try {
-        const allApps = await storageService.getApplications();
-        const active = allApps.filter((app) => {
-          if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
-          const assignedAdvisor = String(app.advisorName || "").trim().toLowerCase();
-          if (assignedAdvisor && assignedAdvisor === advisorIdentity) return true;
-          const rec = getLogbookForApplication(app);
-          const onRecord = String(rec.advisorId || "").trim().toLowerCase();
-          return onRecord && onRecord === advisorIdentity;
-        });
-        setAssignedStudents(active);
-      } catch (err) {
-        console.error("Failed to load assigned students:", err);
-        setAssignedStudents([]);
+        // Primary: fetch from API endpoint — auth token identifies the advisor
+        const res = await api.get("/advisor/my-students/");
+        const items = Array.isArray(res.data)
+          ? res.data
+          : res.data?.results || res.data || [];
+        const mapped = items.map((app) => ({
+          id: app.id,
+          studentName: app.student_name || app.form_snapshot?.student?.name || "",
+          studentId: app.form_snapshot?.student?.student_id || app.student_id || "",
+          studentUserPk: app.student_user_id || null,
+          companyName: app.company_name || app.form_snapshot?.company?.name || "",
+          positionTitle: app.position_title || "",
+          advisorName: app.advisor_name || "",
+          examinerName: app.examiner_name || app.examinerName || "",
+          examiner2Name: app.examiner2_name || app.examiner2Name || "",
+          department: app.form_snapshot?.student?.department_name || app.form_snapshot?.student?.department || "",
+          finalInternshipStatus: "ACTIVE_INTERN",
+          __raw: app,
+        }));
+        setAssignedStudents(mapped);
+      } catch (apiErr) {
+        // Fallback: filter from localStorage by advisor name
+        console.warn("API /advisor/my-students/ failed, falling back to localStorage:", apiErr.message);
+        try {
+          const allApps = await storageService.getApplications();
+          const active = allApps.filter((app) => {
+            if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
+            const assignedAdvisor = String(app.advisorName || "").trim().toLowerCase();
+            if (assignedAdvisor && assignedAdvisor === advisorIdentity) return true;
+            const rec = getLogbookForApplication(app);
+            const onRecord = String(rec.advisorId || "").trim().toLowerCase();
+            return onRecord && onRecord === advisorIdentity;
+          });
+          setAssignedStudents(active);
+        } catch (err) {
+          console.error("Failed to load assigned students:", err);
+          setAssignedStudents([]);
+        }
       }
     };
     loadAssigned();
-    const interval = setInterval(loadAssigned, 5000);
+    const interval = setInterval(loadAssigned, 30000);
     window.addEventListener("storage", loadAssigned);
     window.addEventListener("weekly-logbook-updated", loadAssigned);
     return () => {
@@ -390,7 +446,146 @@ const AdvisorDashboard = () => {
       window.removeEventListener("storage", loadAssigned);
       window.removeEventListener("weekly-logbook-updated", loadAssigned);
     };
-  }, [advisorIdentity]);
+  }, [session]);
+
+  // Fetch examiner evaluations from API so advisor can see them without localStorage
+  useEffect(() => {
+    if (!session) return;
+    const fetchExaminerEvals = async () => {
+      try {
+        const res = await evaluationService.getExaminerEvaluationsForAdvisor();
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          const map = {};
+          items.forEach((item) => {
+            if (!map[item.internship]) map[item.internship] = [];
+            map[item.internship].push({
+              id: item.id,
+              internshipId: item.internship,
+              studentId: item.student_id,
+              examinerName: item.examiner_name,
+              formData: item.form_data || {},
+              status: "SUBMITTED",
+              submittedAt: item.submitted_at,
+              totalScore: item.total_score,
+              weightedScore: item.weighted_score,
+            });
+          });
+          setApiExaminerEvals(map);
+        }
+      } catch (err) {
+        console.warn("Examiner eval fetch failed:", err?.message);
+      }
+    };
+    fetchExaminerEvals();
+  }, [session, examinerEvalNonce]);
+
+  // Fetch company monthly evaluations from API for advisor's students
+  useEffect(() => {
+    if (!session) return;
+    const fetchMonthlyEvals = async () => {
+      try {
+        // GET /api/evaluations/monthly/ — advisor-accessible endpoint
+        const res = await evaluationService.getAdvisorMonthlyEvaluations();
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          // Key by internship (application) PK → month_number → eval object
+          const map = {};
+          items.forEach((item) => {
+            if (!map[item.internship]) map[item.internship] = {};
+            map[item.internship][item.month_number] = item;
+          });
+          setApiMonthlyEvals(map);
+        }
+      } catch (err) {
+        console.warn("Monthly eval fetch failed:", err?.message);
+      }
+    };
+    fetchMonthlyEvals();
+  }, [session]);
+
+  // Fetch company final evaluations from API for advisor's students
+  useEffect(() => {
+    if (!session) return;
+    const fetchFinalEvals = async () => {
+      try {
+        // GET /api/evaluations/final/ — advisor-accessible endpoint
+        const res = await evaluationService.getAdvisorFinalEvaluations();
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          // Key by internship execution record PK → eval object
+          // We also need to map back to application PK via student
+          const map = {};
+          items.forEach((item) => {
+            // item.internship is the Internship (execution) PK
+            // item.student_id is the student's student_id string
+            // Store by student_id for easy lookup
+            if (item.student_id) map[item.student_id] = item;
+          });
+          setApiFinalEvals(map);
+        }
+      } catch (err) {
+        console.warn("Final eval fetch failed:", err?.message);
+      }
+    };
+    fetchFinalEvals();
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    const syncAdvisorLogbooks = async () => {
+      try {
+        const res = await internshipService.getAdvisorLogbooks();
+        if (!res.success || cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        if (items.length > 0) {
+          syncWeeklyLogbooksFromApi(items, { merge: true });
+          // Build map keyed by internship_id for direct lookup
+          const map = {};
+          const grouped = groupApiLogbooksByStudent(items);
+          for (const rec of grouped.values()) {
+            const iid = String(rec.internshipId || "");
+            if (iid) map[iid] = rec;
+          }
+          if (!cancelled) setApiLogbooksMap(map);
+        }
+      } catch (err) {
+        console.warn("Advisor logbook sync failed:", err?.message || err);
+      }
+    };
+
+    syncAdvisorLogbooks();
+    const interval = setInterval(syncAdvisorLogbooks, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    const syncAdvisorDocuments = async () => {
+      const res = await internshipService.getAdvisorDocuments();
+      if (!res.success || cancelled) return;
+      const items = Array.isArray(res.data)
+        ? res.data
+        : res.data?.results || [];
+      syncInternshipDocumentsFromApi(items, { merge: true });
+    };
+
+    syncAdvisorDocuments();
+    const interval = setInterval(syncAdvisorDocuments, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [session, assignedStudents.length]);
 
   // Load monthly evals whenever assigned students change or storage updates
   useEffect(() => {
@@ -402,7 +597,6 @@ const AdvisorDashboard = () => {
       window.removeEventListener("storage", refreshMonthlyEvals);
       window.removeEventListener("storage", refreshFinalEvals);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -437,33 +631,83 @@ const AdvisorDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedStudent) return;
-    const refresh = () => {
+    if (!selectedStudent?.id && !selectedStudent?.studentId) return;
+
+    const fetchLogbook = async () => {
+      setLogbookLoading(true);
+      try {
+        const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id || selectedStudent?.internshipId;
+        const params = internshipId ? { internship_id: internshipId } : {};
+        const res = await internshipService.getAdvisorLogbooks(params);
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (items.length > 0) {
+            const grouped = groupApiLogbooksByStudent(items);
+            const sid = String(selectedStudent.studentId || "").trim();
+            const rec = grouped.get(sid) || grouped.values().next().value;
+            if (rec) {
+              setSelectedLogbook(rec);
+              // Update the map so pendingLogbookQueue reflects latest data
+              if (internshipId) {
+                setApiLogbooksMap((prev) => ({ ...prev, [String(internshipId)]: rec }));
+              }
+              setLogbookLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch logbook from API, falling back to localStorage:", err.message);
+      }
+      // Fallback to localStorage
       setSelectedLogbook(getLogbookForApplication(selectedStudent));
+      setLogbookLoading(false);
     };
-    refresh();
-    window.addEventListener("storage", refresh);
-    window.addEventListener("weekly-logbook-updated", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("weekly-logbook-updated", refresh);
-    };
-  }, [selectedStudent]);
+
+    fetchLogbook();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudent?.id, selectedStudent?.studentId]);
 
   const pendingWeeksCount = useMemo(() => {
+    // Prefer API data
+    if (Object.keys(apiLogbooksMap).length > 0) {
+      let n = 0;
+      for (const rec of Object.values(apiLogbooksMap)) {
+        n += (rec.weeks || []).filter(
+          (w) => w.status === WEEK_STATUS.PENDING_ADVISOR
+        ).length;
+      }
+      return n;
+    }
     let n = 0;
     for (const app of assignedStudents) {
       n += countPendingAdvisorWeeks(app);
     }
     return n;
-  }, [assignedStudents, logbookNonce]);
+  }, [assignedStudents, logbookNonce, apiLogbooksMap]);
 
   const pendingLogbookQueue = useMemo(() => {
+    // Prefer API data
+    if (Object.keys(apiLogbooksMap).length > 0) {
+      const items = [];
+      for (const app of assignedStudents) {
+        const iid = String(app.id || "");
+        const rec = apiLogbooksMap[iid];
+        if (!rec) continue;
+        for (const week of rec.weeks || []) {
+          if (week.status === WEEK_STATUS.PENDING_ADVISOR) {
+            items.push({ app, week, record: rec });
+          }
+        }
+      }
+      return items.sort((a, b) => Number(a.week.weekNumber) - Number(b.week.weekNumber));
+    }
+    // Fallback to localStorage
     const items = [];
     for (const app of assignedStudents) {
       const rec = getLogbookForApplication(app);
       for (const week of rec.weeks || []) {
-        if (week.status === WEEK_STATUS.PENDING_ADVISOR) {
+        if (week.status === WEEK_STATUS.PENDING_COMPANY || week.status === WEEK_STATUS.PENDING_ADVISOR) {
           items.push({ app, week, record: rec });
         }
       }
@@ -471,27 +715,80 @@ const AdvisorDashboard = () => {
     return items.sort(
       (a, b) => Number(a.week.weekNumber) - Number(b.week.weekNumber)
     );
-  }, [assignedStudents, logbookNonce]);
+  }, [assignedStudents, logbookNonce, apiLogbooksMap]);
 
   // Monthly evals submitted to this advisor (matched by advisorName or studentId fallback)
   const pendingMonthlyEvals = useMemo(() => {
     const studentIds = new Set(assignedStudents.map(a => a.studentId));
+    const appIds = new Set(assignedStudents.map(a => String(a.id)));
+
+    // Build from API data first
+    const apiItems = [];
+    Object.entries(apiMonthlyEvals).forEach(([internshipId, byMonth]) => {
+      if (!appIds.has(String(internshipId))) return;
+      const studentApp = assignedStudents.find(a => String(a.id) === String(internshipId));
+      Object.values(byMonth).forEach((item) => {
+        if (item.status === "SUBMITTED") {
+          apiItems.push({
+            id: `api-monthly-${item.id}`,
+            apiId: item.id,
+            studentId: studentApp?.studentId || "",
+            month: item.month_number,
+            status: EVAL_STATUS.SUBMITTED,
+            advisorComment: item.advisor_comment || "",
+            submittedAt: item.submitted_at,
+            evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
+          });
+        }
+      });
+    });
+
+    if (apiItems.length > 0) return apiItems;
+
+    // Fall back to localStorage
     return monthlyEvals.filter(e => {
       const byAdvisor = String(e.advisorName || "").trim().toLowerCase() === advisorIdentity;
       const byStudent = studentIds.has(e.studentId);
       return (byAdvisor || byStudent) && e.status === EVAL_STATUS.SUBMITTED;
     });
-  }, [monthlyEvals, assignedStudents, advisorIdentity]);
+  }, [monthlyEvals, assignedStudents, advisorIdentity, apiMonthlyEvals]);
 
   // All evals for this advisor's students (any status) — for the full list view
   const allMyMonthlyEvals = useMemo(() => {
     const studentIds = new Set(assignedStudents.map(a => a.studentId));
+    const appIds = new Set(assignedStudents.map(a => String(a.id)));
+
+    // Build from API data first
+    const apiItems = [];
+    Object.entries(apiMonthlyEvals).forEach(([internshipId, byMonth]) => {
+      if (!appIds.has(String(internshipId))) return;
+      const studentApp = assignedStudents.find(a => String(a.id) === String(internshipId));
+      Object.values(byMonth).forEach((item) => {
+        const status = item.status === "ADVISOR_APPROVED" ? EVAL_STATUS.APPROVED
+                     : item.status === "REJECTED" ? EVAL_STATUS.REJECTED
+                     : EVAL_STATUS.SUBMITTED;
+        apiItems.push({
+          id: `api-monthly-${item.id}`,
+          apiId: item.id,
+          studentId: studentApp?.studentId || "",
+          month: item.month_number,
+          status,
+          advisorComment: item.advisor_comment || "",
+          submittedAt: item.submitted_at,
+          evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
+        });
+      });
+    });
+
+    if (apiItems.length > 0) return apiItems;
+
+    // Fall back to localStorage
     return monthlyEvals.filter(e => {
       const byAdvisor = String(e.advisorName || "").trim().toLowerCase() === advisorIdentity;
       const byStudent = studentIds.has(e.studentId);
       return byAdvisor || byStudent;
     });
-  }, [monthlyEvals, assignedStudents, advisorIdentity]);
+  }, [monthlyEvals, assignedStudents, advisorIdentity, apiMonthlyEvals]);
 
   // Final evaluations pending advisor approval
   const pendingFinalEvals = useMemo(() => {
@@ -509,11 +806,11 @@ const AdvisorDashboard = () => {
   }, [finalEvals, assignedStudents]);
 
   const pendingAdvisorDocuments = useMemo(() => {
-    const ids = assignedStudents.map((a) => a.studentId);
-    return getDocumentsForAdvisorStudents(advisorIdentity, ids).filter(
-      (d) => d.advisorStatus === ROLE_DOC_STATUS.PENDING
-    );
-  }, [advisorIdentity, assignedStudents, internshipDocsNonce]);
+    return assignedStudents
+      .flatMap((app) => getDocumentsByInternshipId(app.id))
+      .filter((d) => [ROLE_DOC_STATUS.PENDING].includes(d.advisorStatus))
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  }, [assignedStudents, internshipDocsNonce]);
 
   const pendingOverallQueue = useMemo(
     () =>
@@ -531,8 +828,121 @@ const AdvisorDashboard = () => {
 
   const selectedAdvisorEval = useMemo(() => {
     if (!selectedStudent) return null;
-    return getAdvisorEvaluation(selectedStudent.studentId);
-  }, [selectedStudent, advisorEvalNonce]);
+    return advisorEvalApiRecord;
+  }, [selectedStudent, advisorEvalApiRecord]);
+
+  // Load advisor evaluation from API whenever the selected student changes
+  useEffect(() => {
+    setAdvisorEvalApiRecord(null);
+    setApiOverallEval(null);
+    if (!selectedStudent?.id) return;
+    (async () => {
+      // Fetch advisor evaluation
+      try {
+        const res = await evaluationService.getAdvisorEvaluationForInternship(selectedStudent.id);
+        if (res.success && res.data) {
+          const d = res.data;
+          // Scale DB values back up to the frontend's display range
+          const unscale = (dbVal, dbMax, frontendMax) =>
+            dbMax === 0 ? 0 : Math.round((dbVal ?? 0) / dbMax * frontendMax);
+          setAdvisorEvalApiRecord({
+            status: ADVISOR_EVAL_STATUS.SUBMITTED,
+            submittedAt: d.submitted_at,
+            advisorName: d.advisor_name || "",
+            apiId: d.id,
+            apiStatus: d.status,
+            totals: {
+              reportTotal: d.report_total,
+              logbookTotal: d.logbook_total,
+              performanceTotal: d.student_performance_total,
+              totalMarks: d.total_marks,
+              finalWeightedMark: Number(d.final_weighted_mark ?? 0),
+            },
+            formData: {
+              reportScores: [
+                unscale(d.report_format_score,           2,  4),
+                unscale(d.organization_background_score, 3,  4),
+                unscale(d.activities_score,              4,  6),
+                unscale(d.data_figure_table_score,       3,  8),
+                unscale(d.report_content_score,          4, 10),
+                unscale(d.recommendation_score,          2,  4),
+                unscale(d.conclusion_score,              2,  4),
+              ],
+              logbookScores: [
+                unscale(d.pictures_and_data_score, 1, 5),
+                unscale(d.weekly_summary_score,    1, 5),
+                unscale(d.daily_detail_score,      1, 5),
+                unscale(d.improvement_score,       1, 5),
+                unscale(d.initiative_score,        1, 5),
+              ],
+              performanceScores: [
+                unscale(d.understanding_objective_score, 4, 10),
+                unscale(d.engagement_score,              3,  6),
+                unscale(d.discipline_score,              3,  2),
+              ],
+            },
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to load advisor evaluation from API:", err.message);
+      }
+
+      // Fetch overall evaluation status from API
+      try {
+        const ovRes = await api.get(`/overall-evaluation/${selectedStudent.id}/`);
+        if (ovRes.data) {
+          setApiOverallEval(ovRes.data);
+
+          // If advisor eval wasn't fetched separately, populate from overall detail
+          const detail = ovRes.data.advisor_evaluation_detail;
+          if (detail && !advisorEvalApiRecord) {
+            const d = detail;
+            const unscale = (dbVal, dbMax, frontendMax) =>
+              dbMax === 0 ? 0 : Math.round((dbVal ?? 0) / dbMax * frontendMax);
+            setAdvisorEvalApiRecord({
+              status: ADVISOR_EVAL_STATUS.SUBMITTED,
+              submittedAt: d.submitted_at,
+              advisorName: d.advisor_name || "",
+              apiId: d.id,
+              apiStatus: d.status,
+              totals: {
+                reportTotal: d.report_total,
+                logbookTotal: d.logbook_total,
+                performanceTotal: d.student_performance_total,
+                totalMarks: d.total_marks,
+                finalWeightedMark: Number(d.final_weighted_mark ?? 0),
+              },
+              formData: {
+                reportScores: [
+                  unscale(d.report_format_score,           2,  4),
+                  unscale(d.organization_background_score, 3,  4),
+                  unscale(d.activities_score,              4,  6),
+                  unscale(d.data_figure_table_score,       3,  8),
+                  unscale(d.report_content_score,          4, 10),
+                  unscale(d.recommendation_score,          2,  4),
+                  unscale(d.conclusion_score,              2,  4),
+                ],
+                logbookScores: [
+                  unscale(d.pictures_and_data_score, 1, 5),
+                  unscale(d.weekly_summary_score,    1, 5),
+                  unscale(d.daily_detail_score,      1, 5),
+                  unscale(d.improvement_score,       1, 5),
+                  unscale(d.initiative_score,        1, 5),
+                ],
+                performanceScores: [
+                  unscale(d.understanding_objective_score, 4, 10),
+                  unscale(d.engagement_score,              3,  6),
+                  unscale(d.discipline_score,              3,  2),
+                ],
+              },
+            });
+          }
+        }
+      } catch {
+        // overall may not exist yet — that's fine
+      }
+    })();
+  }, [selectedStudent?.id, advisorEvalNonce]);
 
   const advisorEvalFormInitial = useMemo(() => {
     if (!selectedStudent) return {};
@@ -550,34 +960,176 @@ const AdvisorDashboard = () => {
       internshipTitle: selectedStudent.internshipTitle || "",
       supervisorName:
         rec?.formData?.supervisorName ||
-        rec?.formData?.advisorName ||
+        rec?.advisorName ||
         advisorLabel,
     };
   }, [selectedStudent, selectedAdvisorEval, session]);
 
   const selectedStudentExaminerEvals = useMemo(() => {
     if (!selectedStudent) return { ev1: null, ev2: null };
+    const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
+    const apiList = (internshipId && apiExaminerEvals[internshipId]) || [];
+
+    if (apiList.length > 0) {
+      // Assign by index — first submitted = examiner 1, second = examiner 2.
+      // Also try name-matching if examiner names are known.
+      const slotNorm1 = String(selectedStudent.examinerName || "").trim().toLowerCase();
+      const slotNorm2 = String(selectedStudent.examiner2Name || "").trim().toLowerCase();
+
+      let ev1 = null, ev2 = null;
+
+      if (slotNorm1 || slotNorm2) {
+        // Try name-based matching first
+        ev1 = apiList.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm1 && slotNorm1) || null;
+        ev2 = apiList.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm2 && slotNorm2) || null;
+      }
+
+      // Fall back to index-based if name matching didn't work
+      if (!ev1 && !ev2) {
+        ev1 = apiList[0] || null;
+        ev2 = apiList[1] || null;
+      } else if (!ev2 && apiList.length > 1) {
+        ev2 = apiList.find((e) => e !== ev1) || null;
+      } else if (!ev1 && apiList.length > 0) {
+        ev1 = apiList.find((e) => e !== ev2) || null;
+      }
+
+      return { ev1, ev2 };
+    }
+
+    // No API data — fall back to localStorage
     return {
-      ev1: getExaminerEvaluationForAdvisorSlot(
-        selectedStudent.studentId,
-        selectedStudent.examinerName
-      ),
-      ev2: getExaminerEvaluationForAdvisorSlot(
-        selectedStudent.studentId,
-        selectedStudent.examiner2Name
-      ),
+      ev1: getExaminerEvaluationForAdvisorSlot(selectedStudent.studentId, selectedStudent.examinerName),
+      ev2: getExaminerEvaluationForAdvisorSlot(selectedStudent.studentId, selectedStudent.examiner2Name),
     };
-  }, [selectedStudent, examinerEvalNonce]);
+  }, [selectedStudent, examinerEvalNonce, apiExaminerEvals]);
 
   const selectedStudentOverall = useMemo(() => {
     if (!selectedStudent) return null;
-    return computeOverallEvaluation(selectedStudent);
-  }, [selectedStudent, advisorEvalNonce, examinerEvalNonce]);
+
+    const internshipId = String(selectedStudent.id || "");
+
+    // Pull advisor mark directly from overall eval API response
+    const advisorDetail = apiOverallEval?.advisor_evaluation_detail;
+    const advisorMark = advisorDetail?.final_weighted_mark != null
+      ? Number(advisorDetail.final_weighted_mark)
+      : (apiOverallEval?.advisor_score != null ? Number(apiOverallEval.advisor_score) : null);
+
+    const hasAdvisor = advisorMark != null && Number.isFinite(advisorMark);
+
+    // Examiner marks from API — use form_data.finalMark (already /25) if available,
+    // otherwise fall back to total_score
+    const ex1Mark = selectedStudentExaminerEvals.ev1
+      ? Number(selectedStudentExaminerEvals.ev1.formData?.finalMark
+          ?? selectedStudentExaminerEvals.ev1.totalScore
+          ?? NaN)
+      : NaN;
+    const ex2Mark = selectedStudentExaminerEvals.ev2
+      ? Number(selectedStudentExaminerEvals.ev2.formData?.finalMark
+          ?? selectedStudentExaminerEvals.ev2.totalScore
+          ?? NaN)
+      : NaN;
+
+    const hasEx1 = Number.isFinite(ex1Mark);
+    const hasEx2 = Number.isFinite(ex2Mark);
+
+    // If overall API has pre-computed scores, use them directly
+    if (apiOverallEval?.final_total_score != null) {
+      const examinerAvg = Number(apiOverallEval.examiner_average_score ?? 0);
+      const companyScore = Number(apiOverallEval.company_score ?? 0);
+      const finalTotal = Number(apiOverallEval.final_total_score);
+
+      // Derive monthly/final split from apiFinalEvals and apiMonthlyEvals
+      const m1Api = apiMonthlyEvals[internshipId]?.[1];
+      const m2Api = apiMonthlyEvals[internshipId]?.[2];
+      const m1Perf = m1Api ? Number(m1Api.total_score ?? NaN) : NaN;
+      const m2Perf = m2Api ? Number(m2Api.total_score ?? NaN) : NaN;
+      const hasM1 = Number.isFinite(m1Perf);
+      const hasM2 = Number.isFinite(m2Perf);
+      const monthlyAvg20 = hasM1 && hasM2 ? Number(((m1Perf + m2Perf) / 2).toFixed(2)) : null;
+
+      const finalApi = apiFinalEvals[selectedStudent.studentId];
+      const finalCompany20 = finalApi
+        ? Number(finalApi.overall_student_performance ?? NaN)
+        : Number(getFinalEvaluation(selectedStudent.studentId)?.finalMark ?? NaN);
+      const companyFinal20 = Number.isFinite(finalCompany20) ? finalCompany20 : null;
+
+      return {
+        advisorMark: hasAdvisor ? advisorMark : null,
+        ex1Mark: hasEx1 ? ex1Mark : null,
+        ex2Mark: hasEx2 ? ex2Mark : null,
+        examinerAvg: examinerAvg || null,
+        academicOverall100: Number((Number(apiOverallEval.advisor_score ?? 0) + examinerAvg).toFixed(2)),
+        companyMonthly20: monthlyAvg20,
+        companyFinal20,
+        companyTotal40: companyScore > 0 ? Number(companyScore.toFixed(2)) : null,
+        overallMark100: Number(finalTotal.toFixed(2)),
+        complete: hasAdvisor && hasEx1 && hasEx2,
+        companyComplete: companyScore > 0,
+      };
+    }
+
+    // Fallback: compute locally from available API data
+    const advisorWeighted = hasAdvisor ? (advisorMark / 35) * 40 : 0;
+    const ex1Weighted = hasEx1 ? (ex1Mark / 25) * 30 : 0;
+    const ex2Weighted = hasEx2 ? (ex2Mark / 25) * 30 : 0;
+    const academicOverall100 = advisorWeighted + ex1Weighted + ex2Weighted;
+
+    const m1Api = apiMonthlyEvals[internshipId]?.[1];
+    const m2Api = apiMonthlyEvals[internshipId]?.[2];
+    const m1Perf = m1Api ? Number(m1Api.total_score ?? NaN) : NaN;
+    const m2Perf = m2Api ? Number(m2Api.total_score ?? NaN) : NaN;
+    const hasM1 = Number.isFinite(m1Perf);
+    const hasM2 = Number.isFinite(m2Perf);
+    const monthlyAvg20 = hasM1 && hasM2 ? (m1Perf + m2Perf) / 2 : NaN;
+
+    const finalApi = apiFinalEvals[selectedStudent.studentId];
+    const finalCompany20 = finalApi
+      ? Number(finalApi.overall_student_performance ?? NaN)
+      : Number(getFinalEvaluation(selectedStudent.studentId)?.finalMark ?? NaN);
+    const hasFinalCompany = Number.isFinite(finalCompany20);
+
+    const companyMonthly20 = Number.isFinite(monthlyAvg20) ? Number(monthlyAvg20.toFixed(2)) : null;
+    const companyFinal20 = hasFinalCompany ? finalCompany20 : null;
+    const companyTotal40 =
+      companyMonthly20 != null && companyFinal20 != null
+        ? Number((companyMonthly20 + companyFinal20).toFixed(2))
+        : null;
+
+    const overallMark100 = Number(((academicOverall100 * 0.6) + (companyTotal40 ?? 0)).toFixed(2));
+
+    return {
+      advisorMark: hasAdvisor ? advisorMark : null,
+      ex1Mark: hasEx1 ? ex1Mark : null,
+      ex2Mark: hasEx2 ? ex2Mark : null,
+      academicOverall100: Number(academicOverall100.toFixed(2)),
+      companyMonthly20,
+      companyFinal20,
+      companyTotal40,
+      overallMark100,
+      complete: hasAdvisor && hasEx1 && hasEx2,
+      companyComplete: companyTotal40 != null,
+    };
+  }, [selectedStudent, selectedAdvisorEval, selectedStudentExaminerEvals, apiMonthlyEvals, apiFinalEvals, apiOverallEval, overallNonce]);
 
   const selectedStudentOverallApprovals = useMemo(() => {
     if (!selectedStudent) return null;
+
+    // Prefer API data from OverallInternshipEvaluation
+    if (apiOverallEval) {
+      return {
+        advisorApproved: apiOverallEval.advisor_approved || false,
+        examiner1Approved: apiOverallEval.examiner_completed || false,
+        examiner2Approved: apiOverallEval.examiner_completed || false,
+        coordinatorApproved: apiOverallEval.coordinator_approved || false,
+        advisorApprovedAt: apiOverallEval.advisor_approved_at || null,
+        coordinatorApprovedAt: apiOverallEval.coordinator_approved_at || null,
+      };
+    }
+
+    // Fall back to localStorage
     return getOverallApprovals(selectedStudent.studentId);
-  }, [selectedStudent, advisorEvalNonce, examinerEvalNonce, internshipDocsNonce]);
+  }, [selectedStudent, apiOverallEval, advisorEvalNonce, examinerEvalNonce, internshipDocsNonce]);
 
   const approvedWeeksCount = useMemo(() => {
     let n = 0;
@@ -590,7 +1142,7 @@ const AdvisorDashboard = () => {
 
   const openStudent = (studentApp, initialDetailTab = "logbook", weekNumber = null) => {
     setSelectedStudent(studentApp);
-    setSelectedLogbook(getLogbookForApplication(studentApp));
+    // selectedLogbook will be fetched by the useEffect above when selectedStudent changes
     setStudentDetailTab(initialDetailTab);
     setFocusLogbookWeek(weekNumber != null ? Number(weekNumber) : null);
   };
@@ -606,6 +1158,7 @@ const AdvisorDashboard = () => {
 
   const handleAdvisorDecision = (weekNumber, action) => {
     if (!selectedStudent) return;
+    // Update localStorage immediately
     const updated = advisorFinalizeWeek(selectedStudent, weekNumber, action);
     setSelectedLogbook(updated);
 
@@ -624,13 +1177,75 @@ const AdvisorDashboard = () => {
       read: false,
     });
     localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    // ── API sync ──────────────────────────────────────────────────────────
+    (async () => {
+      try {
+        const internshipId = String(selectedStudent?.id || selectedStudent?.internshipId || "");
+        const week = selectedLogbook?.weeks?.find((w) => Number(w.weekNumber) === Number(weekNumber));
+        const logbookId = week?.apiId || getLogbookApiId(selectedStudent.studentId, internshipId, weekNumber);
+        if (logbookId) {
+          // Call review directly — backend now accepts SUBMITTED or VERIFIED status
+          await internshipService.reviewLogbook(logbookId, action);
+        }
+      } catch (err) {
+        console.warn("Logbook review API sync failed (local state is still saved):", err.message);
+      }
+      // Refresh logbook from API so UI reflects the new status
+      try {
+        const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
+        const params = internshipId ? { internship_id: internshipId } : {};
+        const res = await internshipService.getAdvisorLogbooks(params);
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (items.length > 0) {
+            const grouped = groupApiLogbooksByStudent(items);
+            const sid = String(selectedStudent.studentId || "").trim();
+            const rec = grouped.get(sid) || grouped.values().next().value;
+            if (rec) {
+              setSelectedLogbook(rec);
+              if (internshipId) {
+                setApiLogbooksMap((prev) => ({ ...prev, [String(internshipId)]: rec }));
+              }
+            }
+          }
+        }
+      } catch {
+        // keep the local state if refresh fails
+      }
+    })();
   };
 
-  const handleAdvisorMonthlyDecision = ({ action, comment }) => {
+  const handleAdvisorMonthlyDecision = async ({ action, comment }) => {
     if (!selectedEval) return;
+
+    // Try API first if we have an apiId
+    if (selectedEval.eval.apiId) {
+      try {
+        const res = await evaluationService.reviewMonthlyEvaluation(selectedEval.eval.apiId, action, comment);
+        if (res.success) {
+          // Refresh API monthly evals
+          const refreshRes = await evaluationService.getAdvisorMonthlyEvaluations();
+          if (refreshRes.success) {
+            const items = Array.isArray(refreshRes.data) ? refreshRes.data : (refreshRes.data?.results || []);
+            const map = {};
+            items.forEach((item) => {
+              if (!map[item.internship]) map[item.internship] = {};
+              map[item.internship][item.month_number] = item;
+            });
+            setApiMonthlyEvals(map);
+          }
+          setSelectedEval(null);
+          return;
+        }
+      } catch (err) {
+        console.warn("API monthly eval decision failed, falling back to local:", err.message);
+      }
+    }
+
+    // Fallback: localStorage
     advisorDecideEvaluation(selectedEval.eval.studentId, selectedEval.eval.month, action, comment);
 
-    // Notify the student
     const studentApp = selectedEval.studentApp;
     const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
     notifications.push({
@@ -678,17 +1293,65 @@ const AdvisorDashboard = () => {
     window.dispatchEvent(new Event("storage"));
   };
 
-  const handleAdvisorStudentEvalSubmit = (formPayload) => {
+  const handleAdvisorStudentEvalSubmit = async (formPayload) => {
     if (!selectedStudent) return;
-    const advisorLabel =
-      session?.fullName || session?.name || session?.username || "Advisor";
-    submitAdvisorEvaluation({
-      studentId: selectedStudent.studentId,
-      studentName: selectedStudent.studentName,
-      advisorName: advisorLabel,
-      formData: formPayload,
-    });
-    setAdvisorEvalNonce((n) => n + 1);
+
+    const internshipId = selectedStudent.id;
+    if (!internshipId) {
+      alert("Cannot submit: no internship ID found for this student.");
+      return;
+    }
+
+    // Scale a raw frontend score proportionally into the DB-constrained range.
+    // scale(raw, frontendMax, dbMax) → integer in [0, dbMax]
+    const scale = (raw, frontendMax, dbMax) =>
+      Math.round(Math.min(raw ?? 0, frontendMax) / frontendMax * dbMax);
+
+    const rS = formPayload.reportScores || [];
+    const lS = formPayload.logbookScores || [];
+    const pS = formPayload.performanceScores || [];
+
+    const body = {
+      internship: internshipId,
+      // Section 1 — Report (frontend weights: 4,4,6,8,10,4,4 → DB max: 2,3,4,3,4,2,2)
+      report_format_score:           scale(rS[0], 4,  2),
+      organization_background_score: scale(rS[1], 4,  3),
+      activities_score:              scale(rS[2], 6,  4),
+      data_figure_table_score:       scale(rS[3], 8,  3),
+      report_content_score:          scale(rS[4], 10, 4),
+      recommendation_score:          scale(rS[5], 4,  2),
+      conclusion_score:              scale(rS[6], 4,  2),
+      // Section 2 — Logbook (frontend weights: 5,5,5,5,5 → DB max: 1,1,1,1,1)
+      pictures_and_data_score: scale(lS[0], 5, 1),
+      weekly_summary_score:    scale(lS[1], 5, 1),
+      daily_detail_score:      scale(lS[2], 5, 1),
+      improvement_score:       scale(lS[3], 5, 1),
+      initiative_score:        scale(lS[4], 5, 1),
+      // Section 3 — Performance (frontend weights: 10,6,2 → DB max: 4,3,3)
+      understanding_objective_score: scale(pS[0], 10, 4),
+      engagement_score:              scale(pS[1], 6,  3),
+      discipline_score:              scale(pS[2], 2,  3),
+    };
+
+    try {
+      const res = await evaluationService.submitAdvisorEvaluationForInternship(internshipId, body);
+      if (res.success) {
+        // Persist to localStorage only after confirmed API success
+        const advisorLabel = session?.fullName || session?.name || session?.username || "Advisor";
+        submitAdvisorEvaluation({
+          studentId: selectedStudent.studentId,
+          studentName: selectedStudent.studentName,
+          advisorName: advisorLabel,
+          formData: formPayload,
+        });
+        setAdvisorEvalNonce((n) => n + 1);
+      } else {
+        const errMsg = res.error?.non_field_errors?.[0] || res.error?.detail || JSON.stringify(res.error);
+        alert(`Failed to submit evaluation: ${errMsg}`);
+      }
+    } catch (err) {
+      alert(`Failed to submit evaluation: ${err.message}`);
+    }
   };
 
   const handleAdvisorDocumentQueueDecision = (action) => {
@@ -912,7 +1575,6 @@ const AdvisorDashboard = () => {
                   <div className="space-y-3">
                     {allMyFinalEvals.map(ev => {
                       const studentApp = assignedStudents.find(a => a.studentId === ev.studentId);
-                      const isPendingAdvisor = ev.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL;
                       const isApprovedByAdvisor = ev.status === FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR;
                       const isPendingExaminer = ev.status === FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL;
                       const isFinalApproved = ev.status === FINAL_EVAL_STATUS.FINAL_APPROVED;
@@ -1081,8 +1743,19 @@ const AdvisorDashboard = () => {
                 ) : (
                   <div className="space-y-10" key={examinerEvalNonce}>
                     {assignedStudents.map((app) => {
-                      const ev1 = getExaminerEvaluationForAdvisorSlot(app.studentId, app.examinerName);
-                      const ev2 = getExaminerEvaluationForAdvisorSlot(app.studentId, app.examiner2Name);
+                      const internshipId = app?.id || app?.__raw?.id;
+                      const apiList = (internshipId && apiExaminerEvals[internshipId]) || [];
+                      // Prefer API data; fall back to localStorage
+                      const findEval = (slotName) => {
+                        if (apiList.length > 0) {
+                          const norm = String(slotName || "").trim().toLowerCase();
+                          return apiList.find((e) => String(e.examinerName || "").trim().toLowerCase() === norm)
+                            || (apiList.length === 1 && !slotName ? apiList[0] : null);
+                        }
+                        return getExaminerEvaluationForAdvisorSlot(app.studentId, slotName);
+                      };
+                      const ev1 = findEval(app.examinerName);
+                      const ev2 = findEval(app.examiner2Name);
                       return (
                         <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4 bg-gray-50/20">
                           <h3 className="font-bold text-lg text-gray-900 border-b border-gray-100 pb-2">
@@ -1395,7 +2068,12 @@ const AdvisorDashboard = () => {
             {/* ── Weekly Logbook tab ── */}
             {studentDetailTab === "logbook" && (
               <div className="space-y-4">
-                {selectedLogbook.weeks.filter((w) => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
+                {logbookLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600 mr-3" />
+                    <p className="text-sm text-slate-500">Loading logbook…</p>
+                  </div>
+                ) : !selectedLogbook || selectedLogbook.weeks.filter((w) => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                     <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">This student has not submitted any logbook weeks yet.</p>
@@ -1404,8 +2082,11 @@ const AdvisorDashboard = () => {
                   selectedLogbook.weeks
                     .filter((w) => w.status !== WEEK_STATUS.NOT_SUBMITTED)
                     .map((week) => {
-                      const isPending = week.status === WEEK_STATUS.PENDING_ADVISOR;
-                      const isApproved = week.status === WEEK_STATUS.APPROVED;
+                      // Advisor can act on SUBMITTED or VERIFIED logbooks
+                      const isPending = week.status === WEEK_STATUS.PENDING_ADVISOR ||
+                        week.apiStatus === "SUBMITTED" ||
+                        week.apiStatus === "VERIFIED";
+                      const isApproved = week.status === WEEK_STATUS.APPROVED || week.apiStatus === "REVIEWED";
                       const isRejected = week.status === WEEK_STATUS.REJECTED_ADVISOR;
 
                       let badgeClass = "bg-indigo-100 text-indigo-800 border-indigo-200";
@@ -1484,7 +2165,23 @@ const AdvisorDashboard = () => {
             {studentDetailTab === "monthly" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {[1, 2].map(month => {
-                  const rec = getEvaluation(selectedStudent.studentId, month);
+                  const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
+                  const apiRec = internshipId && apiMonthlyEvals[internshipId]?.[month];
+                  // Prefer API data; fall back to localStorage
+                  const rec = apiRec
+                    ? {
+                        status: apiRec.status === "ADVISOR_APPROVED" ? EVAL_STATUS.APPROVED
+                               : apiRec.status === "REJECTED" ? EVAL_STATUS.REJECTED
+                               : EVAL_STATUS.SUBMITTED,
+                        advisorComment: apiRec.advisor_comment || "",
+                        evaluationData: {
+                          ...(apiRec.form_data || {}),
+                          totalMarks: apiRec.total_score,
+                          monthlyPerformance: apiRec.total_score,
+                        },
+                        apiId: apiRec.id,
+                      }
+                    : getEvaluation(selectedStudent.studentId, month);
                   const status = rec?.status || EVAL_STATUS.NOT_STARTED;
                   const badgeMap = {
                     [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
@@ -1629,14 +2326,15 @@ const AdvisorDashboard = () => {
                   <strong className="text-gray-800">Examiner evaluations</strong> on the main dashboard.
                 </p>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {/* Examiner 1 */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
                       Examiner 1
-                      {selectedStudent.examinerName ? ` — ${selectedStudent.examinerName}` : ""}
+                      {(selectedStudent.examinerName || selectedStudentExaminerEvals.ev1?.examinerName)
+                        ? ` — ${selectedStudent.examinerName || selectedStudentExaminerEvals.ev1?.examinerName}`
+                        : ""}
                     </h4>
-                    {!selectedStudent.examinerName ? (
-                      <p className="text-sm text-gray-500">No examiner 1 assigned on this application.</p>
-                    ) : !selectedStudentExaminerEvals.ev1 ? (
+                    {!selectedStudentExaminerEvals.ev1 ? (
                       <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
                         Examiner 1 has not submitted an evaluation yet.
                       </p>
@@ -1663,14 +2361,15 @@ const AdvisorDashboard = () => {
                       </>
                     )}
                   </div>
+                  {/* Examiner 2 */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
                       Examiner 2
-                      {selectedStudent.examiner2Name ? ` — ${selectedStudent.examiner2Name}` : ""}
+                      {(selectedStudent.examiner2Name || selectedStudentExaminerEvals.ev2?.examinerName)
+                        ? ` — ${selectedStudent.examiner2Name || selectedStudentExaminerEvals.ev2?.examinerName}`
+                        : ""}
                     </h4>
-                    {!selectedStudent.examiner2Name ? (
-                      <p className="text-sm text-gray-500">No examiner 2 assigned on this application.</p>
-                    ) : !selectedStudentExaminerEvals.ev2 ? (
+                    {!selectedStudentExaminerEvals.ev2 ? (
                       <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
                         Examiner 2 has not submitted an evaluation yet.
                       </p>
@@ -1785,8 +2484,29 @@ const AdvisorDashboard = () => {
                       <button
                         type="button"
                         disabled={!selectedStudentOverall?.complete}
-                        onClick={() => {
-                          approveOverallAsAdvisor(selectedStudent.studentId);
+                        onClick={async () => {
+                          // Approve the advisor's own evaluation via API
+                          const advisorEvalId = selectedAdvisorEval?.apiId;
+                          if (advisorEvalId) {
+                            try {
+                              const res = await evaluationService.approveAdvisorEvaluation(advisorEvalId);
+                              if (res.success) {
+                                // Refresh overall from API
+                                try {
+                                  const ov = await api.get(`/overall-evaluation/${selectedStudent.id}/`);
+                                  if (ov.data) setApiOverallEval(ov.data);
+                                } catch { /* ignore */ }
+                                setAdvisorEvalNonce((n) => n + 1);
+                              } else {
+                                alert(`Approval failed: ${res.error?.detail || JSON.stringify(res.error)}`);
+                              }
+                            } catch (err) {
+                              alert(`Approval failed: ${err.message}`);
+                            }
+                          } else {
+                            // Fallback: local only
+                            approveOverallAsAdvisor(selectedStudent.studentId);
+                          }
                         }}
                         className="mt-2 inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                       >
@@ -1795,7 +2515,7 @@ const AdvisorDashboard = () => {
                     )}
                     {!selectedStudentOverall?.complete && (
                       <p className="text-xs text-gray-500">
-                        Advisor approval is enabled after advisor + examiner 1 + examiner 2 evaluations are submitted.
+                        Advisor approval requires: advisor evaluation submitted + examiner 1 + examiner 2 evaluations submitted + final report submitted.
                       </p>
                     )}
                   </div>
@@ -1806,6 +2526,7 @@ const AdvisorDashboard = () => {
             {studentDetailTab === "documents" && (
               <AdvisorStudentDocumentsPanel
                 studentId={selectedStudent.studentId}
+                internshipId={selectedStudent.id}
                 advisorIdentity={advisorIdentity}
               />
             )}

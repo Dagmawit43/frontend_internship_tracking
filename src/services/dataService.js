@@ -152,7 +152,33 @@ export const dataService = {
   },
 
   /**
-   * Get students assigned to advisor
+   * Get students assigned to the logged-in advisor
+   */
+  async getAdvisorMyStudents(params = {}) {
+    try {
+      const response = await api.get("/advisor/my-students/", { params });
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Error fetching advisor students:", error);
+      return { success: false, data: [], error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Get students assigned to the logged-in examiner
+   */
+  async getExaminerMyStudents(params = {}) {
+    try {
+      const response = await api.get("/examiner/my-students/", { params });
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Error fetching examiner students:", error);
+      return { success: false, data: [], error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Get students assigned to advisor (legacy path kept for compat)
    */
   async getAdvisorStudents(params = {}) {
     try {
