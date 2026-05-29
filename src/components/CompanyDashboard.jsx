@@ -15,6 +15,7 @@ import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
+import LoadingState from "./LoadingState";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -269,6 +270,7 @@ const AppliedStudentsPage = ({ companySession }) => {
   const [internships, setInternships] = useState([]);
   const [selectedInternshipId, setSelectedInternshipId] = useState("");
   const [selectedApplication, setSelectedApplication] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const cName = companySession?.companyName || companySession?.company_name || "";
   const companyId = companySession?.company_id || companySession?.companyId || companySession?.id;
 
@@ -284,6 +286,8 @@ const AppliedStudentsPage = ({ companySession }) => {
     } catch (err) {
       console.error("Failed to load company internships:", err);
       setInternships([]);
+    } finally {
+      setIsLoading(false);
     }
   }, [companyId, selectedInternshipId]);
 
@@ -336,7 +340,9 @@ const AppliedStudentsPage = ({ companySession }) => {
           setApplications([]);
           return;
         }
-        const result = await internshipService.getCompanyApplicants(companyId, selectedInternshipId);
+        const result = await internshipService.getCompanyApplicants(companyId, {
+          position_id: selectedInternshipId,
+        });
         const payload = result.success ? result.data : [];
         const items = Array.isArray(payload) ? payload : payload?.results || [];
         setApplications(items.map(mapApplication).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
@@ -352,7 +358,7 @@ const AppliedStudentsPage = ({ companySession }) => {
 
   useEffect(() => {
     loadApplications();
-    const interval = setInterval(loadApplications, 5000); // Refresh every 5 seconds
+    const interval = setInterval(() => loadApplications(), 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, [loadApplications]);
 
@@ -384,6 +390,9 @@ const AppliedStudentsPage = ({ companySession }) => {
           <p className="text-sm text-gray-500">Review and manage student application requests for one internship posting</p>
         </div>
       </div>
+      {isLoading ? (
+        <LoadingState title="Loading applied students" subtitle="Fetching your internships and application requests." />
+      ) : null}
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
         <label className="mb-2 block text-sm font-semibold text-gray-700">Select internship posting</label>
         <select
@@ -553,6 +562,9 @@ const InternshipPage = ({ companySession }) => {
           <Plus className="w-5 h-5" /> Create Internship
         </button>
       </div>
+      {isLoading ? (
+        <LoadingState title="Loading internships" subtitle="Fetching your posted internship opportunities." />
+      ) : null}
       {internships.length === 0 ? (
         <div className="app-card p-12 text-center"><p className="text-gray-500">No internships posted yet.</p></div>
       ) : (
@@ -573,6 +585,7 @@ const InternsPage = ({ companySession }) => {
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [logbookLoading, setLogbookLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [openEvalMonth, setOpenEvalMonth] = useState(null);
   const [evalRecords, setEvalRecords] = useState({ 1: null, 2: null });
@@ -665,18 +678,6 @@ const InternsPage = ({ companySession }) => {
     fetchLogbook();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIntern?.id]);
-
-  // Auto-reminders: which interns have evaluations not yet submitted
-  const reminders = useMemo(() => {
-    const msgs = [];
-    interns.forEach(intern => {
-      [1, 2].forEach(m => {
-        const rec = getEvaluation(intern.studentId, m);
-        if (!rec || rec.status === EVAL_STATUS.NOT_STARTED) msgs.push({ intern, month: m });
-      });
-    });
-    return msgs;
-  }, [interns]);
 
   const loadEvalRecords = useCallback(async (intern) => {
     // Reset to empty first — don't show stale localStorage data
@@ -963,6 +964,9 @@ const InternsPage = ({ companySession }) => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {isLoading ? (
+        <LoadingState title="Loading active interns" subtitle="Fetching approved placements for your company." />
+      ) : null}
       {/* Auto reminders */}
       {reminders.length > 0 && (
         <div className="space-y-2">
@@ -1266,15 +1270,20 @@ const InternsPage = ({ companySession }) => {
 
 // ─── CompanyDashboard (root) ──────────────────────────────────────────────────
 const CompanyDashboard = () => {
-  const [session, setSession] = useState({});
+  const [session, setSession] = useState(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [view, setView] = useState("home");
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   useEffect(() => {
     const currentSession = getValidCompanySession();
-    if (!currentSession || Object.keys(currentSession).length === 0) navigate("/login");
-    else setSession(currentSession);
+    if (!currentSession || Object.keys(currentSession).length === 0) {
+      navigate("/login");
+      return;
+    }
+    setSession(currentSession);
+    setIsBootstrapping(false);
   }, [navigate]);
 
   const handleLogout = () => {
@@ -1282,9 +1291,36 @@ const CompanyDashboard = () => {
     navigate("/login");
   };
 
+  if (isBootstrapping || !session) {
+    return <LoadingState title="Loading company dashboard" subtitle="Fetching your company profile and internship data." />;
+  }
+
   const cName   = session.companyName || session.company_name || "Company";
   const email   = session.contactEmail || session.representative_email || session.email || "N/A";
   const repName = session.representative_name || session.fullName || "Representative";
+  const shortcutCards = [
+    {
+      view: "internships",
+      title: "Internships",
+      description: "Create and manage your internship postings.",
+      icon: Briefcase,
+      accent: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+    },
+    {
+      view: "applications",
+      title: "Applied students",
+      description: "Review students who applied for your openings.",
+      icon: Users,
+      accent: "bg-amber-50 text-amber-700 ring-amber-100",
+    },
+    {
+      view: "interns",
+      title: "Active interns",
+      description: "Track approved interns and their ongoing work.",
+      icon: ClipboardList,
+      accent: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    },
+  ];
 
   return (
     <div className="app-shell flex min-h-screen flex-col">
@@ -1355,35 +1391,50 @@ const CompanyDashboard = () => {
               </div>
             </div>
 
-            <div className="mx-auto max-w-7xl">
+            <div className="w-full">
               {view === "home" && (
-                <div className="grid animate-fade-in grid-cols-1 gap-6 md:grid-cols-3">
-                  <div className="app-card p-12 text-center md:col-span-2">
-                    <Briefcase className="mx-auto mb-4 h-12 w-12 text-gray-200" />
-                    <h3 className="mb-2 text-xl font-bold text-gray-900">Welcome to your dashboard</h3>
-                    <p className="mx-auto max-w-sm text-gray-500">
-                      Track student applications and manage your company postings from the menu on the left.
-                    </p>
+                <div className="grid animate-fade-in grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {shortcutCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <button
+                          key={card.view}
+                          type="button"
+                          onClick={() => setView(card.view)}
+                          className="group app-card flex h-full min-h-[168px] flex-col justify-between p-6 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                        >
+                          <div>
+                            <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${card.accent}`}>
+                              <Icon className="h-6 w-6" aria-hidden />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">{card.title}</h3>
+                            <p className="mt-1 max-w-sm text-sm text-gray-500">{card.description}</p>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between text-sm font-semibold text-indigo-600">
+                            <span>Open section</span>
+                            <ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="app-card p-8">
+                  <aside className="app-card h-fit p-8 xl:sticky xl:top-6">
                     <h4 className="mb-4 flex items-center gap-2 font-bold text-gray-900">
                       <Clock className="h-4 w-4 text-indigo-600" /> System reminders
                     </h4>
-                    <ul className="space-y-4">
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                        <p className="text-gray-600">Ensure all active internships have correct contact info.</p>
-                      </li>
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                        <p className="text-gray-600">Review new student applications daily for fast onboarding.</p>
-                      </li>
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                        <p className="text-gray-600">Company monthly evaluations are due at 30 and 60 days — check Active interns.</p>
-                      </li>
-                    </ul>
-                  </div>
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Keep internship postings current and accurate.
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Check applied students regularly to avoid delayed onboarding.
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Use Active interns to follow ongoing placements and evaluations.
+                      </div>
+                    </div>
+                  </aside>
                 </div>
               )}
               {view === "internships" && <InternshipPage companySession={session} />}

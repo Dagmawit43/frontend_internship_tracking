@@ -36,6 +36,26 @@ const RegistrationForm = () => {
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const getErrorMessage = (error, fallback = "Registration failed. Please try again.") => {
+    if (!error) return fallback;
+    if (typeof error === "string") return error;
+    if (Array.isArray(error)) {
+      return error.find((item) => typeof item === "string" && item.trim()) || fallback;
+    }
+    if (typeof error === "object") {
+      return (
+        error.detail ||
+        error.message ||
+        error.non_field_errors?.[0] ||
+        error.email?.[0] ||
+        error.student_id?.[0] ||
+        error.tin_number?.[0] ||
+        fallback
+      );
+    }
+    return fallback;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -117,7 +137,7 @@ const RegistrationForm = () => {
           return;
         } else {
           console.error("❌ Registration failed:", result.error);
-          setError(result.error?.detail || result.error?.email?.[0] || result.error?.student_id?.[0] || "Registration failed. Please try again.");
+          setError(getErrorMessage(result.error));
           setIsSubmitting(false);
           return;
         }
@@ -157,7 +177,7 @@ const RegistrationForm = () => {
           return;
         } else {
           console.error("❌ Registration failed:", result.error);
-          setError(result.error?.detail || result.error?.email?.[0] || result.error?.tin_number?.[0] || "Registration failed. Please try again.");
+          setError(getErrorMessage(result.error));
           setIsSubmitting(false);
           return;
         }
@@ -177,8 +197,9 @@ const RegistrationForm = () => {
           return;
         }
 
-        console.log("� Calling authService.registerStaff() (OTP skipped in dev mode)");
-        const result = await authService.registerStaff({
+        // Create staff user which in production will send an OTP from the backend
+        console.log("📤 Calling authService.registerStaff() for:", email);
+        const regResult = await authService.registerStaff({
           email: email.toLowerCase(),
           username: fullName,
           phone,
@@ -186,39 +207,35 @@ const RegistrationForm = () => {
           role: role.toLowerCase(),
           password,
         });
+        console.log("📥 registerStaff response:", regResult);
 
-        console.log("✅ Staff registration response:", result);
-
-        if (result.success) {
-          console.log("🎉 Staff registration successful!");
-          toast.success("Registration successful! Redirecting to dashboard...");
-          setTimeout(() => navigate("/login"), 1500);
-          return;
-        } else {
-          console.error("❌ Staff registration failed:", result.error);
-          setError(result.error?.detail || result.error?.email?.[0] || "Registration failed. Please try again.");
+        if (!regResult.success) {
+          console.error("❌ Staff registration failed:", regResult.error);
+          setError(getErrorMessage(regResult.error));
           setIsSubmitting(false);
           return;
         }
-        
-        /* 🔴 OTP FLOW COMMENTED OUT (dev mode skips OTP)
-        console.log("📝 Showing OTP modal for email:", email);
 
-        // Prepare user data for OTP flow
+        // If backend returned tokens (dev mode), registration is complete.
+        if (regResult.data?.tokens) {
+          toast.success("Registration successful! Redirecting to dashboard...");
+          setTimeout(() => navigate("/login"), 1500);
+          return;
+        }
+
+        // Otherwise the backend created the user and sent an OTP — show the OTP modal.
+        toast.success(`OTP sent to ${email.toLowerCase()}. Check your inbox.`);
         const temp = {
-          role,
-          full_name: fullName,
+          username: fullName,
           email: email.toLowerCase(),
           department,
           phone,
-          password,
-          tin_number: tinNumber,
+          role: role,
         };
         setPendingUser(temp);
         setOtpSent(true);
         setIsSubmitting(false);
         return;
-        */
       }
     } catch (err) {
       console.error("💥 Catch error:", err);
@@ -408,8 +425,6 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        {/* 🔴 OTP MODAL COMMENTED OUT (dev mode skips OTP verification) */}
-        {/* 
         {otpSent && pendingUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
             <div className="app-modal-panel w-full max-w-md p-6">
@@ -471,38 +486,17 @@ const RegistrationForm = () => {
 
                     if (result.success) {
                       console.log("🎉 OTP verified successfully!");
-                      toast.success("Email verified! Registering your account...");
-                      
-                      // Now register the staff member
-                      console.log("📤 Calling authService.registerStaff()");
-                      const registerResult = await authService.registerStaff({
-                        email: pendingUser.email,
-                        full_name: pendingUser.full_name,
-                        phone: pendingUser.phone,
-                        department: pendingUser.department,
-                        role: pendingUser.role.toLowerCase(),
-                        password: pendingUser.password,
-                      });
-
-                      console.log("✅ Staff registration response:", registerResult);
-
-                      if (registerResult.success) {
-                        console.log("🎉 Staff registration successful!");
-                        toast.success("Registration complete! Redirecting to login...");
-                        setTimeout(() => {
-                          setOtpSent(false);
-                          setPendingUser(null);
-                          setOtpCode("");
-                          navigate("/login");
-                        }, 1500);
-                      } else {
-                        console.error("❌ Staff registration failed:", registerResult.error);
-                        setError(registerResult.error?.detail || "Registration failed. Please try again.");
-                        setIsSubmitting(false);
-                      }
+                      toast.success("Email verified! Redirecting to login...");
+                      // If verifyOTP returns tokens we could auto-login; otherwise redirect
+                      setTimeout(() => {
+                        setOtpSent(false);
+                        setPendingUser(null);
+                        setOtpCode("");
+                        navigate("/login");
+                      }, 1200);
                     } else {
                       console.error("❌ OTP verification failed:", result.error);
-                      setError(result.error?.detail || "Invalid OTP. Please try again.");
+                      setError(getErrorMessage(result.error, "Invalid OTP. Please try again."));
                       setIsSubmitting(false);
                     }
                   }}
@@ -515,7 +509,6 @@ const RegistrationForm = () => {
             </div>
           </div>
         )}
-        */}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

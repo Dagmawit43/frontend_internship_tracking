@@ -1,24 +1,26 @@
+import { computeOverallEvaluation, getOverallApprovals, setOverallApproval } from "../utils/overallEvaluation";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import CoordinatorSidebar from "./CoordinatorSidebar";
-import storageService from "../services/storageService";
 import internshipService from "../services/internshipService";
 import userService from "../services/userService";
 import logbookService from "../services/logbookService";
 import evaluationService from "../services/evaluationService";
-import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
+import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
+import LoadingState from "./LoadingState";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
   getLogbookForApplication,
+  apiLogbookToWeek,
 } from "../utils/weeklyLogbook";
 import {
   EVAL_STATUS,
@@ -31,7 +33,6 @@ import {
   getFinalEvaluation,
 } from "../utils/finalEvaluations";
 import {
-  getAdvisorEvaluation,
   ADVISOR_EVAL_STATUS,
 } from "../utils/advisorEvaluations";
 import { getExaminerEvaluationForAdvisorSlot } from "../utils/examinerEvaluations";
@@ -41,11 +42,7 @@ import {
   ROLE_DOC_STATUS,
   syncInternshipDocumentsFromApi,
 } from "../utils/internshipDocuments";
-import {
-  computeOverallEvaluation,
-  getOverallApprovals,
-  approveOverallAsCoordinator,
-} from "../utils/overallEvaluation";
+
 
 const getValidSession = () => {
   try {
@@ -112,8 +109,10 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
   const [activeStudents, setActiveStudents] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [resolvedDeptForDisplay, setResolvedDeptForDisplay] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const reloadLists = useCallback(async () => {
+    setLoading(true);
     const liveDept = (getCoordinatorDepartment() || coordinatorDept || "").trim();
     const normalize = (s) => String(s || "").trim().toLowerCase();
 
@@ -173,6 +172,7 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
     setActiveStudents(deptRegistered);
     setPendingStudents(pending);
     setResolvedDeptForDisplay(liveDept);
+    setLoading(false);
   }, [coordinatorDept]);
 
   useEffect(() => {
@@ -207,6 +207,11 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
         </button>
       </div>
 
+      {loading ? (
+        <LoadingState title="Loading student management" subtitle="Fetching registered and eligible students for your department." />
+      ) : null}
+
+      {!loading ? (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-200 bg-green-50/60 px-4 py-3">
@@ -258,6 +263,7 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
           )}
         </section>
       </div>
+      ) : null}
     </div>
   );
 };
@@ -266,22 +272,34 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
 const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
   const [pendingApps, setPendingApps] = useState([]);
   const [selectedApp, setSelectedApp] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const normalizeApp = useCallback((app) => {
     const studentSnapshot = app?.form_snapshot?.student || {};
     const companySnapshot = app?.form_snapshot?.company || {};
     const internshipSnapshot = app?.form_snapshot?.internship || {};
+    const isSelfPlacement = Boolean(app?.is_self_placement || app?.isSelfPlacement);
 
     return {
       id: app.id,
       studentName: app.student_name || studentSnapshot.name || "Unknown student",
-      studentId: studentSnapshot.student_id || `#${app.id}`,
+      studentId: studentSnapshot.student_id || app.student_id || `#${app.id}`,
       studentEmail: app.student_email || studentSnapshot.email || "",
+      overallStatus: String(app.overall_status || app.status || "").toUpperCase(),
+      deptStatus: String(app.dept_status || "PENDING").toUpperCase(),
+      mentorStatus: app.mentor_status ? String(app.mentor_status).toUpperCase() : null,
+      advisorStatus: String(app.advisor_status || "PENDING").toUpperCase(),
+      studentDecision: String(app.student_decision || "PENDING").toUpperCase(),
+      rejectionReason: app.rejection_reason || "",
+      coordinatorSignature: app.coordinator_signature || "",
+      coordinatorSignedAt: app.coordinator_signed_at || null,
+      mentorSignature: app.mentor_signature || "",
+      mentorSignedAt: app.mentor_signed_at || null,
       studentFull: {
         department: studentSnapshot.department || coordinatorDept || "N/A",
         email: app.student_email || studentSnapshot.email || "",
       },
-      internshipTitle: app.position_title || internshipSnapshot.position_title || "Internship Application",
+      internshipTitle: app.position_title || internshipSnapshot.position_title || (isSelfPlacement ? "Self Placement" : "Internship Application"),
       internshipFull: {
         description: app.position_description || internshipSnapshot.description || "No description available.",
         start_date: internshipSnapshot.requested_start_date || app.requested_start_date || "",
@@ -294,10 +312,33 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
         location: companySnapshot.physical_address || companySnapshot.mailing_address || "Location not specified",
         description: companySnapshot.name || app.company_name || "",
       },
-      reason: app.form_snapshot?.student?.statement || app.reason_for_joining || "No statement provided.",
-      additionalDocument: app.resume_url || app.form_snapshot?.student?.resume_url || "",
-      documentName: app.form_snapshot?.student?.resume_url ? "CV / Resume" : "CV / Resume",
-      acceptanceForm: app.form_snapshot || null,
+      reason: app.form_snapshot?.student?.statement || app.reason_for_joining || app.additional_notes || "No statement provided.",
+      additionalDocument: app.company_license_url || app.resume_url || app.form_snapshot?.student?.resume_url || "",
+      documentName: app.company_license_url ? "Company License" : "CV / Resume",
+      isSelfPlacement,
+      acceptanceForm: {
+        ...(typeof ACCEPTANCE_FORM_DEFAULTS !== 'undefined' ? ACCEPTANCE_FORM_DEFAULTS : {}),
+        internName: studentSnapshot.name || app.student_name || "",
+        idNo: studentSnapshot.student_id || "",
+        college: studentSnapshot.college || "",
+        department: studentSnapshot.department || "",
+        mobile: studentSnapshot.mobile || "",
+        orgName: companySnapshot.name || app.company_name || "",
+        mailingAddress: companySnapshot.mailing_address || "",
+        physicalAddress: companySnapshot.physical_address || "",
+        phone: companySnapshot.phone || "",
+        supervisorName: app.form_snapshot?.mentor?.name || "",
+        supervisorPhone: app.form_snapshot?.mentor?.phone || "",
+        supervisorEmail: app.form_snapshot?.mentor?.email || "",
+        accepted: String(app.mentor_status || "").toUpperCase() === "ACCEPTED",
+        rejected: String(app.mentor_status || "").toUpperCase() === "REJECTED",
+        reason: app.rejection_reason || "",
+        date: app.mentor_signed_at ? (app.mentor_signed_at.split("T")[0]) : "",
+        coordinatorStatus: app.dept_status || "PENDING",
+        companyStatus: app.mentor_status || null,
+        studentStatus: app.student_decision || null,
+        overallStatus: app.overall_status || null,
+      },
       raw: app,
     };
   }, [coordinatorDept]);
@@ -306,12 +347,14 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
     let mounted = true;
 
     const loadApps = async () => {
+      setLoading(true);
       const result = await internshipService.getApplications();
       if (!mounted) return;
 
       const payload = result.success ? result.data : [];
       const items = Array.isArray(payload) ? payload : payload?.results || [];
       setPendingApps(items.map(normalizeApp));
+      setLoading(false);
     };
 
     loadApps();
@@ -321,21 +364,29 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
   }, [normalizeApp]);
 
   const reloadApps = useCallback(async () => {
+    setLoading(true);
     const result = await internshipService.getApplications();
     const payload = result.success ? result.data : [];
     const items = Array.isArray(payload) ? payload : payload?.results || [];
     setPendingApps(items.map(normalizeApp));
+    setLoading(false);
   }, [normalizeApp]);
 
   const handleAction = async (app, action) => {
     if (action === "REJECT" && !window.confirm("Are you sure you want to REJECT this internship placement?")) return;
     
     try {
-      const result = await internshipService.coordinatorReviewApplication(
-        app.id,
-        action === "APPROVE" ? "approve" : "reject",
-        getCoordinatorName(),
-      );
+      const result = app.isSelfPlacement
+        ? await internshipService.reviewSelfPlacementRequest(
+            app.id,
+            action === "APPROVE" ? "approve" : "reject",
+            "",
+          )
+        : await internshipService.coordinatorReviewApplication(
+            app.id,
+            action === "APPROVE" ? "approve" : "reject",
+            getCoordinatorName(),
+          );
 
       if (!result.success) {
         throw new Error(
@@ -366,13 +417,17 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
         </button>
       </div>
 
-      {pendingApps.length === 0 ? (
+      {loading ? (
+        <LoadingState title="Loading internship approvals" subtitle="Fetching submitted placements waiting for coordinator review." />
+      ) : null}
+
+      {!loading && pendingApps.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 px-6 py-14 text-center">
           <Briefcase className="mx-auto mb-3 h-12 w-12 text-slate-300" />
           <h3 className="text-base font-semibold text-slate-900">No pending approvals</h3>
           <p className="mt-1 text-sm text-slate-500">Everything is caught up.</p>
         </div>
-      ) : (
+      ) : !loading ? (
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <ul className="divide-y divide-slate-100">
             {pendingApps.map((app) => (
@@ -419,7 +474,7 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
 
       {/* Forensic Detail Modal */}
       {selectedApp && (
@@ -539,6 +594,17 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
                 </div>
 
                 <div className="mt-8">
+                  <div className="mb-4 flex flex-wrap gap-2 text-[11px] font-black uppercase">
+                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.deptStatus === "APPROVED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.deptStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                      Coordinator: {selectedApp.deptStatus || "PENDING"}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.mentorStatus === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.mentorStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                      Company: {selectedApp.mentorStatus || "PENDING"}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.studentDecision === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.studentDecision === "DECLINED" ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                      Student: {selectedApp.studentDecision || "PENDING"}
+                    </span>
+                  </div>
                   <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mb-3">
                     Completed Internship Hosting Company Acceptance Form
                   </h4>
@@ -579,15 +645,58 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const [advisorsPool, setAdvisorsPool] = useState([]);
   const [examinersPool, setExaminersPool] = useState([]);
   const [selectedIntern, setSelectedIntern] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [logbookRecord, setLogbookRecord] = useState(null);
+  
+    const buildLogbookRecordFromApi = useCallback((apiData, internLike) => {
+      const items = Array.isArray(apiData)
+        ? apiData
+        : (apiData?.results || apiData?.data || []);
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return null;
+      }
+
+      const weeks = items.map((item) => apiLogbookToWeek(item));
+      const first = items[0] || {};
+
+      return {
+        meta: {
+          studentName:
+            first.student_full_name ||
+            internLike?.studentName ||
+            internLike?.student_name ||
+            internLike?.form_snapshot?.student?.name ||
+            "",
+          companyName:
+            first.company_name ||
+            internLike?.companyName ||
+            internLike?.company_name ||
+            internLike?.form_snapshot?.company?.name ||
+            "",
+          supervisorName:
+            first.supervisor_name ||
+            internLike?.supervisorName ||
+            internLike?.mentor_name ||
+            internLike?.form_snapshot?.mentor?.name ||
+            "",
+          safetyBrief: first.safety_brief || "",
+        },
+        weeks,
+      };
+    }, []);
   const [debugLogs, setDebugLogs] = useState([]);
   const [progressDataNonce, setProgressDataNonce] = useState(0);
   const [advisorEvalRecord, setAdvisorEvalRecord] = useState(null);
   const [apiMonthlyEvals, setApiMonthlyEvals] = useState({});   // keyed by internship_id → month → item
+  const [apiFinalEvalRecord, setApiFinalEvalRecord] = useState(null);
   const [apiExaminerEvals, setApiExaminerEvals] = useState([]); // flat list for selected intern
   // Incremented on every clearAssignment so controlled selects remount and accept new selections
   const [selectResetKey, setSelectResetKey] = useState(0);
+  const showToast = (message) => {
+    setDebugLogs((logs) => [`${new Date().toISOString()} — ${message}`, ...logs].slice(0, 12));
+  };
 
   const progressTabClass = (tab) =>
     `flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
@@ -661,14 +770,21 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
 
         const mapped = items.map((app) => {
           const local = localMap.get(app.id) || {};
+          const advisorName =
+            app.advisor_name ||
+            app.advisor?.name ||
+            app.advisor?.full_name ||
+            app.advisor?.username ||
+            local.advisorName ||
+            "";
           return {
             id: app.id,
             studentName: app.student_name || app.form_snapshot?.student?.name || "",
             studentId: app.form_snapshot?.student?.student_id || app.student_id || "",
-            studentUserPk: app.student_user_id || null,
+            studentUserPk: app.student_user_id || local.studentUserPk || null,
             companyName: app.company_name || app.form_snapshot?.company?.name || "",
             positionTitle: app.position_title || app.form_snapshot?.internship?.position_title || "",
-            advisorName: app.advisor_name || (app.advisor?.name) || local.advisorName || "",
+            advisorName,
             examinerName: app.examiner_name || local.examinerName || "",
             examiner2Name: app.examiner2_name || local.examiner2Name || "",
             finalInternshipStatus: "ACTIVE_INTERN",
@@ -893,9 +1009,15 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             setActiveInterns((prev) => prev.map((a) => {
               const fresh = refreshItems.find((r) => r.id === a.id);
               if (!fresh) return a;
+              const freshAdvisorName =
+                fresh.advisor_name ||
+                fresh.advisor?.name ||
+                fresh.advisor?.full_name ||
+                fresh.advisor?.username ||
+                a.advisorName;
               return {
                 ...a,
-                advisorName: fresh.advisor_name || a.advisorName,
+                advisorName: freshAdvisorName,
                 examinerName: fresh.examiner_name || a.examinerName,
                 examiner2Name: fresh.examiner2_name || a.examiner2Name,
                 studentUserPk: fresh.student_user_id || a.studentUserPk,
@@ -933,9 +1055,15 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             setActiveInterns((prev) => prev.map((a) => {
               const fresh = refreshItems.find((r) => r.id === a.id);
               if (!fresh) return a;
+              const freshAdvisorName =
+                fresh.advisor_name ||
+                fresh.advisor?.name ||
+                fresh.advisor?.full_name ||
+                fresh.advisor?.username ||
+                a.advisorName;
               return {
                 ...a,
-                advisorName: fresh.advisor_name || a.advisorName,
+                advisorName: freshAdvisorName,
                 examinerName: fresh.examiner_name || a.examinerName,
                 examiner2Name: fresh.examiner2_name || a.examiner2Name,
                 studentUserPk: fresh.student_user_id || a.studentUserPk,
@@ -1017,7 +1145,24 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     }
   };
 
+  const resolveStudentLogbookIdentifier = (record) => {
+    const candidate =
+      record?.student?.student_id ||
+      record?.student_id ||
+      record?.studentId ||
+      record?.form_snapshot?.student?.student_id ||
+      record?.form_snapshot?.student?.studentId ||
+      record?.student_profile?.student_id ||
+      localStorage.getItem("student_id") ||
+      null;
+
+    return candidate && String(candidate).trim() !== "" ? String(candidate).trim() : null;
+  };
+
   const openStudentDetail = async (app) => {
+    setDetailLoading(true);
+    setSelectedIntern(app);
+    setLogbookRecord(null);
     setInternDetailTab("logbook");
     pushDebug(`openStudentDetail invoked for id=${app && app.id}`);
     try {
@@ -1028,22 +1173,12 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
           pushDebug(`API returned success for id=${app.id}`);
           const live = res.data;
           setSelectedIntern(live);
-          // Try to fetch live logbook entries from API first
           try {
-            const studentIdentifier =
-              live.student_user_id || live.studentUserId || live.student_id || live.studentId || live.form_snapshot?.student?.student_id || live.form_snapshot?.student?.id || null;
-            const lbRes = await logbookService.getLogbooksForStudent(studentIdentifier);
+            const internshipId = live.id || app.id;
+            const studentIdentifier = resolveStudentLogbookIdentifier(live) || resolveStudentLogbookIdentifier(app);
+            const lbRes = await logbookService.getLogbooksForInternship(internshipId, studentIdentifier);
             if (lbRes && lbRes.success && lbRes.data) {
-              const apiLog = Array.isArray(lbRes.data) ? lbRes.data[0] : lbRes.data;
-              const mapped = {
-                meta: {
-                  studentName: live?.form_snapshot?.student?.name || live.student_name || live.studentName || "",
-                  companyName: live?.form_snapshot?.company?.name || live.company_name || live.companyName || "",
-                  supervisorName: apiLog?.supervisor_name || apiLog?.supervisor || "",
-                  safetyBrief: apiLog?.safety_brief || "",
-                },
-                weeks: apiLog?.weeks || apiLog?.entries || apiLog?.records || [],
-              };
+              const mapped = buildLogbookRecordFromApi(lbRes.data, live);
               setLogbookRecord(mapped);
               await loadStaffPoolsForDepartment(
                 live?.form_snapshot?.student?.department ||
@@ -1051,13 +1186,13 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                 live?.studentFull?.department ||
                 coordinatorDept
               );
+              setDetailLoading(false);
               return;
             }
           } catch (e) {
             pushDebug(`logbook fetch error for id=${app.id} -> ${e?.message || e}`);
           }
 
-          // Fallback to existing local derivation
           setLogbookRecord(getLogbookForApplication(live));
           await loadStaffPoolsForDepartment(
             live?.form_snapshot?.student?.department ||
@@ -1065,6 +1200,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             live?.studentFull?.department ||
             coordinatorDept
           );
+          setDetailLoading(false);
           return;
         }
         pushDebug(`API returned failure for id=${app.id} -> ${JSON.stringify(res?.error || res?.data || res)}`);
@@ -1074,24 +1210,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       console.warn("Failed to load application from API, falling back to local", err);
     }
 
-    // Fallback to local data if API call fails
     pushDebug(`falling back to local data for id=${app && app.id}`);
     setSelectedIntern(app);
     try {
-      const studentIdentifier =
-        app?.student_user_id || app?.studentUserId || app?.student_id || app?.studentId || app?.form_snapshot?.student?.student_id || app?.form_snapshot?.student?.id || null;
-      const lbRes = await logbookService.getLogbooksForStudent(studentIdentifier);
+      const internshipId = app?.id;
+      const studentIdentifier = resolveStudentLogbookIdentifier(app);
+      const lbRes = await logbookService.getLogbooksForInternship(internshipId, studentIdentifier);
       if (lbRes && lbRes.success && lbRes.data) {
-        const apiLog = Array.isArray(lbRes.data) ? lbRes.data[0] : lbRes.data;
-        const mapped = {
-          meta: {
-            studentName: app?.form_snapshot?.student?.name || app.studentName || app.student_name || "",
-            companyName: app?.form_snapshot?.company?.name || app.companyName || app.company_name || "",
-            supervisorName: apiLog?.supervisor_name || apiLog?.supervisor || "",
-            safetyBrief: apiLog?.safety_brief || "",
-          },
-          weeks: apiLog?.weeks || apiLog?.entries || apiLog?.records || [],
-        };
+        const mapped = buildLogbookRecordFromApi(lbRes.data, app);
         setLogbookRecord(mapped);
         await loadStaffPoolsForDepartment(
           app?.form_snapshot?.student?.department ||
@@ -1099,6 +1225,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
           app?.studentFull?.department ||
           coordinatorDept
         );
+        setDetailLoading(false);
         return;
       }
     } catch (e) {
@@ -1112,10 +1239,10 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       app?.studentFull?.department ||
       coordinatorDept
     );
+    setDetailLoading(false);
   };
 
   const debugOpenDirect = async (app) => {
-    // explicit debug action triggered by debug button
     pushDebug(`DEBUG open triggered for id=${app && app.id}`);
     await openStudentDetail(app);
   };
@@ -1123,6 +1250,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const closeStudentDetail = () => {
     setSelectedIntern(null);
     setLogbookRecord(null);
+    setDetailLoading(false);
   };
 
   useEffect(() => {
@@ -1130,7 +1258,14 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     const fresh = activeInterns.find((a) => a.id === selectedIntern.id);
     if (fresh) {
       setSelectedIntern(fresh);
-      setLogbookRecord(getLogbookForApplication(fresh));
+      setLogbookRecord((prev) => {
+        // Keep the currently displayed record when it already has weeks
+        // (typically API-loaded), so it doesn't disappear on list refreshes.
+        if (prev && Array.isArray(prev.weeks) && prev.weeks.length > 0) {
+          return prev;
+        }
+        return getLogbookForApplication(fresh);
+      });
     }
   }, [activeInterns, selectedIntern?.id]);
 
@@ -1161,6 +1296,47 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
         if (!mounted) return;
         if (combined.length > 0) {
           syncInternshipDocumentsFromApi(combined, { merge: true });
+
+          // Backfill missing assignment names from document payloads
+          // (useful when approved application payload omits advisor_name).
+          const latestDocByInternship = new Map();
+          combined.forEach((doc) => {
+            const iid = String(doc?.internship_id || "").trim();
+            if (!iid) return;
+            const prev = latestDocByInternship.get(iid);
+            const prevTs = prev ? new Date(prev.submitted_at || 0).getTime() : -1;
+            const currTs = new Date(doc?.submitted_at || 0).getTime();
+            if (!prev || currTs >= prevTs) {
+              latestDocByInternship.set(iid, doc);
+            }
+          });
+
+          if (latestDocByInternship.size > 0) {
+            setActiveInterns((prev) => prev.map((intern) => {
+              const iid = String(intern?.id || intern?.internshipId || "").trim();
+              const doc = latestDocByInternship.get(iid);
+              if (!doc) return intern;
+
+              const advisorName = (intern.advisorName || "").trim() || String(doc.advisor_name || "").trim();
+              const examinerName = (intern.examinerName || "").trim() || String(doc.examiner_name || "").trim();
+              const examiner2Name = (intern.examiner2Name || "").trim() || String(doc.examiner2_name || "").trim();
+
+              if (
+                advisorName === (intern.advisorName || "") &&
+                examinerName === (intern.examinerName || "") &&
+                examiner2Name === (intern.examiner2Name || "")
+              ) {
+                return intern;
+              }
+
+              return {
+                ...intern,
+                advisorName,
+                examinerName,
+                examiner2Name,
+              };
+            }));
+          }
         }
       } catch (err) {
         console.debug("Coordinator document sync failed:", err);
@@ -1188,6 +1364,8 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   // Load advisor evaluation from API whenever the selected intern changes
   useEffect(() => {
     setAdvisorEvalRecord(null);
+    setApiMonthlyEvals({});
+    setApiFinalEvalRecord(null);
     if (!selectedIntern?.id) return;
     (async () => {
       try {
@@ -1257,6 +1435,33 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
         console.warn("Failed to load monthly evals from API:", err.message);
       }
 
+      // Fetch company final evaluation for this intern
+      try {
+        const fRes = await evaluationService.getAdvisorFinalEvaluations({ internship_id: selectedIntern.id });
+        if (fRes.success) {
+          const items = Array.isArray(fRes.data) ? fRes.data : (fRes.data?.results || []);
+          const item = items[0] || null;
+          setApiFinalEvalRecord(item ? {
+            studentId: selectedIntern.studentId,
+            studentName: selectedIntern.studentName,
+            companyName: selectedIntern.companyName,
+            status: item.status === "ADVISOR_APPROVED"
+              ? FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR
+              : item.status === "REJECTED"
+                ? FINAL_EVAL_STATUS.REJECTED
+                : FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL,
+            formData: item.form_data || {},
+            apiId: item.id,
+            total: item.total_mark != null ? Number(item.total_mark) : null,
+            finalMark: item.overall_student_performance != null ? Number(item.overall_student_performance) : null,
+            advisorComment: item.overall_comments || "",
+            examinerComment: item.student_potential || "",
+          } : null);
+        }
+      } catch (err) {
+        console.warn("Failed to load final evals from API:", err.message);
+      }
+
       // Fetch examiner evaluations for this intern
       try {
         const eRes = await evaluationService.getExaminerEvaluationsForAdvisor({ internship_id: selectedIntern.id });
@@ -1282,23 +1487,36 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
     if (!selectedIntern) return { ev1: null, ev2: null };
 
     if (apiExaminerEvals.length > 0) {
-      // Index-based: first = ev1, second = ev2; also try name matching
-      const slotNorm1 = String(selectedIntern.examinerName || "").trim().toLowerCase();
-      const slotNorm2 = String(selectedIntern.examiner2Name || "").trim().toLowerCase();
+      const norm = (s) => String(s || "").trim().toLowerCase();
+      const slotNorm1 = norm(selectedIntern.examinerName);
+      const slotNorm2 = norm(selectedIntern.examiner2Name);
 
-      let ev1 = null, ev2 = null;
-      if (slotNorm1 || slotNorm2) {
-        ev1 = apiExaminerEvals.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm1 && slotNorm1) || null;
-        ev2 = apiExaminerEvals.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm2 && slotNorm2) || null;
-      }
+      // Step 1: try exact name match for each slot
+      let ev1 = slotNorm1
+        ? (apiExaminerEvals.find((e) => norm(e.examinerName) === slotNorm1) || null)
+        : null;
+      let ev2 = slotNorm2
+        ? (apiExaminerEvals.find((e) => norm(e.examinerName) === slotNorm2) || null)
+        : null;
+
+      // Step 2: if both matched the same record (duplicate name), clear ev2
+      if (ev1 && ev2 && ev1 === ev2) ev2 = null;
+
+      // Step 3: index-based fallback — only assign what wasn't already matched
+      const unmatched = apiExaminerEvals.filter((e) => e !== ev1 && e !== ev2);
       if (!ev1 && !ev2) {
+        // No name match at all — assign by submission order
         ev1 = apiExaminerEvals[0] || null;
         ev2 = apiExaminerEvals[1] || null;
-      } else if (!ev2 && apiExaminerEvals.length > 1) {
-        ev2 = apiExaminerEvals.find((e) => e !== ev1) || null;
-      } else if (!ev1 && apiExaminerEvals.length > 0) {
-        ev1 = apiExaminerEvals.find((e) => e !== ev2) || null;
+      } else if (!ev1 && unmatched.length > 0) {
+        ev1 = unmatched[0];
+      } else if (!ev2 && unmatched.length > 0) {
+        ev2 = unmatched[0];
       }
+
+      // Step 4: never assign the same record to both slots
+      if (ev1 && ev1 === ev2) ev2 = null;
+
       return { ev1, ev2 };
     }
 
@@ -1374,7 +1592,6 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       ) : !selectedIntern ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {activeInterns.map((app) => {
-            const done = app.advisorName && app.examinerName && app.examiner2Name;
             return (
               <div
                 key={app.id}
@@ -1411,6 +1628,8 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             );
           })}
         </div>
+      ) : detailLoading ? (
+        <LoadingState title="Loading intern details" subtitle="Fetching logbooks, evaluations, and documents for the selected student." />
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <ul className="divide-y divide-slate-200">
@@ -1443,11 +1662,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                     {(() => {
                       const overall = computeOverallEvaluation(app);
                       const approvals = getOverallApprovals(app.studentId);
-                      const readyForCoordinator =
-                        overall.complete &&
-                        approvals.advisorApproved &&
-                        approvals.examiner1Approved &&
-                        approvals.examiner2Approved;
+                      const readyForCoordinator = overall.complete;
                       return (
                         <div className="rounded-md border border-slate-200 bg-slate-50/40 px-3 py-3">
                           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1470,6 +1685,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                               <span className={`rounded border px-2 py-0.5 ${approvals.examiner2Approved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
                                 Ex2
                               </span>
+  
                               <span className={`rounded border px-2 py-0.5 ${approvals.coordinatorApproved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
                                 Coord
                               </span>
@@ -1479,8 +1695,25 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                           {!approvals.coordinatorApproved ? (
                             <button
                               type="button"
-                              disabled={!readyForCoordinator}
-                              onClick={() => approveOverallAsCoordinator(app.studentId)}
+                              onClick={async () => {
+                                const internshipId = app.id || app.__raw?.id;
+                                const res = await internshipService.coordinatorApproveOverall(internshipId, "approve", "");
+                                if (res.success) {
+                                  setOverallApproval(app.studentId, {
+                                    coordinatorApproved: true,
+                                    coordinatorApprovedAt: new Date().toISOString(),
+                                  });
+                                  window.dispatchEvent(new CustomEvent("overall-evaluation-updated", { detail: { studentId: app.studentId } }));
+                                  try {
+                                    setOverallNonce((n) => n + 1);
+                                  } catch (e) {
+                                    // noop: some render paths may not have setOverallNonce in scope
+                                  }
+                                  showToast(`Overall evaluation approved for ${app.studentName}.`);
+                                } else {
+                                  showToast(`Failed to approve overall: ${(res.error && (res.error.detail || res.error)) || res.error || "Unknown error"}`);
+                                }
+                              }}
                               className="mt-3 w-full rounded-md bg-indigo-600 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-indigo-700 disabled:opacity-50"
                             >
                               Approve overall evaluation
@@ -1531,7 +1764,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             Select advisor…
                           </option>
                           {advisorsPool.map((s) => (
-                            <option key={s.id} value={s.name}>
+                            <option key={s.id} value={s.name || s.full_name || s.username || s.email}>
                               {formatStaffOption(s)}
                             </option>
                           ))}
@@ -1569,7 +1802,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             {examinersPool.length > 0 ? "Select examiner 1…" : "No examiners — pick from advisors…"}
                           </option>
                           {(examinersPool.length > 0 ? examinersPool : advisorsPool).map((s) => (
-                            <option key={s.id} value={s.name}>
+                            <option key={s.id} value={s.name || s.full_name || s.username || s.email}>
                               {formatStaffOption(s)}
                             </option>
                           ))}
@@ -1607,7 +1840,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                             {examinersPool.length > 0 ? "Select examiner 2…" : "No examiners — pick from advisors…"}
                           </option>
                           {(examinersPool.length > 0 ? examinersPool : advisorsPool).map((s) => (
-                            <option key={s.id} value={s.name}>
+                            <option key={s.id} value={s.name || s.full_name || s.username || s.email}>
                               {formatStaffOption(s)}
                             </option>
                           ))}
@@ -1813,7 +2046,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             {internDetailTab === "company-final" && selectedIntern && (
               <div className="space-y-6">
                 {(() => {
-                  const finalEval = getFinalEvaluation(selectedIntern.studentId);
+                  const finalEval = apiFinalEvalRecord || getFinalEvaluation(selectedIntern.studentId);
                   if (!finalEval) {
                     return (
                       <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1835,10 +2068,10 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                       <div className="flex justify-between items-center">
                         <h4 className="font-bold text-gray-900">Company Overall Evaluation</h4>
                         <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[finalEval.status] || badgeMap[FINAL_EVAL_STATUS.NOT_STARTED]}`}>
-                          {FINAL_EVAL_STATUS_LABELS[finalEval.status]}
+                          {FINAL_EVAL_STATUS_LABELS[finalEval.status] || finalEval.status || FINAL_EVAL_STATUS_LABELS[FINAL_EVAL_STATUS.NOT_STARTED]}
                         </span>
                       </div>
-                      {finalEval.total !== undefined && (
+                      {finalEval.total !== undefined && finalEval.total !== null && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
                             <p className="text-xs text-gray-400 font-medium mb-1">Total Score</p>
@@ -2084,6 +2317,7 @@ const CoordinatorDashboard = () => {
   const [mockStaff, setMockStaff] = useState([]);
   const [assignedAdvisors, setAssignedAdvisors] = useState([]);
   const [assignedExaminers, setAssignedExaminers] = useState([]);
+  const [staffDataLoading, setStaffDataLoading] = useState(true);
   const [view, setView] = useState("home");
   const [fileError, setFileError] = useState("");
   const [fileSuccess, setFileSuccess] = useState("");
@@ -2278,6 +2512,8 @@ const CoordinatorDashboard = () => {
       const deptRaw = (getCoordinatorDepartment() || coordinatorDept || "").trim();
       const dept = deptRaw.length > 0 ? deptRaw : "";
 
+      setStaffDataLoading(true);
+
       try {
         const [unassignedRes, assignedRes] = await Promise.all([
           userService.getUnassignedStaff({ department: dept }),
@@ -2337,6 +2573,8 @@ const CoordinatorDashboard = () => {
           status: "unassigned",
         }));
         setMockStaff(staff);
+      } finally {
+        setStaffDataLoading(false);
       }
     };
 
@@ -2583,17 +2821,32 @@ const CoordinatorDashboard = () => {
                           Coordinator: {approvals.coordinatorApproved ? "Approved" : "Pending"}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          approveOverallAsCoordinator(app.studentId);
-                          setOverallNonce((n) => n + 1);
-                          showToast(`Overall evaluation approved for ${app.studentName}.`);
-                        }}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
-                      >
-                        Approve overall evaluation (Coordinator)
-                      </button>
+                      {!approvals.coordinatorApproved ? (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const internshipId = app.id || app.__raw?.id;
+                            const res = await internshipService.coordinatorApproveOverall(internshipId, "approve", "");
+                            if (res.success) {
+                              setOverallApproval(app.studentId, {
+                                coordinatorApproved: true,
+                                coordinatorApprovedAt: new Date().toISOString(),
+                              });
+                              setOverallNonce((n) => n + 1);
+                              showToast(`Overall evaluation approved for ${app.studentName}.`);
+                            } else {
+                              showToast(`Failed to approve overall: ${(res.error && (res.error.detail || res.error)) || res.error || "Unknown error"}`);
+                            }
+                          }}
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                        >
+                          Approve overall evaluation (Coordinator)
+                        </button>
+                      ) : (
+                        <div className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm font-bold">
+                          Overall evaluation approved
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2631,7 +2884,9 @@ const CoordinatorDashboard = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
                 <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
-              {mockStaff.length === 0
+              {staffDataLoading ? (
+                <LoadingState title="Loading staff list" subtitle="Fetching unassigned staff for your department." />
+              ) : mockStaff.length === 0
                 ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
@@ -2663,7 +2918,9 @@ const CoordinatorDashboard = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
                 <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
-              {assignedAdvisors.length === 0
+              {staffDataLoading ? (
+                <LoadingState title="Loading advisors" subtitle="Fetching assigned advisors for your department." />
+              ) : assignedAdvisors.length === 0
                 ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
@@ -2693,7 +2950,9 @@ const CoordinatorDashboard = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
                 <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
-              {assignedExaminers.length === 0
+              {staffDataLoading ? (
+                <LoadingState title="Loading examiners" subtitle="Fetching assigned examiners for your department." />
+              ) : assignedExaminers.length === 0
                 ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">

@@ -25,6 +25,7 @@ import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
+import LoadingState from "./LoadingState";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -94,7 +95,7 @@ const readAdvisorProfile = () => {
   return null;
 };
 
-const AdvisorStudentDocumentsPanel = ({ studentId, internshipId, advisorIdentity }) => {
+const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
 
@@ -336,6 +337,7 @@ const AdvisorDashboard = () => {
   const location = useLocation();
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
+  const [assignedStudentsLoading, setAssignedStudentsLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedLogbook, setSelectedLogbook] = useState(null);
   const [logbookLoading, setLogbookLoading] = useState(false);
@@ -344,19 +346,26 @@ const AdvisorDashboard = () => {
 
   // Monthly evaluations state
   const [monthlyEvals, setMonthlyEvals] = useState([]);
+  const [monthlyEvalsLoading, setMonthlyEvalsLoading] = useState(true);
   const [selectedEval, setSelectedEval] = useState(null); // { eval, studentApp }
   
   // Final evaluations state
   const [finalEvals, setFinalEvals] = useState([]);
+  const [finalEvalsLoading, setFinalEvalsLoading] = useState(true);
   const [selectedFinalEval, setSelectedFinalEval] = useState(null); // { eval, studentApp }
   const [selectedDocQueue, setSelectedDocQueue] = useState(null); // { doc, studentApp }
+  const [documentsLoading, setDocumentsLoading] = useState(true);
   const [internshipDocsNonce, setInternshipDocsNonce] = useState(0);
   const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
   const [advisorEvalApiRecord, setAdvisorEvalApiRecord] = useState(null);
+  const [advisorEvalLoading, setAdvisorEvalLoading] = useState(true);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
+  const [examinerEvalsLoading, setExaminerEvalsLoading] = useState(true);
   const [docQueueComment, setDocQueueComment] = useState("");
   const [logbookNonce, setLogbookNonce] = useState(0);
+  const [logbookQueueLoading, setLogbookQueueLoading] = useState(true);
   const [overallNonce, setOverallNonce] = useState(0);
+  const [overallQueueLoading, setOverallQueueLoading] = useState(true);
   const [focusLogbookWeek, setFocusLogbookWeek] = useState(null);
   // API-fetched examiner evaluations keyed by internship id
   const [apiExaminerEvals, setApiExaminerEvals] = useState({});
@@ -395,6 +404,8 @@ const AdvisorDashboard = () => {
 
   useEffect(() => {
     if (!session) return;
+    setAssignedStudentsLoading(true);
+    let cancelled = false;
     const loadAssigned = async () => {
       try {
         // Primary: fetch from API endpoint — auth token identifies the advisor
@@ -435,15 +446,16 @@ const AdvisorDashboard = () => {
           console.error("Failed to load assigned students:", err);
           setAssignedStudents([]);
         }
+      } finally {
+        if (!cancelled) setAssignedStudentsLoading(false);
       }
     };
     loadAssigned();
     const interval = setInterval(loadAssigned, 30000);
-    window.addEventListener("storage", loadAssigned);
     window.addEventListener("weekly-logbook-updated", loadAssigned);
     return () => {
+      cancelled = true;
       clearInterval(interval);
-      window.removeEventListener("storage", loadAssigned);
       window.removeEventListener("weekly-logbook-updated", loadAssigned);
     };
   }, [session]);
@@ -451,6 +463,7 @@ const AdvisorDashboard = () => {
   // Fetch examiner evaluations from API so advisor can see them without localStorage
   useEffect(() => {
     if (!session) return;
+    setExaminerEvalsLoading(true);
     const fetchExaminerEvals = async () => {
       try {
         const res = await evaluationService.getExaminerEvaluationsForAdvisor();
@@ -475,6 +488,8 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Examiner eval fetch failed:", err?.message);
+      } finally {
+        setExaminerEvalsLoading(false);
       }
     };
     fetchExaminerEvals();
@@ -483,6 +498,7 @@ const AdvisorDashboard = () => {
   // Fetch company monthly evaluations from API for advisor's students
   useEffect(() => {
     if (!session) return;
+    setMonthlyEvalsLoading(true);
     const fetchMonthlyEvals = async () => {
       try {
         // GET /api/evaluations/monthly/ — advisor-accessible endpoint
@@ -499,14 +515,20 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Monthly eval fetch failed:", err?.message);
+      } finally {
+        setMonthlyEvalsLoading(false);
       }
     };
     fetchMonthlyEvals();
+    const onMonthly = () => fetchMonthlyEvals();
+    window.addEventListener("monthly-evaluation-updated", onMonthly);
+    return () => window.removeEventListener("monthly-evaluation-updated", onMonthly);
   }, [session]);
 
   // Fetch company final evaluations from API for advisor's students
   useEffect(() => {
     if (!session) return;
+    setFinalEvalsLoading(true);
     const fetchFinalEvals = async () => {
       try {
         // GET /api/evaluations/final/ — advisor-accessible endpoint
@@ -526,14 +548,20 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Final eval fetch failed:", err?.message);
+      } finally {
+        setFinalEvalsLoading(false);
       }
     };
     fetchFinalEvals();
+    const onFinal = () => fetchFinalEvals();
+    window.addEventListener("final-evaluation-updated", onFinal);
+    return () => window.removeEventListener("final-evaluation-updated", onFinal);
   }, [session]);
 
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
+    setLogbookQueueLoading(true);
 
     const syncAdvisorLogbooks = async () => {
       try {
@@ -553,6 +581,8 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Advisor logbook sync failed:", err?.message || err);
+      } finally {
+        if (!cancelled) setLogbookQueueLoading(false);
       }
     };
 
@@ -568,6 +598,7 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
+    setDocumentsLoading(true);
 
     const syncAdvisorDocuments = async () => {
       const res = await internshipService.getAdvisorDocuments();
@@ -576,6 +607,7 @@ const AdvisorDashboard = () => {
         ? res.data
         : res.data?.results || [];
       syncInternshipDocumentsFromApi(items, { merge: true });
+      if (!cancelled) setDocumentsLoading(false);
     };
 
     syncAdvisorDocuments();
@@ -591,6 +623,8 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     refreshMonthlyEvals();
     refreshFinalEvals();
+    setMonthlyEvalsLoading(false);
+    setFinalEvalsLoading(false);
     window.addEventListener("storage", refreshMonthlyEvals);
     window.addEventListener("storage", refreshFinalEvals);
     return () => {
@@ -606,10 +640,8 @@ const AdvisorDashboard = () => {
       setExaminerEvalNonce((n) => n + 1);
       setOverallNonce((n) => n + 1);
     };
-    window.addEventListener("storage", bump);
     window.addEventListener("overall-evaluation-updated", bump);
     return () => {
-      window.removeEventListener("storage", bump);
       window.removeEventListener("overall-evaluation-updated", bump);
     };
   }, []);
@@ -622,10 +654,8 @@ const AdvisorDashboard = () => {
 
   useEffect(() => {
     const bumpLogbook = () => setLogbookNonce((n) => n + 1);
-    window.addEventListener("storage", bumpLogbook);
     window.addEventListener("weekly-logbook-updated", bumpLogbook);
     return () => {
-      window.removeEventListener("storage", bumpLogbook);
       window.removeEventListener("weekly-logbook-updated", bumpLogbook);
     };
   }, []);
@@ -790,20 +820,79 @@ const AdvisorDashboard = () => {
     });
   }, [monthlyEvals, assignedStudents, advisorIdentity, apiMonthlyEvals]);
 
-  // Final evaluations pending advisor approval
+  // Final evaluations pending advisor approval — prefer API data
   const pendingFinalEvals = useMemo(() => {
+    // Build from API data first
+    const apiItems = Object.entries(apiFinalEvals)
+      .filter(([, item]) => {
+        const status = String(item?.status || "").toUpperCase();
+        return ["SUBMITTED", "PENDING", "PENDING_ADVISOR", "PENDING_ADVISOR_APPROVAL"].includes(status);
+      })
+      .map(([studentId, item]) => {
+        const studentApp = assignedStudents.find(a => a.studentId === studentId);
+        return {
+          id: `api-final-${item.id}`,
+          apiId: item.id,
+          studentId,
+          studentName: item.student_full_name || studentApp?.studentName || "",
+          companyName: item.company_name || studentApp?.companyName || "",
+          status: FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL,
+          formData: item.form_data || {},
+          total: item.total_mark,
+          finalMark: Number(item.overall_student_performance ?? 0),
+          advisorComment: "",
+          examinerComment: "",
+          submittedAt: item.submitted_at,
+        };
+      });
+
+    if (apiItems.length > 0) return apiItems;
+
+    // Fall back to localStorage
     const studentIds = new Set(assignedStudents.map(a => a.studentId));
     return finalEvals.filter(e => {
       const byStudent = studentIds.has(e.studentId);
       return byStudent && e.status === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL;
     });
-  }, [finalEvals, assignedStudents]);
+  }, [finalEvals, assignedStudents, apiFinalEvals]);
 
   // All final evaluations for this advisor's students
   const allMyFinalEvals = useMemo(() => {
-    const studentIds = new Set(assignedStudents.map(a => a.studentId));
-    return finalEvals.filter(e => studentIds.has(e.studentId));
-  }, [finalEvals, assignedStudents]);
+    const apiItems = Object.entries(apiFinalEvals)
+      .filter(([studentId]) => assignedStudents.some((a) => a.studentId === studentId || String(a.id) === String(studentId)))
+      .map(([studentId, item]) => {
+        const studentApp = assignedStudents.find((a) => a.studentId === studentId);
+        const status = String(item?.status || "").toUpperCase();
+        return {
+          id: `api-final-${item.id}`,
+          apiId: item.id,
+          studentId,
+          studentName: item.student_full_name || studentApp?.studentName || "",
+          companyName: item.company_name || studentApp?.companyName || "",
+          status:
+            status === "ADVISOR_APPROVED"
+              ? FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR
+              : status === "PENDING_EXAMINER_APPROVAL"
+                ? FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL
+                : status === "FINAL_APPROVED"
+                  ? FINAL_EVAL_STATUS.FINAL_APPROVED
+                  : status === "REJECTED"
+                    ? FINAL_EVAL_STATUS.REJECTED
+                    : FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL,
+          formData: item.form_data || {},
+          total: item.total_mark,
+          finalMark: Number(item.overall_student_performance ?? 0),
+          advisorComment: item.advisor_comment || "",
+          examinerComment: item.examiner_comment || "",
+          submittedAt: item.submitted_at,
+        };
+      });
+
+    if (apiItems.length > 0) return apiItems;
+
+    const studentIds = new Set(assignedStudents.map((a) => a.studentId));
+    return finalEvals.filter((e) => studentIds.has(e.studentId));
+  }, [finalEvals, assignedStudents, apiFinalEvals]);
 
   const pendingAdvisorDocuments = useMemo(() => {
     return assignedStudents
@@ -826,6 +915,12 @@ const AdvisorDashboard = () => {
     [assignedStudents, advisorEvalNonce, examinerEvalNonce, overallNonce]
   );
 
+  useEffect(() => {
+    setOverallQueueLoading(
+      assignedStudentsLoading || finalEvalsLoading || examinerEvalsLoading || advisorEvalLoading
+    );
+  }, [assignedStudentsLoading, finalEvalsLoading, examinerEvalsLoading, advisorEvalLoading]);
+
   const selectedAdvisorEval = useMemo(() => {
     if (!selectedStudent) return null;
     return advisorEvalApiRecord;
@@ -835,12 +930,17 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     setAdvisorEvalApiRecord(null);
     setApiOverallEval(null);
-    if (!selectedStudent?.id) return;
+    if (!selectedStudent?.id) {
+      setAdvisorEvalLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAdvisorEvalLoading(true);
     (async () => {
       // Fetch advisor evaluation
       try {
         const res = await evaluationService.getAdvisorEvaluationForInternship(selectedStudent.id);
-        if (res.success && res.data) {
+        if (res.success && res.data && !cancelled) {
           const d = res.data;
           // Scale DB values back up to the frontend's display range
           const unscale = (dbVal, dbMax, frontendMax) =>
@@ -890,7 +990,7 @@ const AdvisorDashboard = () => {
       // Fetch overall evaluation status from API
       try {
         const ovRes = await api.get(`/overall-evaluation/${selectedStudent.id}/`);
-        if (ovRes.data) {
+        if (ovRes.data && !cancelled) {
           setApiOverallEval(ovRes.data);
 
           // If advisor eval wasn't fetched separately, populate from overall detail
@@ -941,7 +1041,11 @@ const AdvisorDashboard = () => {
       } catch {
         // overall may not exist yet — that's fine
       }
+      if (!cancelled) setAdvisorEvalLoading(false);
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedStudent?.id, advisorEvalNonce]);
 
   const advisorEvalFormInitial = useMemo(() => {
@@ -971,28 +1075,34 @@ const AdvisorDashboard = () => {
     const apiList = (internshipId && apiExaminerEvals[internshipId]) || [];
 
     if (apiList.length > 0) {
-      // Assign by index — first submitted = examiner 1, second = examiner 2.
-      // Also try name-matching if examiner names are known.
-      const slotNorm1 = String(selectedStudent.examinerName || "").trim().toLowerCase();
-      const slotNorm2 = String(selectedStudent.examiner2Name || "").trim().toLowerCase();
+      const norm = (s) => String(s || "").trim().toLowerCase();
+      const slotNorm1 = norm(selectedStudent.examinerName);
+      const slotNorm2 = norm(selectedStudent.examiner2Name);
 
-      let ev1 = null, ev2 = null;
+      // Step 1: exact name match
+      let ev1 = slotNorm1
+        ? (apiList.find((e) => norm(e.examinerName) === slotNorm1) || null)
+        : null;
+      let ev2 = slotNorm2
+        ? (apiList.find((e) => norm(e.examinerName) === slotNorm2) || null)
+        : null;
 
-      if (slotNorm1 || slotNorm2) {
-        // Try name-based matching first
-        ev1 = apiList.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm1 && slotNorm1) || null;
-        ev2 = apiList.find((e) => String(e.examinerName || "").trim().toLowerCase() === slotNorm2 && slotNorm2) || null;
-      }
+      // Step 2: if both matched the same record, clear ev2
+      if (ev1 && ev2 && ev1 === ev2) ev2 = null;
 
-      // Fall back to index-based if name matching didn't work
+      // Step 3: index-based fallback for unmatched slots
+      const unmatched = apiList.filter((e) => e !== ev1 && e !== ev2);
       if (!ev1 && !ev2) {
         ev1 = apiList[0] || null;
         ev2 = apiList[1] || null;
-      } else if (!ev2 && apiList.length > 1) {
-        ev2 = apiList.find((e) => e !== ev1) || null;
-      } else if (!ev1 && apiList.length > 0) {
-        ev1 = apiList.find((e) => e !== ev2) || null;
+      } else if (!ev1 && unmatched.length > 0) {
+        ev1 = unmatched[0];
+      } else if (!ev2 && unmatched.length > 0) {
+        ev2 = unmatched[0];
       }
+
+      // Step 4: never assign the same record to both slots
+      if (ev1 && ev1 === ev2) ev2 = null;
 
       return { ev1, ev2 };
     }
@@ -1050,7 +1160,13 @@ const AdvisorDashboard = () => {
 
       const finalApi = apiFinalEvals[selectedStudent.studentId];
       const finalCompany20 = finalApi
-        ? Number(finalApi.overall_student_performance ?? NaN)
+        ? Number(
+            finalApi.final_total_score ??
+            finalApi.overall_student_performance ??
+            finalApi.final_mark ??
+            finalApi.company_score ??
+            NaN
+          )
         : Number(getFinalEvaluation(selectedStudent.studentId)?.finalMark ?? NaN);
       const companyFinal20 = Number.isFinite(finalCompany20) ? finalCompany20 : null;
 
@@ -1083,10 +1199,16 @@ const AdvisorDashboard = () => {
     const hasM2 = Number.isFinite(m2Perf);
     const monthlyAvg20 = hasM1 && hasM2 ? (m1Perf + m2Perf) / 2 : NaN;
 
-    const finalApi = apiFinalEvals[selectedStudent.studentId];
-    const finalCompany20 = finalApi
-      ? Number(finalApi.overall_student_performance ?? NaN)
-      : Number(getFinalEvaluation(selectedStudent.studentId)?.finalMark ?? NaN);
+      const finalApi = apiFinalEvals[selectedStudent.studentId];
+      const finalCompany20 = finalApi
+        ? Number(
+            finalApi.final_total_score ??
+            finalApi.overall_student_performance ??
+            finalApi.final_mark ??
+            finalApi.company_score ??
+            NaN
+          )
+        : Number(getFinalEvaluation(selectedStudent.studentId)?.finalMark ?? NaN);
     const hasFinalCompany = Number.isFinite(finalCompany20);
 
     const companyMonthly20 = Number.isFinite(monthlyAvg20) ? Number(monthlyAvg20.toFixed(2)) : null;
@@ -1118,10 +1240,19 @@ const AdvisorDashboard = () => {
     // Prefer API data from OverallInternshipEvaluation
     if (apiOverallEval) {
       return {
-        advisorApproved: apiOverallEval.advisor_approved || false,
-        examiner1Approved: apiOverallEval.examiner_completed || false,
-        examiner2Approved: apiOverallEval.examiner_completed || false,
-        coordinatorApproved: apiOverallEval.coordinator_approved || false,
+        advisorApproved:
+          Boolean(apiOverallEval.advisor_approved) ||
+          String(apiOverallEval.status || "").toUpperCase().includes("ADVISOR"),
+        examiner1Approved:
+          Boolean(apiOverallEval.examiner_completed) ||
+          String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER"),
+        examiner2Approved:
+          Boolean(apiOverallEval.examiner_completed) ||
+          String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER"),
+        coordinatorApproved:
+          Boolean(apiOverallEval.coordinator_approved) ||
+          String(apiOverallEval.status || "").toUpperCase().includes("COORDINATOR") ||
+          String(apiOverallEval.status || "").toUpperCase().includes("FINAL"),
         advisorApprovedAt: apiOverallEval.advisor_approved_at || null,
         coordinatorApprovedAt: apiOverallEval.coordinator_approved_at || null,
       };
@@ -1267,11 +1398,36 @@ const AdvisorDashboard = () => {
     window.dispatchEvent(new Event("storage"));
   };
 
-  const handleAdvisorFinalDecision = ({ action, comment }) => {
+  const handleAdvisorFinalDecision = async ({ action, comment }) => {
     if (!selectedFinalEval) return;
-    advisorDecideFinalEvaluation(selectedFinalEval.eval.studentId, action, comment);
 
-    // Notify the student
+    // Try API first if we have an apiId
+    const apiId = selectedFinalEval.eval.apiId;
+    if (apiId) {
+      try {
+        const url = action === "approve"
+          ? `/evaluations/final-industry/${apiId}/approve/`
+          : `/evaluations/final-industry/${apiId}/reject/`;
+        const res = await api.patch(url, { comment: comment || "" });
+        if (res.data) {
+          // Refresh final evals from API
+          const refreshRes = await evaluationService.getAdvisorFinalEvaluations();
+          if (refreshRes.success) {
+            const items = Array.isArray(refreshRes.data) ? refreshRes.data : (refreshRes.data?.results || []);
+            const map = {};
+            items.forEach((item) => { if (item.student_id) map[item.student_id] = item; });
+            setApiFinalEvals(map);
+          }
+          setSelectedFinalEval(null);
+          return;
+        }
+      } catch (err) {
+        console.warn("Final eval API decision failed, falling back to local:", err.message);
+      }
+    }
+
+    // Fallback: localStorage
+    advisorDecideFinalEvaluation(selectedFinalEval.eval.studentId, action, comment);
     const studentApp = selectedFinalEval.studentApp;
     const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
     notifications.push({
@@ -1287,7 +1443,6 @@ const AdvisorDashboard = () => {
       read: false,
     });
     localStorage.setItem("notifications", JSON.stringify(notifications));
-
     refreshFinalEvals();
     setSelectedFinalEval(null);
     window.dispatchEvent(new Event("storage"));
@@ -1363,14 +1518,7 @@ const AdvisorDashboard = () => {
   };
 
   if (!session) {
-    return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState title="Loading advisor dashboard" subtitle="Fetching your assigned students and review queues." />;
   }
 
   const displayName = session?.fullName || session?.name || session?.username || "Advisor";
@@ -1411,48 +1559,55 @@ const AdvisorDashboard = () => {
                   <p className="text-gray-600">Students on active placements where you are the academic advisor.</p>
                 </div>
 
-                {assignedStudents.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                    <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No active internship students are assigned to you yet.</p>
-                    <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                      When a coordinator assigns you as advisor on an approved application, students will appear here.
-                    </p>
-                  </div>
+                {assignedStudentsLoading ? (
+                  <LoadingState title="Loading assigned students" subtitle="Fetching the students assigned to you as advisor." />
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {assignedStudents.map((app) => (
-                      <button
-                        key={app.id}
-                        type="button"
-                        onClick={() => openStudent(app)}
-                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30 hover:border-indigo-200"
-                      >
-                        <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                        <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
-                          <Briefcase className="w-4 h-4" />
-                          <span>{app.internshipTitle || "Internship"}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Building2 className="w-4 h-4" />
-                          <span>{app.companyName}</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-3">
-                          <p className="text-xs text-gray-500 font-medium">Click to review placement &amp; evaluations</p>
-                          {countPendingAdvisorWeeks(app) > 0 && (
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
-                              {countPendingAdvisorWeeks(app)} logbook week{countPendingAdvisorWeeks(app) !== 1 ? "s" : ""} pending
-                            </span>
-                          )}
-                          {getAdvisorEvaluation(app.studentId)?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
-                              My evaluation submitted
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+
+                  {assignedStudents.length === 0 ? (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                      <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No active internship students are assigned to you yet.</p>
+                      <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                        When a coordinator assigns you as advisor on an approved application, students will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {assignedStudents.map((app) => (
+                        <button
+                          key={app.id}
+                          type="button"
+                          onClick={() => openStudent(app)}
+                          className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30 hover:border-indigo-200"
+                        >
+                          <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
+                          <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
+                            <Briefcase className="w-4 h-4" />
+                            <span>{app.internshipTitle || "Internship"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Building2 className="w-4 h-4" />
+                            <span>{app.companyName}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <p className="text-xs text-gray-500 font-medium">Click to review placement &amp; evaluations</p>
+                            {countPendingAdvisorWeeks(app) > 0 && (
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                                {countPendingAdvisorWeeks(app)} logbook week{countPendingAdvisorWeeks(app) !== 1 ? "s" : ""} pending
+                              </span>
+                            )}
+                            {getAdvisorEvaluation(app.studentId)?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
+                                My evaluation submitted
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             )}
@@ -1465,6 +1620,10 @@ const AdvisorDashboard = () => {
                     Weeks your company partner approved — open each to review and finalize (approve or return).
                   </p>
                 </div>
+                {logbookQueueLoading ? (
+                  <LoadingState title="Loading logbook queue" subtitle="Fetching advisor logbook weeks from your assigned students." />
+                ) : (
+                  <>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingLogbookQueue.length === 0 ? (
@@ -1498,6 +1657,8 @@ const AdvisorDashboard = () => {
                     ))}
                   </div>
                 )}
+                  </>
+                )}
               </div>
             )}
 
@@ -1507,6 +1668,11 @@ const AdvisorDashboard = () => {
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Monthly Evaluations</h2>
                   <p className="text-gray-600">Company-submitted monthly performance evaluations — pending your approval.</p>
                 </div>
+
+                {monthlyEvalsLoading ? (
+                  <LoadingState title="Loading monthly evaluations" subtitle="Fetching monthly company evaluations for your students." />
+                ) : (
+                  <>
 
                 {allMyMonthlyEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1555,6 +1721,8 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
+                      </>
+                    )}
               </div>
             )}
 
@@ -1564,6 +1732,11 @@ const AdvisorDashboard = () => {
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Final Evaluations</h2>
                   <p className="text-gray-600">Company-submitted final internship evaluations — pending your approval.</p>
                 </div>
+
+                {finalEvalsLoading ? (
+                  <LoadingState title="Loading final evaluations" subtitle="Fetching final company evaluations for your students." />
+                ) : (
+                  <>
 
                 {allMyFinalEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1615,6 +1788,8 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
+                      </>
+                    )}
               </div>
             )}
 
@@ -1626,6 +1801,10 @@ const AdvisorDashboard = () => {
                     Internship files uploaded by your students that need your approval (examiner approves separately).
                   </p>
                 </div>
+                {documentsLoading ? (
+                  <LoadingState title="Loading document queue" subtitle="Fetching student document submissions for review." />
+                ) : (
+                  <>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingAdvisorDocuments.length === 0 ? (
@@ -1667,6 +1846,8 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
+                  </>
+                )}
               </div>
             )}
 
@@ -1678,7 +1859,9 @@ const AdvisorDashboard = () => {
                     Your advisor-authored internship evaluations for each assigned student. Open a student from <strong className="text-gray-800">My students</strong> in the sidebar to submit or change (until submitted).
                   </p>
                 </div>
-                {assignedStudents.length === 0 ? (
+                {assignedStudentsLoading ? (
+                  <LoadingState title="Loading my evaluations" subtitle="Fetching assigned students and your submitted evaluation status." />
+                ) : assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : (
                   <div className="space-y-8">
@@ -1738,7 +1921,9 @@ const AdvisorDashboard = () => {
                     Internal examiner 1 and examiner 2 submissions for each student (read only).
                   </p>
                 </div>
-                {assignedStudents.length === 0 ? (
+                {examinerEvalsLoading ? (
+                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions for your students." />
+                ) : assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : (
                   <div className="space-y-10" key={examinerEvalNonce}>
@@ -1838,7 +2023,9 @@ const AdvisorDashboard = () => {
                     Students with all component evaluations complete. Approve the overall report as academic advisor.
                   </p>
                 </div>
-                {assignedStudents.length === 0 ? (
+                {overallQueueLoading ? (
+                  <LoadingState title="Loading overall queue" subtitle="Fetching the advisor, examiner, and company data needed for overall review." />
+                ) : assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingOverallQueue.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -2164,6 +2351,12 @@ const AdvisorDashboard = () => {
             {/* ── Company Monthly Evaluation tab ── */}
             {studentDetailTab === "monthly" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {monthlyEvalsLoading ? (
+                  <div className="sm:col-span-2">
+                    <LoadingState title="Loading monthly evaluation" subtitle="Fetching the company monthly records for this student." />
+                  </div>
+                ) : (
+                  <>
                 {[1, 2].map(month => {
                   const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
                   const apiRec = internshipId && apiMonthlyEvals[internshipId]?.[month];
@@ -2231,11 +2424,17 @@ const AdvisorDashboard = () => {
                     </div>
                   );
                 })}
+                  </>
+                )}
               </div>
             )}
 
             {studentDetailTab === "advisor-eval" && (
               <div className="space-y-4">
+                {advisorEvalLoading ? (
+                  <LoadingState title="Loading my evaluation" subtitle="Fetching your advisor evaluation and overall status for this student." />
+                ) : (
+                  <>
                 <div className="flex flex-wrap justify-between gap-2 items-center">
                   <p className="text-sm text-gray-600">
                     Complete your own academic assessment of this student&apos;s internship. The student can read it after you submit.
@@ -2256,14 +2455,36 @@ const AdvisorDashboard = () => {
                       : handleAdvisorStudentEvalSubmit
                   }
                 />
+                  </>
+                )}
               </div>
             )}
 
             {/* ── Company Final Evaluation tab ── */}
             {studentDetailTab === "final" && (
               <div className="space-y-6">
+                {finalEvalsLoading ? (
+                  <LoadingState title="Loading final evaluation" subtitle="Fetching the company final evaluation for this student." />
+                ) : (
+                  <>
                 {(() => {
-                  const finalEval = getFinalEvaluation(selectedStudent.studentId);
+                  const apiRec = apiFinalEvals[selectedStudent.studentId];
+                  const finalEval = apiRec
+                    ? {
+                        status: apiRec.status === "ADVISOR_APPROVED"
+                          ? FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR
+                          : apiRec.status === "REJECTED"
+                          ? FINAL_EVAL_STATUS.REJECTED
+                          : FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL,
+                        total: apiRec.total_mark,
+                        finalMark: Number(apiRec.overall_student_performance ?? 0),
+                        formData: apiRec.form_data || {},
+                        advisorComment: apiRec.advisor_comment || "",
+                        examinerComment: "",
+                        apiId: apiRec.id,
+                      }
+                    : getFinalEvaluation(selectedStudent.studentId);
+
                   if (!finalEval) {
                     return (
                       <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -2316,11 +2537,17 @@ const AdvisorDashboard = () => {
                     </div>
                   );
                 })()}
+                  </>
+                )}
               </div>
             )}
 
             {studentDetailTab === "examiner-eval" && (
               <div className="space-y-4">
+                {examinerEvalsLoading ? (
+                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions for this student." />
+                ) : (
+                  <>
                 <p className="text-sm text-gray-600">
                   Internal examiner forms for this student (read only). The same view is available under{" "}
                   <strong className="text-gray-800">Examiner evaluations</strong> on the main dashboard.
@@ -2397,11 +2624,17 @@ const AdvisorDashboard = () => {
                     )}
                   </div>
                 </div>
+                  </>
+                )}
               </div>
             )}
 
             {studentDetailTab === "overall-eval" && (
               <div className="space-y-6">
+                {advisorEvalLoading ? (
+                  <LoadingState title="Loading overall evaluation" subtitle="Fetching the advisor and overall evaluation data for this student." />
+                ) : (
+                  <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h4 className="font-bold text-gray-900 text-lg">Overall evaluation</h4>
@@ -2520,15 +2753,21 @@ const AdvisorDashboard = () => {
                     )}
                   </div>
                 )}
+                  </>
+                )}
               </div>
             )}
 
             {studentDetailTab === "documents" && (
-              <AdvisorStudentDocumentsPanel
-                studentId={selectedStudent.studentId}
-                internshipId={selectedStudent.id}
-                advisorIdentity={advisorIdentity}
-              />
+              documentsLoading ? (
+                <LoadingState title="Loading documents" subtitle="Fetching document submissions for this student." />
+              ) : (
+                <AdvisorStudentDocumentsPanel
+                  studentId={selectedStudent.studentId}
+                  internshipId={selectedStudent.id}
+                  advisorIdentity={advisorIdentity}
+                />
+              )
             )}
           </div>
         </div>

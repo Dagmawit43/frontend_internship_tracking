@@ -47,6 +47,17 @@ const fieldLabelMap = {
   date: "Decision Date",
 };
 
+const normalizeStatusText = (value, fallback = "Pending") => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return fallback;
+  if (normalized === "APPROVED") return "Approved";
+  if (normalized === "ACCEPTED") return "Accepted";
+  if (normalized === "REJECTED") return "Rejected";
+  if (normalized === "PENDING") return "Pending";
+  if (normalized === "OFFER_RECEIVED") return "Accepted by Company";
+  return normalized.replace(/_/g, " ");
+};
+
 const printableClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 disabled:bg-gray-100";
 
@@ -126,6 +137,25 @@ const InternshipAcceptanceForm = ({
     <form onSubmit={handleSave} className="space-y-6">
       <div className="bg-white border-2 border-gray-300 rounded-xl p-4 sm:p-6 print:p-0 print:border-0">
         <div className="border border-gray-300 rounded-lg p-4 sm:p-6 space-y-5 print:border-0">
+          {(normalized.statusSummary || normalized.coordinatorStatus || normalized.companyStatus || normalized.studentStatus) && (
+            <div className="flex flex-wrap gap-2 text-[11px] font-black uppercase">
+              <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">
+                Coordinator: {normalizeStatusText(normalized.coordinatorStatus, "Pending")}
+              </span>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700">
+                Company: {normalizeStatusText(normalized.companyStatus, "Pending")}
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
+                Student: {normalizeStatusText(normalized.studentStatus, "Pending")}
+              </span>
+              {normalized.overallStatus && (
+                <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-green-700">
+                  Overall: {normalizeStatusText(normalized.overallStatus, "Pending")}
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:justify-between gap-4 pb-4 border-b border-gray-300">
             <div className="text-sm leading-relaxed">
               <p className="font-bold">Organization Name:</p>

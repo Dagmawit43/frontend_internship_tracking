@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Upload, FileText } from "lucide-react";
+import { Loader2, X, Upload, FileText } from "lucide-react";
 
   import { getCurrentStudentId } from "../../utils/authHelpers";
 
@@ -179,7 +179,10 @@ import { X, Upload, FileText } from "lucide-react";
               disabled={isSubmitting}
               className="flex-1 rounded-lg border border-indigo-700/10 bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? "Submitting..." : "Submit Application"}
+              <span className="inline-flex items-center justify-center gap-2">
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                {isSubmitting ? "Submitting..." : "Submit Application"}
+              </span>
             </button>
           </div>
         </form>

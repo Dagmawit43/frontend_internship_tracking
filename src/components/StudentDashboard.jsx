@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, Bot, MessageCircle, Send, X, Sparkles } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
+import LoadingState from "./LoadingState";
 import ApplicationModal from "./modals/ApplicationModal";
 import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import internshipService from "../services/internshipService";
+import logbookService from "../services/logbookService";
+import evaluationService from "../services/evaluationService";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -41,7 +44,7 @@ import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 // Top navigation (inlined)
-const TopNavigation = ({ studentName, notificationCount = 0 }) => {
+const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -64,7 +67,12 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
 
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative">
-              <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+              <button
+                type="button"
+                onClick={onNotificationClick}
+                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                aria-label="Open notifications"
+              >
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
                   <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
@@ -173,10 +181,17 @@ const toLegacyApplicationStatus = (application) => {
 
 const normalizeMyApplication = (application, studentId, studentName) => {
   const workflowStatus = getApplicationWorkflowStatus(application);
+  const resolvedStudentId =
+    application?.student_id ||
+    application?.studentId ||
+    application?.form_snapshot?.student?.student_id ||
+    application?.form_snapshot?.student?.studentId ||
+    studentId ||
+    "";
 
   return {
     ...application,
-    studentId: application?.studentId ?? studentId ?? "",
+    studentId: resolvedStudentId,
     studentName: application?.studentName ?? studentName ?? "",
     internshipId: application?.internshipId ?? application?.id ?? null,
     companyName: application?.company_name ?? application?.companyName ?? "",
@@ -186,6 +201,30 @@ const normalizeMyApplication = (application, studentId, studentName) => {
     overallStatus: workflowStatus,
     status: toLegacyApplicationStatus(application),
     coordinatorApprovalStatus: application?.dept_status ?? application?.coordinatorApprovalStatus ?? "PENDING",
+    mentorStatus: application?.mentor_status ?? application?.mentorStatus ?? null,
+    acceptanceForm: {
+      ...ACCEPTANCE_FORM_DEFAULTS,
+      internName: application?.form_snapshot?.student?.name || application?.student_name || "",
+      idNo: application?.form_snapshot?.student?.student_id || "",
+      college: application?.form_snapshot?.student?.college || "",
+      department: application?.form_snapshot?.student?.department || "",
+      mobile: application?.form_snapshot?.student?.mobile || application?.student_mobile || "",
+      orgName: application?.form_snapshot?.company?.name || application?.company_name || "",
+      mailingAddress: application?.form_snapshot?.company?.mailing_address || "",
+      physicalAddress: application?.form_snapshot?.company?.physical_address || "",
+      phone: application?.form_snapshot?.company?.phone || "",
+      supervisorName: application?.form_snapshot?.mentor?.name || "",
+      supervisorPhone: application?.form_snapshot?.mentor?.phone || "",
+      supervisorEmail: application?.form_snapshot?.mentor?.email || "",
+      accepted: String(application?.mentor_status || "").toUpperCase() === "ACCEPTED",
+      rejected: String(application?.mentor_status || "").toUpperCase() === "REJECTED",
+      reason: application?.rejection_reason || "",
+      date: application?.mentor_signed_at ? application?.mentor_signed_at.split("T")[0] : "",
+      coordinatorStatus: application?.dept_status || application?.coordinatorApprovalStatus || "PENDING",
+      companyStatus: application?.mentor_status || null,
+      studentStatus: application?.student_decision || null,
+      overallStatus: application?.overall_status || application?.overallStatus || null,
+    },
     finalInternshipStatus:
       workflowStatus === "ACCEPTED"
         ? "ACTIVE_INTERN"
@@ -230,131 +269,65 @@ const pickActiveApplication = (applications) =>
     (application) => ["ACCEPTED", "OFFER_RECEIVED"].includes(application.overallStatus)
   ) || null;
 
-/** UI-only AI chatbot — no backend or real messaging */
-const StudentHeaderChatbot = () => {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+const buildStudentNotifications = (studentId, studentName) => {
+  const readIds = new Set(JSON.parse(localStorage.getItem("notification_read_ids") || "[]"));
+  const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+  const studentNotifications = allNotifications
+    .filter((n) => n.studentId === studentId || n.studentName === studentName)
+    .map((notification) => ({
+      ...notification,
+      read: Boolean(notification.read) || readIds.has(String(notification.id)),
+    }));
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // UI preview only — no message handling
-  };
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:px-4"
-        aria-label="Open AI assistant"
-      >
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-violet-500 shadow-inner transition-transform duration-200 group-hover:scale-105">
-          <Sparkles className="h-4 w-4 text-white" aria-hidden />
-        </span>
-        <span className="hidden sm:inline">AI Assistant</span>
-        <MessageCircle className="h-4 w-4 sm:hidden" aria-hidden />
-      </button>
-
-      {open && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[190] bg-slate-900/40 backdrop-blur-[2px] transition-opacity"
-            aria-label="Close chat"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="student-chatbot-title"
-            className="fixed z-[200] flex w-[min(100vw-1.5rem,24rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-indigo-900/15 transition-all duration-300 ease-out bottom-4 right-4 sm:bottom-auto sm:right-6 sm:top-24 max-h-[min(32rem,calc(100vh-6rem))]"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-slate-900 px-4 py-3.5 text-white">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
-                  <Bot className="h-5 w-5" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <h2 id="student-chatbot-title" className="truncate text-sm font-bold tracking-tight">
-                    Internship AI Assistant
-                  </h2>
-                  <p className="flex items-center gap-1.5 text-[11px] text-indigo-100/90">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-                    Preview · UI only
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="shrink-0 rounded-lg p-2 text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                aria-label="Close assistant"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/80 p-4">
-              {CHATBOT_EXAMPLE_MESSAGES.map((msg) =>
-                msg.role === "bot" ? (
-                  <div key={msg.id} className="flex gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                      <Bot className="h-4 w-4" aria-hidden />
-                    </div>
-                    <div className="max-w-[85%]">
-                      <div className="rounded-2xl rounded-tl-md border border-slate-100 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-slate-700 shadow-sm">
-                        {msg.text}
-                      </div>
-                      <p className="mt-1 pl-1 text-[10px] font-medium text-slate-400">{msg.time}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={msg.id} className="flex justify-end">
-                    <div className="max-w-[85%]">
-                      <div className="rounded-2xl rounded-tr-md bg-gradient-to-br from-indigo-600 to-indigo-700 px-3.5 py-2.5 text-sm leading-relaxed text-white shadow-md shadow-indigo-200/50">
-                        {msg.text}
-                      </div>
-                      <p className="mt-1 pr-1 text-right text-[10px] font-medium text-slate-400">{msg.time}</p>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="border-t border-slate-100 bg-white p-3"
-            >
-              <div className="flex items-end gap-2">
-                <label htmlFor="student-chatbot-input" className="sr-only">
-                  Message
-                </label>
-                <input
-                  id="student-chatbot-input"
-                  type="text"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Type a message… (preview)"
-                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-colors focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  autoComplete="off"
-                />
-                <button
-                  type="submit"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-200 transition-all duration-200 hover:bg-indigo-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-95"
-                  aria-label="Send message"
-                >
-                  <Send className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-              <p className="mt-2 text-center text-[10px] text-slate-400">
-                Demo interface — messages are not sent or stored.
-              </p>
-            </form>
-          </div>
-        </>
-      )}
-    </>
+  const applications = JSON.parse(localStorage.getItem("applications") || "[]");
+  const studentApps = applications.filter(
+    (app) => app.studentId === studentId || app.studentName === studentName
   );
+
+  const appNotifications = studentApps
+    .filter((app) => app.status && app.status !== "applied")
+    .map((app) => ({
+      id: `app-${app.id}`,
+      type: app.status === "accepted" ? "success" : app.status === "rejected" ? "error" : "info",
+      title:
+        app.status === "accepted"
+          ? `${app.companyName} accepted your application`
+          : app.status === "rejected"
+          ? `${app.companyName} rejected your application`
+          : `Update on your application to ${app.companyName}`,
+      message: app.statusMessage || "",
+      date: app.updatedAt || app.appliedAt,
+      studentId,
+      studentName,
+      read: readIds.has(`app-${app.id}`),
+    }));
+
+  const merged = [...studentNotifications, ...appNotifications];
+  const unique = merged.filter((notification, index, self) => index === self.findIndex((candidate) => candidate.id === notification.id));
+  unique.sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+
+  return unique.slice(0, 10);
+};
+
+const markStudentNotificationsRead = (studentId, studentName) => {
+  const readIds = new Set(JSON.parse(localStorage.getItem("notification_read_ids") || "[]"));
+  const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+  const updated = allNotifications.map((notification) => {
+    if (notification.studentId !== studentId && notification.studentName !== studentName) {
+      return notification;
+    }
+    readIds.add(String(notification.id));
+    return { ...notification, read: true };
+  });
+
+  const studentApps = JSON.parse(localStorage.getItem("applications") || "[]").filter(
+    (app) => app.studentId === studentId || app.studentName === studentName
+  );
+  studentApps.forEach((app) => readIds.add(`app-${app.id}`));
+
+  localStorage.setItem("notifications", JSON.stringify(updated));
+  localStorage.setItem("notification_read_ids", JSON.stringify(Array.from(readIds)));
+  return updated;
 };
 
 // Welcome header (inlined)
@@ -416,7 +389,6 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
           </div>
 
           <div className="flex flex-col items-stretch gap-3 sm:items-end shrink-0">
-            <StudentHeaderChatbot />
             <div
               className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
             >
@@ -543,7 +515,6 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
             foundCompany: comp,
             processed: processedInternship
           });
-
           return processedInternship;
         })
         .filter((i) => {
@@ -579,7 +550,9 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
     }
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>Loading internships...</span></div>;
+  if (loading) {
+    return <LoadingState title="Loading opportunities" subtitle="Fetching available internships and company data." />;
+  }
   if (error) return <div className="py-8 text-center text-red-500">Error: {error}</div>;
 
   const handleApplySubmit = async (applicationData) => {
@@ -818,9 +791,11 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
 const AppliedInternshipsList = ({ studentId, studentName }) => {
   const [appliedInternships, setAppliedInternships] = useState([]);
   const [previewForm, setPreviewForm] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadApplied = async () => {
+      setLoading(true);
       try {
         const placementResult = await internshipService.getCurrentPlacement();
         if (placementResult.success && placementResult.data?.placement) {
@@ -862,6 +837,8 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         setAppliedInternships(
           studentApps.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt))
         );
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -911,7 +888,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     return "Pending";
   };
 
-  const getStatusDisplay = (status, coordStatus) => {
+  const getStatusDisplay = (status, coordStatus, mentorStatus) => {
     const s = status?.toLowerCase();
     const cs = coordStatus;
 
@@ -923,6 +900,22 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     }
     if (cs === "REJECTED") {
        return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
+    }
+
+    // If company/mentor has already acted, surface that to the student
+    if ((mentorStatus || "").toString().toUpperCase() === "ACCEPTED") {
+      return {
+        text: 'Accepted by Company',
+        classes: 'bg-green-100 text-green-700 border-green-200',
+        canSelect: true,
+      };
+    }
+    if ((mentorStatus || "").toString().toUpperCase() === "REJECTED") {
+      return {
+        text: 'Rejected by Company',
+        classes: 'bg-red-100 text-red-700 border-red-200',
+        canSelect: false,
+      };
     }
 
     if (s === 'accepted' || s === 'accepted_by_company' || s === 'active') {
@@ -946,6 +939,18 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     };
   };
 
+  const getReviewStatusLabel = (value, fallback = "Pending") => {
+    const normalized = String(value || "").trim().toUpperCase();
+    if (!normalized) return fallback;
+
+    if (normalized === "PENDING") return "Pending";
+    if (normalized === "APPROVED" || normalized === "ACCEPTED") return "Approved";
+    if (normalized === "REJECTED") return "Rejected";
+    if (normalized === "OFFER_RECEIVED") return "Accepted by Company";
+
+    return normalized.replace(/_/g, " ");
+  };
+
   return (
     <div className="app-card p-6">
       <div className="mb-6">
@@ -953,15 +958,23 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         <p className="text-gray-600">Track and finalize your internship placements</p>
       </div>
 
-      {appliedInternships.length === 0 ? (
+      {loading ? (
+        <LoadingState title="Loading your applications" subtitle="Fetching your submitted internship requests." />
+      ) : null}
+
+      {!loading && appliedInternships.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
            <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
            <p className="text-gray-500">You haven't applied to any internships yet.</p>
         </div>
-      ) : (
+      ) : null}
+
+      {!loading && appliedInternships.length > 0 ? (
         <div className="space-y-4">
           {appliedInternships.map(app => {
-            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus);
+            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus, app.mentorStatus);
+            const companyStatus = getReviewStatusLabel(app.mentorStatus, "Pending");
+            const coordinatorStatus = getReviewStatusLabel(app.coordinatorApprovalStatus, "Pending");
             return (
               <div key={app.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border border-gray-100 rounded-xl bg-gray-50/50 gap-4 hover:border-indigo-200 transition-colors">
                 <div className="flex gap-4 items-center">
@@ -983,6 +996,14 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
                         <FileText className="w-3 h-3" />
                         <span>Acceptance Form: {formatAcceptanceStatus(app)}</span>
                       </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black uppercase">
+                      <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">
+                        Coordinator: {coordinatorStatus}
+                      </span>
+                      <span className={`rounded-full border px-2.5 py-1 ${app.mentorStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : app.mentorStatus === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                        Company: {companyStatus}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1010,7 +1031,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
             );
           })}
         </div>
-      )}
+      ) : null}
 
       {previewForm && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 flex items-start justify-center overflow-y-auto">
@@ -1028,6 +1049,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 };
 
 const MyInternshipView = ({ studentId, studentName }) => {
+  const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState(null);
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -1042,22 +1064,30 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [docUploadSuccess, setDocUploadSuccess] = useState(false);
   const docFileInputRef = useRef(null);
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
+  const [apiCompanyEvalSummaries, setApiCompanyEvalSummaries] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
   const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
+  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
     const loadActive = async () => {
+      if (!hasBootstrappedRef.current) {
+        setLoading(true);
+      }
       const tryLoadLiveLogbook = async (appLike) => {
         try {
-          const apiRes = await internshipService.getMyLogbooks();
+          const internshipId = String(appLike?.internshipId ?? appLike?.id ?? "").trim();
+          const sid = String(appLike?.studentId || studentId || "").trim();
+          if (!internshipId || !sid) return false;
+
+          const apiRes = await logbookService.getLogbooksForInternship(internshipId, sid);
           if (!apiRes.success) return false;
 
           const items = Array.isArray(apiRes.data)
             ? apiRes.data
             : (apiRes.data?.results || []);
-          const sid = String(appLike?.studentId || studentId || "").trim();
           if (!sid || items.length === 0) return false;
 
           const grouped = groupApiLogbooksByStudent(items);
@@ -1231,6 +1261,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
           setActiveApp(null);
           setWeeklyLogbook(null);
         }
+      } finally {
+        if (!hasBootstrappedRef.current) {
+          hasBootstrappedRef.current = true;
+          setLoading(false);
+        }
       }
     };
 
@@ -1284,6 +1319,43 @@ const MyInternshipView = ({ studentId, studentName }) => {
     setDocuments(getDocumentsByStudentId(docStudentKey));
   };
 
+  const refreshLiveWeeklyLogbook = async (weekNumberToFocus = null) => {
+    try {
+      const internshipId = String(activeApp?.internshipId ?? activeApp?.id ?? "").trim();
+      const sid = String(activeApp?.studentId ?? studentId ?? "").trim();
+      if (!internshipId || !sid) return null;
+
+      const apiRes = await logbookService.getLogbooksForInternship(internshipId, sid);
+      if (!apiRes.success) return null;
+
+      const items = Array.isArray(apiRes.data)
+        ? apiRes.data
+        : (apiRes.data?.results || []);
+      if (!sid || items.length === 0) return null;
+
+      const grouped = groupApiLogbooksByStudent(items);
+      const rec = grouped.get(sid) || grouped.values().next().value;
+      if (!rec) return null;
+
+      setWeeklyLogbook(rec);
+
+      if (weekNumberToFocus !== null) {
+        const liveWeek = (rec.weeks || []).find(
+          (week) => Number(week.weekNumber) === Number(weekNumberToFocus)
+        );
+        if (liveWeek) {
+          setSelectedWeek(liveWeek);
+          setDraftWeek(liveWeek);
+        }
+      }
+
+      return rec;
+    } catch (err) {
+      console.warn("Failed to refresh live weekly logbook:", err?.message || err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const load = () => { refreshDocuments(); };
     load();
@@ -1293,9 +1365,61 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   useEffect(() => {
     const sid = activeApp?.studentId ?? studentId;
-    const loadAdvisorEval = () => {
+    const internshipId = activeApp?.id || activeApp?.internshipId;
+
+    const mapAdvisorEvalFromApi = (d) => {
+      if (!d) return null;
+      return {
+        id: `api-advisor-${d.id}`,
+        apiId: d.id,
+        status: ADVISOR_EVAL_STATUS.SUBMITTED,
+        submittedAt: d.submitted_at,
+        advisorName: d.advisor_name || "",
+        apiStatus: d.status,
+        formData: {
+          reportScores: [
+            d.report_format_score,
+            d.organization_background_score,
+            d.activities_score,
+            d.data_figure_table_score,
+            d.report_content_score,
+            d.recommendation_score,
+            d.conclusion_score,
+          ],
+          logbookScores: [
+            d.pictures_and_data_score,
+            d.weekly_summary_score,
+            d.daily_detail_score,
+            d.improvement_score,
+            d.initiative_score,
+          ],
+          performanceScores: [
+            d.understanding_objective_score,
+            d.engagement_score,
+            d.discipline_score,
+          ],
+          totalMarks: d.total_marks,
+          finalMark: Number(d.final_weighted_mark ?? 0),
+          supervisorName: d.advisor_name || "",
+        },
+      };
+    };
+
+    const loadAdvisorEval = async () => {
+      if (internshipId) {
+        try {
+          const res = await evaluationService.getAdvisorEvaluationForInternship(internshipId);
+          if (res.success && res.data) {
+            setAdvisorOwnEval(mapAdvisorEvalFromApi(res.data));
+            return;
+          }
+        } catch {
+          // fall back to local cache below
+        }
+      }
       setAdvisorOwnEval(getAdvisorEvaluation(sid));
     };
+
     loadAdvisorEval();
     const onUpdate = () => loadAdvisorEval();
     window.addEventListener("storage", onUpdate);
@@ -1304,7 +1428,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
       window.removeEventListener("storage", onUpdate);
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
-  }, [studentId, activeApp?.studentId]);
+  }, [studentId, activeApp?.studentId, activeApp?.id, activeApp?.internshipId]);
 
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
@@ -1329,9 +1453,84 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   const overallApprovals = useMemo(() => getOverallApprovals(approvalStudentKey), [approvalStudentKey, overallEvalNonce]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const internshipId = activeApp?.id || activeApp?.internshipId;
+    if (!internshipId) {
+      setApiCompanyEvalSummaries(null);
+      return;
+    }
+
+    const toLabel = (status) => {
+      const s = String(status || "").toUpperCase();
+      if (s === "ADVISOR_APPROVED") return "Approved";
+      if (s === "SUBMITTED") return "Submitted to Advisor";
+      return "Pending";
+    };
+
+    const loadCompanyEvalSummaries = async () => {
+      try {
+        const [mRes, fRes] = await Promise.all([
+          evaluationService.getAdvisorMonthlyEvaluations({ internship_id: internshipId }),
+          evaluationService.getAdvisorFinalEvaluations({ internship_id: internshipId }),
+        ]);
+
+        const monthlyItems = mRes.success
+          ? (Array.isArray(mRes.data) ? mRes.data : (mRes.data?.results || []))
+          : [];
+        const finalItems = fRes.success
+          ? (Array.isArray(fRes.data) ? fRes.data : (fRes.data?.results || []))
+          : [];
+
+        const m1 = monthlyItems.find((item) => Number(item.month_number) === 1) || null;
+        const m2 = monthlyItems.find((item) => Number(item.month_number) === 2) || null;
+        const finalEval = finalItems[0] || null;
+
+        const summaries = [
+          {
+            key: "month-1",
+            title: "Company Month 1 Evaluation Form",
+            label: toLabel(m1?.status),
+            submittedAt: m1?.submitted_at || null,
+            approvedAt: m1?.advisor_approved_at || null,
+          },
+          {
+            key: "month-2",
+            title: "Company Month 2 Evaluation Form",
+            label: toLabel(m2?.status),
+            submittedAt: m2?.submitted_at || null,
+            approvedAt: m2?.advisor_approved_at || null,
+          },
+          {
+            key: "final",
+            title: "Company Final Evaluation Form",
+            label: toLabel(finalEval?.status),
+            submittedAt: finalEval?.submitted_at || null,
+            approvedAt: finalEval?.advisor_approved_at || null,
+          },
+        ];
+
+        if (!cancelled) setApiCompanyEvalSummaries(summaries);
+      } catch {
+        if (!cancelled) setApiCompanyEvalSummaries(null);
+      }
+    };
+
+    loadCompanyEvalSummaries();
+    const onRefresh = () => loadCompanyEvalSummaries();
+    window.addEventListener("storage", onRefresh);
+    window.addEventListener("overall-evaluation-updated", onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", onRefresh);
+      window.removeEventListener("overall-evaluation-updated", onRefresh);
+    };
+  }, [activeApp?.id, activeApp?.internshipId, companyEvalNonce]);
+
   const companyEvalSummaries = useMemo(
-    () => getStudentCompanyEvaluationSummaries(approvalStudentKey),
-    [approvalStudentKey, companyEvalNonce]
+    () => apiCompanyEvalSummaries || getStudentCompanyEvaluationSummaries(approvalStudentKey),
+    [apiCompanyEvalSummaries, approvalStudentKey, companyEvalNonce]
   );
 
   useEffect(() => {
@@ -1515,11 +1714,30 @@ const MyInternshipView = ({ studentId, studentName }) => {
             // Add each daily entry
             for (const day of mergedDays) {
               if (String(day.workPerformed || "").trim()) {
-                await internshipService.addLogbookEntry(logbookId, {
-                  day_number: day.dayNumber,
-                  work_date: new Date().toISOString().split("T")[0],
-                  work_performed: day.workPerformed,
-                });
+                try {
+                  const entryRes = await internshipService.addLogbookEntry(logbookId, {
+                    day_number: day.dayNumber,
+                    work_date: new Date().toISOString().split("T")[0],
+                    work_performed: day.workPerformed,
+                  });
+                  if (!entryRes.success) {
+                    const entryMessage = typeof entryRes.error === "string"
+                      ? entryRes.error
+                      : entryRes.error?.detail || entryRes.error?.error || "";
+                    if (/Cannot edit submitted logbook\./i.test(String(entryMessage))) {
+                      await refreshLiveWeeklyLogbook(weekNum);
+                      return;
+                    }
+                    console.warn("Logbook entry API failed:", entryRes.error);
+                  }
+                } catch (entryError) {
+                  const entryMessage = entryError?.response?.data?.detail || entryError?.response?.data?.error || entryError?.message || "";
+                  if (/Cannot edit submitted logbook\./i.test(String(entryMessage))) {
+                    await refreshLiveWeeklyLogbook(weekNum);
+                    return;
+                  }
+                  throw entryError;
+                }
               }
             }
           } else {
@@ -1530,9 +1748,25 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
         if (logbookId) {
           const studentComment = payload.studentComment || "";
-          const submitRes = await internshipService.submitLogbook(logbookId, studentComment);
-          if (!submitRes.success) {
-            console.warn("Logbook submit API failed:", submitRes.error);
+          try {
+            const submitRes = await internshipService.submitLogbook(logbookId, studentComment);
+            if (!submitRes.success) {
+              const submitMessage = typeof submitRes.error === "string"
+                ? submitRes.error
+                : submitRes.error?.detail || submitRes.error?.error || "";
+              if (/Cannot edit submitted logbook\./i.test(String(submitMessage))) {
+                await refreshLiveWeeklyLogbook(weekNum);
+                return;
+              }
+              console.warn("Logbook submit API failed:", submitRes.error);
+            }
+          } catch (submitError) {
+            const submitMessage = submitError?.response?.data?.detail || submitError?.response?.data?.error || submitError?.message || "";
+            if (/Cannot edit submitted logbook\./i.test(String(submitMessage))) {
+              await refreshLiveWeeklyLogbook(weekNum);
+              return;
+            }
+            throw submitError;
           }
         }
       } catch (err) {
@@ -1574,6 +1808,10 @@ const MyInternshipView = ({ studentId, studentName }) => {
         ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
         : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
+
+  if (loading) {
+    return <LoadingState title="Loading my internship" subtitle="Fetching your placement, logbook, and evaluation data." />;
+  }
 
   if (!activeApp) {
     return (
@@ -1619,7 +1857,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
                 <span className="whitespace-nowrap sm:hidden">{shortLabel}</span>
                 <span className="hidden whitespace-nowrap sm:inline">{label}</span>
-                {id === "advisor-eval" && advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                {id === "advisor-eval" && advisorOwnEval && (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" title="Available" />
                 )}
                 {id === "examiner-eval" && examinerEvalsVisible.length > 0 && (
@@ -2062,7 +2300,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 Your academic advisor&apos;s assessment of your internship. It appears here once they submit it.
               </p>
             </div>
-            {!advisorOwnEval || advisorOwnEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
+            {!advisorOwnEval ? (
               <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
                 Your advisor has not submitted their evaluation yet. You will be notified when it is ready.
               </div>
@@ -2486,46 +2724,8 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
   );
 };
 
-// Notifications panel (inlined)
-const NotificationsPanel = ({ studentId, studentName }) => {
-  const [notifications, setNotifications] = useState([]);
-
-  useEffect(() => {
-    const allNotifications = JSON.parse(localStorage.getItem("notifications")) || [];
-    const studentNotifications = allNotifications
-      .filter((n) => n.studentId === studentId || n.studentName === studentName)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 10);
-
-    const applications = JSON.parse(localStorage.getItem("applications")) || [];
-    const studentApps = applications.filter(
-      (app) => app.studentId === studentId || app.studentName === studentName
-    );
-
-    const appNotifications = studentApps
-      .filter((app) => app.status && app.status !== "applied")
-      .map((app) => ({
-        id: `app-${app.id}`,
-        type: app.status === "accepted" ? "success" : app.status === "rejected" ? "error" : "info",
-        title:
-          app.status === "accepted"
-            ? `${app.companyName} accepted your application`
-            : app.status === "rejected"
-            ? `${app.companyName} rejected your application`
-            : `Update on your application to ${app.companyName}`,
-        message: app.statusMessage || "",
-        date: app.updatedAt || app.appliedAt,
-        studentId,
-        studentName,
-      }));
-
-  const merged = [...studentNotifications, ...appNotifications];
-  const unique = merged.filter(
-    (n, index, self) => index === self.findIndex((t) => t.id === n.id)
-  );
-  setNotifications(unique.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10));
-  }, [studentId, studentName]);
-
+// Notifications drawer
+const NotificationsDrawer = ({ isOpen, onClose, notifications }) => {
   const getNotificationIcon = (type) => {
     const iconMap = {
       success: CheckCircle,
@@ -2538,12 +2738,12 @@ const NotificationsPanel = ({ studentId, studentName }) => {
 
   const getNotificationColor = (type) => {
     const colorMap = {
-      success: "text-green-600 bg-green-50",
-      error: "text-red-600 bg-red-50",
-      warning: "text-yellow-600 bg-yellow-50",
-      info: "text-indigo-600 bg-indigo-50",
+      success: "text-green-700 bg-green-50 border-green-200",
+      error: "text-red-700 bg-red-50 border-red-200",
+      warning: "text-amber-700 bg-amber-50 border-amber-200",
+      info: "text-indigo-700 bg-indigo-50 border-indigo-200",
     };
-    return colorMap[type] || "text-gray-600 bg-gray-50";
+    return colorMap[type] || "text-slate-700 bg-slate-50 border-slate-200";
   };
 
   const formatDate = (dateString) => {
@@ -2562,56 +2762,75 @@ const NotificationsPanel = ({ studentId, studentName }) => {
     return date.toLocaleDateString();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="app-card p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Bell className="w-5 h-5 text-gray-700" />
-        <h3 className="text-lg font-bold text-gray-900">Recent Notifications</h3>
-      </div>
-
-      {notifications.length === 0 ? (
-        <div className="text-center py-8">
-          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No notifications yet</p>
-          <p className="text-sm text-gray-400 mt-1">
-            You'll see updates about your applications here
-          </p>
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[180] bg-slate-950/30 backdrop-blur-[2px]"
+        aria-label="Close notifications"
+        onClick={onClose}
+      />
+      <aside className="fixed right-0 top-0 z-[190] flex h-full w-full max-w-[24rem] flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/40">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Updates</p>
+            <h3 className="text-lg font-bold text-slate-900">Notifications</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Close notifications panel"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {notifications.map((notification) => {
-            const Icon = getNotificationIcon(notification.type);
-            const colorClass = getNotificationColor(notification.type);
 
-            return (
-              <div
-                key={notification.id}
-                className={`p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow ${colorClass}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-full ${colorClass}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">
-                      {notification.title}
-                    </h4>
-                    {notification.message && (
-                      <p className="text-sm text-gray-600 mb-2">
-                        {notification.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {formatDate(notification.date)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto p-4">
+          {notifications.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 px-6 py-16 text-center">
+              <Bell className="mb-3 h-12 w-12 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-700">No notifications yet</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Application updates and approvals will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((notification) => {
+                const Icon = getNotificationIcon(notification.type);
+                const colorClass = getNotificationColor(notification.type);
+
+                return (
+                  <article
+                    key={notification.id}
+                    className={`rounded-2xl border p-4 shadow-sm transition-all duration-200 ${colorClass} ${notification.read ? "opacity-80" : "ring-1 ring-indigo-200"}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl border border-white/70 bg-white/80 p-2">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h4 className="text-sm font-semibold text-slate-900">{notification.title}</h4>
+                          {!notification.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-hidden />}
+                        </div>
+                        {notification.message && (
+                          <p className="mt-1 text-sm leading-relaxed text-slate-600">{notification.message}</p>
+                        )}
+                        <p className="mt-2 text-xs font-medium text-slate-500">{formatDate(notification.date)}</p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </aside>
+    </>
   );
 };
 
@@ -2621,8 +2840,11 @@ const StudentDashboard = () => {
   const { studentName, userName } = location.state || {};
   
   const [studentData, setStudentData] = useState(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [internshipStatus, setInternshipStatus] = useState("Not Applied");
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [applications, setApplications] = useState([]);
   const [advisor, setAdvisor] = useState(null);
   const [examiner, setExaminer] = useState(null);
@@ -2641,16 +2863,25 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
+    setIsBootstrapping(true);
     // Get student data from localStorage or context
     const storedStudent = JSON.parse(localStorage.getItem("student")) || {};
-    const storedStudentId = localStorage.getItem("student_id") || storedStudent?.student_id || storedStudent?.studentId || "";
+    const storedStudentId =
+      localStorage.getItem("student_id") ||
+      storedStudent?.student_id ||
+      storedStudent?.studentId ||
+      user?.student?.student_id ||
+      user?.student?.studentId ||
+      user?.student_id ||
+      user?.studentId ||
+      "";
     const name =
       resolveDisplayName(user) ||
       studentName ||
       userName ||
       resolveDisplayName(storedStudent) ||
       "Student";
-    const studentId = storedStudentId || user?.student_id || user?.studentId || user?.id || "";
+    const studentId = storedStudentId;
     const department = user?.department || storedStudent.department || "";
     const college = user?.college || storedStudent.college || "Addis Ababa Science and Technology University";
     const email = user?.email || storedStudent.email || "";
@@ -2665,14 +2896,19 @@ const StudentDashboard = () => {
       email,
     });
 
-    // Load assignment information (advisor and examiner)
-    loadAssignment(studentId, name, email, department);
+    const bootstrap = async () => {
+      // Load assignment information (advisor and examiner)
+      await loadAssignment(studentId, name, email, department);
 
-    // Load applications to determine status
-    loadApplications(studentId, name);
-    
-    // Load notification count
-    loadNotificationCount(studentId, name);
+      // Load applications to determine status
+      await loadApplications(studentId, name);
+
+      // Load notification count only after the base data is ready
+      loadNotificationCount(studentId, name);
+      setIsBootstrapping(false);
+    };
+
+    bootstrap();
   }, [user, studentName, userName]);
 
   // Listen for storage changes to refresh assignments
@@ -2875,20 +3111,43 @@ const StudentDashboard = () => {
       }
     };
 
-    loadFromApi();
+    return loadFromApi();
   };
 
   const loadNotificationCount = (studentId, studentName) => {
     try {
-      const allNotifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      const unreadCount = allNotifications.filter(
-        (n) => (n.studentId === studentId || n.studentName === studentName) && !n.read
-      ).length;
+      const allNotifications = buildStudentNotifications(studentId, studentName);
+      const unreadCount = allNotifications.filter((n) => !n.read).length;
       setNotificationCount(unreadCount);
+      setNotifications(allNotifications);
     } catch (error) {
       console.error("Error loading notifications:", error);
     }
   };
+
+  const openNotifications = useCallback(() => {
+    if (!studentData) return;
+    markStudentNotificationsRead(studentData.studentId, studentData.name);
+    const fresh = buildStudentNotifications(studentData.studentId, studentData.name).map((notification) => ({
+      ...notification,
+      read: true,
+    }));
+    setNotifications(fresh);
+    setNotificationCount(0);
+    setNotificationPanelOpen(true);
+  }, [studentData]);
+
+  useEffect(() => {
+    if (!studentData) return;
+    loadNotificationCount(studentData.studentId, studentData.name);
+    const sync = () => loadNotificationCount(studentData.studentId, studentData.name);
+    window.addEventListener("storage", sync);
+    window.addEventListener("localStorageChange", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("localStorageChange", sync);
+    };
+  }, [studentData]);
 
   const handleApplicationSubmit = (newApplication) => {
     // Reload applications and update status
@@ -2896,15 +3155,8 @@ const StudentDashboard = () => {
     loadNotificationCount(studentData?.studentId, studentData?.name);
   };
 
-  if (!studentData) {
-    return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
-          <p className="text-slate-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+  if (isBootstrapping || !studentData) {
+    return <LoadingState title="Loading student dashboard" subtitle="Fetching your profile, applications, and notifications." />;
   }
 
   return (
@@ -2912,6 +3164,7 @@ const StudentDashboard = () => {
       <TopNavigation
         studentName={studentData.name}
         notificationCount={notificationCount}
+        onNotificationClick={openNotifications}
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -2966,11 +3219,6 @@ const StudentDashboard = () => {
 
               {/* Right Column */}
               <div className="space-y-6">
-                <NotificationsPanel
-                  studentId={studentData.studentId}
-                  studentName={studentData.name}
-                />
-
                 <div className="app-card p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
                   <div className="space-y-3">
@@ -2997,6 +3245,12 @@ const StudentDashboard = () => {
           </div>
         </div>
       </div>
+
+      <NotificationsDrawer
+        isOpen={notificationPanelOpen}
+        onClose={() => setNotificationPanelOpen(false)}
+        notifications={notifications}
+      />
     </div>
   );
 };

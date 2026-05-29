@@ -384,7 +384,20 @@ const internshipService = {
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
-  },
+    },
+
+    /** Coordinator: approve/reject overall evaluation (backend) */
+    async coordinatorApproveOverall(internshipId, action = "approve", comment = "") {
+      try {
+        const response = await api.patch(`/coordinator/overall-evaluation/${internshipId}/approve/`, {
+          action,
+          comment,
+        });
+        return { success: true, data: response.data };
+      } catch (error) {
+        return { success: false, error: error.response?.data || error.message };
+      }
+    },
 
   /**
    * Mentor reviews application
@@ -425,6 +438,21 @@ const internshipService = {
       const response = await api.patch(`/applications/${applicationId}/dept-review/`, {
         action,
         signature,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /**
+   * Coordinator reviews a self-placement request
+   */
+  async reviewSelfPlacementRequest(requestId, action, review_notes = "") {
+    try {
+      const response = await api.patch(`/self-placement/request/${requestId}/review/`, {
+        action,
+        review_notes,
       });
       return { success: true, data: response.data };
     } catch (error) {

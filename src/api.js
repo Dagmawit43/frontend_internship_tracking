@@ -1,6 +1,7 @@
 import axios from "axios";
+import { showToast } from "./utils/toast";
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://internship-tracker-backend-3.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -92,9 +93,28 @@ const shouldRetry = (error) => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    try {
+      const method = String(response.config?.method || "").toLowerCase();
+      if (["post", "patch", "put", "delete"].includes(method)) {
+        const data = response.data || {};
+        const message = data?.message || data?.detail || (method === "post" ? "Saved" : method === "delete" ? "Deleted" : "Updated");
+        showToast({ type: "success", message });
+      }
+    } catch (e) { /* ignore toast errors */ }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+
+    // Show toast for write errors where we won't retry
+    try {
+      const method = String(originalRequest?.method || "").toLowerCase();
+      if (!shouldRetry(error) && ["post", "patch", "put", "delete"].includes(method)) {
+        const msg = error.response?.data?.detail || error.response?.data?.message || error.message || "Request failed";
+        showToast({ type: "error", message: String(msg) });
+      }
+    } catch (e) { /* ignore */ }
 
     if (!shouldRetry(error)) {
       return Promise.reject(error);

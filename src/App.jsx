@@ -6,6 +6,7 @@ import CompanyDashboard from "./components/CompanyDashboard";
 import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import ExaminerDashboard from "./components/ExaminerDashboard";
+import { AssistantButton } from "./components/AssistantChat";
 import "./App.css";
 
 function App() {
@@ -28,6 +29,8 @@ function App() {
           element={<ExaminerDashboard />}
         />
       </Routes>
+      {/* Floating AI assistant — available on all authenticated pages */}
+      <AssistantButton />
     </Router>
   );
 }

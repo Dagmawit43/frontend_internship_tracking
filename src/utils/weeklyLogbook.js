@@ -5,7 +5,6 @@ export const LOGBOOK_UPDATED_EVENT = "weekly-logbook-updated";
 export const notifyWeeklyLogbookUpdated = (detail = {}) => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(LOGBOOK_UPDATED_EVENT, { detail }));
-    window.dispatchEvent(new Event("storage"));
   }
 };
 

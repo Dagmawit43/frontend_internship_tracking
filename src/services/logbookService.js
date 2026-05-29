@@ -27,6 +27,20 @@ const logbookService = {
     }
   },
 
+  async getLogbooksForInternship(internshipId, studentId) {
+    try {
+      if (!internshipId) return { success: false, error: "missing internshipId" };
+      const params = [];
+      params.push(`internship_id=${encodeURIComponent(internshipId)}`);
+      if (studentId) params.push(`student_id=${encodeURIComponent(studentId)}`);
+      const qs = params.length > 0 ? `?${params.join("&")}` : "";
+      const res = await api.get(`/logbooks/${qs}`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      return { success: false, error: err?.response?.data || err?.message || String(err) };
+    }
+  },
+
   async submitLogbook(logbookId) {
     try {
       const res = await api.post(`/logbooks/${logbookId}/submit/`);

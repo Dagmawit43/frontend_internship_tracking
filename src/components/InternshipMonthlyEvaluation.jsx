@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CheckCircle, Lock } from "lucide-react";
+import ButtonWithSpinner from "./ButtonWithSpinner";
 
 const SCORE_FIELDS = [
   "punctuality",
@@ -114,6 +115,8 @@ const InternshipMonthlyEvaluation = ({
   const [formData, setFormData] = useState({ ...EMPTY_FORM, ...initialData });
   const [advisorComment, setAdvisorComment] = useState(existingAdvisorComment);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAdvisorProcessing, setIsAdvisorProcessing] = useState(false);
 
   // Sync if parent passes new initialData (e.g. switching between Month 1 / Month 2)
   useEffect(() => {
@@ -144,10 +147,16 @@ const InternshipMonthlyEvaluation = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    onSubmit?.({ ...formData, totalMarks, monthlyPerformance: Number(monthlyPerformance) });
+    try {
+      setIsSubmitting(true);
+      const maybe = onSubmit?.({ ...formData, totalMarks, monthlyPerformance: Number(monthlyPerformance) });
+      if (maybe && typeof maybe.then === "function") await maybe;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -283,12 +292,9 @@ const InternshipMonthlyEvaluation = ({
         {/* ── Company submit button ── */}
         {!fieldsLocked && onSubmit && (
           <div className="mt-4">
-            <button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold text-sm shadow-sm transition-colors"
-            >
+            <ButtonWithSpinner type="submit" isLoading={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-lg font-semibold text-sm shadow-sm">
               Submit Evaluation
-            </button>
+            </ButtonWithSpinner>
           </div>
         )}
 
@@ -309,21 +315,38 @@ const InternshipMonthlyEvaluation = ({
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <button
+              <ButtonWithSpinner
                 type="button"
-                onClick={() => onAdvisorAction({ action: "approve", comment: advisorComment })}
-                className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700 shadow-sm"
+                isLoading={isAdvisorProcessing}
+                onClick={async () => {
+                  try {
+                    setIsAdvisorProcessing(true);
+                    const maybe = onAdvisorAction?.({ action: "approve", comment: advisorComment });
+                    if (maybe && typeof maybe.then === "function") await maybe;
+                  } finally {
+                    setIsAdvisorProcessing(false);
+                  }
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-bold"
               >
-                <CheckCircle className="w-4 h-4" />
-                Approve Evaluation
-              </button>
-              <button
+                <CheckCircle className="w-4 h-4" /> Approve Evaluation
+              </ButtonWithSpinner>
+              <ButtonWithSpinner
                 type="button"
-                onClick={() => onAdvisorAction({ action: "reject", comment: advisorComment })}
-                className="flex-1 flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                isLoading={isAdvisorProcessing}
+                onClick={async () => {
+                  try {
+                    setIsAdvisorProcessing(true);
+                    const maybe = onAdvisorAction?.({ action: "reject", comment: advisorComment });
+                    if (maybe && typeof maybe.then === "function") await maybe;
+                  } finally {
+                    setIsAdvisorProcessing(false);
+                  }
+                }}
+                className="flex-1 bg-white border border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
               >
                 Reject — Send Back
-              </button>
+              </ButtonWithSpinner>
             </div>
           </div>
         )}

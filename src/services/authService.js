@@ -1,5 +1,25 @@
 import api from "../api";
 
+const persistStudentInfo = (student) => {
+  try {
+    if (!student || typeof student !== "object") {
+      localStorage.removeItem("student");
+      localStorage.removeItem("student_id");
+      return;
+    }
+
+    localStorage.setItem("student", JSON.stringify(student));
+
+    if (student.student_id !== undefined && student.student_id !== null && String(student.student_id).trim() !== "") {
+      localStorage.setItem("student_id", String(student.student_id));
+    } else {
+      localStorage.removeItem("student_id");
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+};
+
 export const authService = {
   /**
    * Login with email and password
@@ -16,19 +36,7 @@ export const authService = {
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
         // Persist student info if present
-        if (user.student) {
-          try {
-            localStorage.setItem("student", JSON.stringify(user.student));
-            if (user.student.student_id) {
-              localStorage.setItem("student_id", user.student.student_id);
-            }
-          } catch (e) {
-            // ignore storage errors
-          }
-        } else {
-          localStorage.removeItem("student");
-          localStorage.removeItem("student_id");
-        }
+        persistStudentInfo(user.student);
       }
 
       return { success: true, data: { tokens, user } };
@@ -64,17 +72,7 @@ export const authService = {
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
-        if (user.student) {
-          try {
-            localStorage.setItem("student", JSON.stringify(user.student));
-            if (user.student.student_id) {
-              localStorage.setItem("student_id", user.student.student_id);
-            }
-          } catch (e) {}
-        } else {
-          localStorage.removeItem("student");
-          localStorage.removeItem("student_id");
-        }
+        persistStudentInfo(user.student);
       }
 
       return { success: true, data: { tokens, user } };
@@ -116,17 +114,7 @@ export const authService = {
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
-        if (user.student) {
-          try {
-            localStorage.setItem("student", JSON.stringify(user.student));
-            if (user.student.student_id) {
-              localStorage.setItem("student_id", user.student.student_id);
-            }
-          } catch (e) {}
-        } else {
-          localStorage.removeItem("student");
-          localStorage.removeItem("student_id");
-        }
+        persistStudentInfo(user.student);
       }
 
       return { success: true, data: { tokens, user } };
@@ -158,17 +146,7 @@ export const authService = {
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
-        if (user.student) {
-          try {
-            localStorage.setItem("student", JSON.stringify(user.student));
-            if (user.student.student_id) {
-              localStorage.setItem("student_id", user.student.student_id);
-            }
-          } catch (e) {}
-        } else {
-          localStorage.removeItem("student");
-          localStorage.removeItem("student_id");
-        }
+        persistStudentInfo(user.student);
       }
 
       return { success: true, data: { tokens, user } };
@@ -195,17 +173,7 @@ export const authService = {
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
-        if (user.student) {
-          try {
-            localStorage.setItem("student", JSON.stringify(user.student));
-            if (user.student.student_id) {
-              localStorage.setItem("student_id", user.student.student_id);
-            }
-          } catch (e) {}
-        } else {
-          localStorage.removeItem("student");
-          localStorage.removeItem("student_id");
-        }
+        persistStudentInfo(user.student);
       }
 
       return { success: true, data: { tokens, user } };
@@ -295,15 +263,7 @@ export const authService = {
       const response = await api.patch("/me/", data);
       const user = response.data;
       localStorage.setItem("user", JSON.stringify(user));
-      if (user.student) {
-        try {
-          localStorage.setItem("student", JSON.stringify(user.student));
-          if (user.student.student_id) localStorage.setItem("student_id", user.student.student_id);
-        } catch (e) {}
-      } else {
-        localStorage.removeItem("student");
-        localStorage.removeItem("student_id");
-      }
+      persistStudentInfo(user.student);
       return { success: true, data: user };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };

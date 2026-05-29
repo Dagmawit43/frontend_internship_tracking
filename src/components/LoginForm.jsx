@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,6 +45,23 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const auth = useAuth();
   const login = auth?.login;
+  const isAuthenticated = auth?.isAuthenticated;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const storedUser = auth?.user || (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user")) || null;
+      } catch {
+        return null;
+      }
+    })();
+    const detectedRole = inferRoleFromUser(storedUser) || toCanonicalRole(storedUser?.role) || "Student";
+    const dashboardPath = roleRoutes[detectedRole] || "/student-dashboard";
+
+    navigate(dashboardPath, { replace: true });
+  }, [auth?.user, isAuthenticated, navigate]);
 
   const [accountType, setAccountType] = useState("Student");
   const [identifier, setIdentifier] = useState("");
@@ -105,6 +122,7 @@ const LoginForm = () => {
         console.log(`Login successful for role: ${roleToUse}. Redirecting to ${dashboardPath}`);
 
         navigate(dashboardPath, {
+          replace: true,
           state: {
             user: normalizedUser,
             userName:
