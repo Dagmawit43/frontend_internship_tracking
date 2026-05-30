@@ -1,4 +1,5 @@
 import api from "../api";
+import { parseJwt } from "../utils/authHelpers";
 
 const persistStudentInfo = (student) => {
   try {
@@ -32,6 +33,18 @@ export const authService = {
       if (tokens?.access) {
         localStorage.setItem("access", tokens.access);
         localStorage.setItem("refresh", tokens.refresh);
+
+        // Inject department/company claims from token into user object when present
+        try {
+          const payload = parseJwt(tokens.access);
+          if (payload) {
+            if (!user) user = {};
+            if (payload.department_name) user.department = payload.department_name;
+            else if (payload.department_id) user.department = payload.department_id;
+          }
+        } catch (e) {
+          // ignore
+        }
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -69,6 +82,14 @@ export const authService = {
       if (tokens?.access) {
         localStorage.setItem("access", tokens.access);
         localStorage.setItem("refresh", tokens.refresh);
+        try {
+          const payload = parseJwt(tokens.access);
+          if (payload) {
+            if (!user) user = {};
+            if (payload.department_name) user.department = payload.department_name;
+            else if (payload.department_id) user.department = payload.department_id;
+          }
+        } catch (e) {}
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -111,6 +132,14 @@ export const authService = {
       if (tokens?.access) {
         localStorage.setItem("access", tokens.access);
         localStorage.setItem("refresh", tokens.refresh);
+        try {
+          const payload = parseJwt(tokens.access);
+          if (payload) {
+            if (!user) user = {};
+            if (payload.department_name) user.department = payload.department_name;
+            else if (payload.department_id) user.department = payload.department_id;
+          }
+        } catch (e) {}
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -143,6 +172,14 @@ export const authService = {
       if (tokens?.access) {
         localStorage.setItem("access", tokens.access);
         localStorage.setItem("refresh", tokens.refresh);
+        try {
+          const payload = parseJwt(tokens.access);
+          if (payload) {
+            if (!user) user = {};
+            if (payload.department_name) user.department = payload.department_name;
+            else if (payload.department_id) user.department = payload.department_id;
+          }
+        } catch (e) {}
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -199,6 +236,7 @@ export const authService = {
    * Logout user
    */
   async logout() {
+    let ok = true;
     try {
       const refreshToken = localStorage.getItem("refresh");
       if (refreshToken) {
@@ -206,6 +244,7 @@ export const authService = {
       }
     } catch (error) {
       console.error("Logout error:", error);
+      ok = false;
     } finally {
       localStorage.removeItem("access");
       localStorage.removeItem("refresh");
@@ -213,6 +252,8 @@ export const authService = {
       localStorage.removeItem("student");
       localStorage.removeItem("student_id");
     }
+
+    return ok ? { success: true } : { success: false };
   },
 
   /**

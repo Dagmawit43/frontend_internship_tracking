@@ -53,3 +53,6 @@ export function getCurrentStudentId() {
 }
 
 export default { getCurrentStudentId };
+
+// Also expose parseJwt for other modules that need token claims
+export { parseJwt };

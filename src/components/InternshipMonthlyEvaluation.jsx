@@ -132,7 +132,20 @@ const InternshipMonthlyEvaluation = ({
   };
 
   const totalMarks = calculateTotal(formData);
-  const monthlyPerformance = ((totalMarks / 100) * 20).toFixed(2);
+  // If the parent supplied a pre-computed total (from API) and the individual
+  // score fields are empty, prefer the supplied total so read-only views show
+  // the server-side value (some records may store totals instead of individual
+  // field values).
+  // Consider score fields "present" only if any of them is a positive number.
+  // This avoids treating an all-zero form_data (which may be a default) as
+  // populated and therefore overriding a server-provided totalMarks.
+  const hasAnyScoreField = SCORE_FIELDS.some((k) => {
+    const v = Number(formData[k]);
+    return Number.isFinite(v) && v > 0;
+  });
+  const suppliedTotal = initialData?.totalMarks;
+  const displayedTotal = !hasAnyScoreField && suppliedTotal !== undefined ? Number(suppliedTotal) : totalMarks;
+  const monthlyPerformance = ((displayedTotal / 100) * 20).toFixed(2);
 
   const validate = () => {
     const newErrors = {};
@@ -150,9 +163,9 @@ const InternshipMonthlyEvaluation = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    try {
+      try {
       setIsSubmitting(true);
-      const maybe = onSubmit?.({ ...formData, totalMarks, monthlyPerformance: Number(monthlyPerformance) });
+      const maybe = onSubmit?.({ ...formData, totalMarks: displayedTotal, monthlyPerformance: Number(monthlyPerformance) });
       if (maybe && typeof maybe.then === "function") await maybe;
     } finally {
       setIsSubmitting(false);
@@ -243,16 +256,16 @@ const InternshipMonthlyEvaluation = ({
         </div>
 
         {/* Totals */}
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 my-6">
-          <div className="flex justify-between items-center mb-3 text-base font-bold text-gray-800">
-            <span>Total Marks (out of 100)</span>
-            <span className="text-2xl text-indigo-700">{totalMarks}</span>
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 my-6">
+            <div className="flex justify-between items-center mb-3 text-base font-bold text-gray-800">
+              <span>Total Marks (out of 100)</span>
+              <span className="text-2xl text-indigo-700">{displayedTotal}</span>
+            </div>
+            <div className="flex justify-between items-center text-base font-bold text-gray-800">
+              <span>Monthly Performance Mark (out of 20)</span>
+              <span className="text-2xl text-green-700">{monthlyPerformance}</span>
+            </div>
           </div>
-          <div className="flex justify-between items-center text-base font-bold text-gray-800">
-            <span>Monthly Performance Mark (out of 20)</span>
-            <span className="text-2xl text-green-700">{monthlyPerformance}</span>
-          </div>
-        </div>
 
         {/* Additional Comment */}
         <div className="mb-6">

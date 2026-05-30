@@ -140,7 +140,16 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     setLoading(true);
     try {
-      await authService.logout();
+      const res = await authService.logout();
+      // If backend request succeeded, redirect to login
+      if (res && res.success) {
+        setUser(null);
+        // authService.logout already cleared localStorage keys; ensure user cleared
+        try { localStorage.removeItem("user"); } catch (e) {}
+        // Hard redirect to ensure we leave protected routes even outside Router
+        window.location.href = "/login";
+        return;
+      }
     } catch (err) {
       console.error("Logout error:", err);
     } finally {

@@ -1942,8 +1942,8 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                         advisorComment: apiRec.advisor_comment || "",
                         evaluationData: {
                           ...(apiRec.form_data || {}),
-                          totalMarks: apiRec.total_score,
-                          monthlyPerformance: apiRec.total_score,
+                          totalMarks: (apiRec.form_data?.totalMarks ?? apiRec.total_score),
+                          monthlyPerformance: (apiRec.form_data?.monthlyPerformance ?? (apiRec.total_score ? ((apiRec.total_score/100)*20) : null)),
                         },
                       }
                     : getEvaluation(selectedIntern.studentId, month);

@@ -95,6 +95,28 @@ const readAdvisorProfile = () => {
   return null;
 };
 
+// Compute weighted total (0-100) from form_data where fields are 0-20.
+const computeWeightedTotalFromForm = (form) => {
+  if (!form || typeof form !== 'object') return null;
+  // use same weights as the evaluation form
+  const FIELD_WEIGHTS = {
+    punctuality: 5, reliability: 5, independence: 5, communication: 5, professionalism: 5,
+    speedOfWork: 5, accuracy: 5, engagement: 5, workNeed: 5, cooperation: 5,
+    technicalSkills: 5, organizationalSkills: 5, projectSupport: 5, responsibility: 15, teamwork: 20,
+  };
+  let total = 0;
+  let any = false;
+  for (const key of Object.keys(FIELD_WEIGHTS)) {
+    const raw = Number(form[key] ?? form[key === 'speedOfWork' ? 'speedOfWork' : key] ?? 0);
+    if (!isNaN(raw) && raw !== 0) any = true;
+    const clamped = Math.max(0, Math.min(20, isNaN(raw) ? 0 : raw));
+    const weight = FIELD_WEIGHTS[key] || 0;
+    total += (clamped / 20) * weight;
+  }
+  if (!any) return null;
+  return Math.round(total * 100) / 100;
+};
+
 const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
@@ -767,7 +789,13 @@ const AdvisorDashboard = () => {
             status: EVAL_STATUS.SUBMITTED,
             advisorComment: item.advisor_comment || "",
             submittedAt: item.submitted_at,
-            evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
+            evaluationData: (function() {
+              const form = item.form_data || {};
+              const computed = computeWeightedTotalFromForm(form);
+              const total = computed !== null ? computed : (item.form_data?.totalMarks ?? item.total_score);
+              const perf = form?.monthlyPerformance ?? (total ? ((total / 100) * 20) : null);
+              return { ...(form || {}), totalMarks: total, monthlyPerformance: perf };
+            })(),
           });
         }
       });
@@ -805,7 +833,13 @@ const AdvisorDashboard = () => {
           status,
           advisorComment: item.advisor_comment || "",
           submittedAt: item.submitted_at,
-          evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
+          evaluationData: (function() {
+            const form = item.form_data || {};
+            const computed = computeWeightedTotalFromForm(form);
+            const total = computed !== null ? computed : (item.form_data?.totalMarks ?? item.total_score);
+            const perf = form?.monthlyPerformance ?? (total ? ((total / 100) * 20) : null);
+            return { ...(form || {}), totalMarks: total, monthlyPerformance: perf };
+          })(),
         });
       });
     });
@@ -2369,8 +2403,8 @@ const AdvisorDashboard = () => {
                         advisorComment: apiRec.advisor_comment || "",
                         evaluationData: {
                           ...(apiRec.form_data || {}),
-                          totalMarks: apiRec.total_score,
-                          monthlyPerformance: apiRec.total_score,
+                          totalMarks: (apiRec.form_data?.totalMarks ?? apiRec.total_score),
+                          monthlyPerformance: (apiRec.form_data?.monthlyPerformance ?? (apiRec.total_score ? ((apiRec.total_score/100)*20) : null)),
                         },
                         apiId: apiRec.id,
                       }
