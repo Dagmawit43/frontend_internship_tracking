@@ -1271,10 +1271,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
     loadActive();
     const onLogbookUpdated = () => loadActive();
-    window.addEventListener("storage", loadActive);
     window.addEventListener("weekly-logbook-updated", onLogbookUpdated);
     return () => {
-      window.removeEventListener("storage", loadActive);
       window.removeEventListener("weekly-logbook-updated", onLogbookUpdated);
     };
   }, [studentId, studentName]);
@@ -1359,7 +1357,6 @@ const MyInternshipView = ({ studentId, studentName }) => {
   useEffect(() => {
     const load = () => { refreshDocuments(); };
     load();
-    window.addEventListener("storage", load);
     return () => window.removeEventListener("storage", load);
   }, [docStudentKey, activeApp?.id, activeApp?.internshipId]);
 
@@ -1422,10 +1419,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
     loadAdvisorEval();
     const onUpdate = () => loadAdvisorEval();
-    window.addEventListener("storage", onUpdate);
     window.addEventListener("advisor-evaluation-updated", onUpdate);
     return () => {
-      window.removeEventListener("storage", onUpdate);
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
   }, [studentId, activeApp?.studentId, activeApp?.id, activeApp?.internshipId]);
@@ -1519,11 +1514,9 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
     loadCompanyEvalSummaries();
     const onRefresh = () => loadCompanyEvalSummaries();
-    window.addEventListener("storage", onRefresh);
     window.addEventListener("overall-evaluation-updated", onRefresh);
     return () => {
       cancelled = true;
-      window.removeEventListener("storage", onRefresh);
       window.removeEventListener("overall-evaluation-updated", onRefresh);
     };
   }, [activeApp?.id, activeApp?.internshipId, companyEvalNonce]);

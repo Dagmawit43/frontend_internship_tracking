@@ -611,6 +611,7 @@ const InternsPage = ({ companySession }) => {
   useEffect(() => {
     if (!companyId) return;
     const load = async () => {
+      setIsLoading(true);
       try {
         // Fetch coordinator-approved applications for this company — these are the active interns
         const result = await internshipService.getCompanyApplicants(companyId);
@@ -637,6 +638,8 @@ const InternsPage = ({ companySession }) => {
       } catch (err) {
         console.error("Failed to load interns:", err);
         setInterns([]);
+      } finally {
+        setIsLoading(false);
       }
     };
     load();
@@ -955,6 +958,17 @@ const InternsPage = ({ companySession }) => {
     [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
   }[status] || "bg-gray-100 text-gray-600 border-gray-200");
 
+  const reminders = useMemo(() => {
+    return interns.flatMap((intern) =>
+      [1, 2]
+        .filter((month) => {
+          const record = getEvaluation(intern.studentId, month);
+          return !record || record.status === EVAL_STATUS.NOT_STARTED;
+        })
+        .map((month) => ({ intern, month }))
+    );
+  }, [interns]);
+
   const groupedInterns = interns.reduce((acc, intern) => {
     const title = intern.internshipTitle || "General Internship";
     if (!acc[title]) acc[title] = [];
@@ -1057,6 +1071,9 @@ const InternsPage = ({ companySession }) => {
 
             {/* Weekly Logbook tab */}
             {internDetailTab === "logbook" && (
+              (() => {
+                const logbookWeeks = Array.isArray(selectedRecord?.weeks) ? selectedRecord.weeks : [];
+                return (
               logbookLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600 mr-3" />
@@ -1067,14 +1084,14 @@ const InternsPage = ({ companySession }) => {
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">No logbook available yet.</p>
                 </div>
-              ) : selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
+              ) : logbookWeeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
                 <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-xl">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500">No logbook weeks submitted yet.</p>
                 </div>
               ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).map(week => {
+                {logbookWeeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).map(week => {
                   // Company can act when status is SUBMITTED (mapped to PENDING_COMPANY) or PENDING_COMPANY
                   const canAct = week.status === WEEK_STATUS.PENDING_COMPANY ||
                     week.apiStatus === "SUBMITTED";
@@ -1113,6 +1130,8 @@ const InternsPage = ({ companySession }) => {
                 })}
               </div>
               )
+                );
+              })()
             )}
 
             {/* Company Monthly Evaluation tab */}
