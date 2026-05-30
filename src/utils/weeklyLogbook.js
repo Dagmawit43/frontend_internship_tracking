@@ -5,7 +5,6 @@ export const LOGBOOK_UPDATED_EVENT = "weekly-logbook-updated";
 export const notifyWeeklyLogbookUpdated = (detail = {}) => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(LOGBOOK_UPDATED_EVENT, { detail }));
-    window.dispatchEvent(new Event("storage"));
   }
 };
 
@@ -103,7 +102,9 @@ export const getLogbookForApplication = (appOrIntern) =>
 
 export const countPendingAdvisorWeeks = (appOrIntern) => {
   const rec = getLogbookForApplication(appOrIntern);
-  return (rec.weeks || []).filter((w) => w.status === WEEK_STATUS.PENDING_ADVISOR).length;
+  return (rec.weeks || []).filter((w) =>
+    w.status === WEEK_STATUS.PENDING_COMPANY || w.status === WEEK_STATUS.PENDING_ADVISOR
+  ).length;
 };
 
 const makeRecordId = ({ studentId, internshipId }) =>
@@ -112,7 +113,7 @@ const makeRecordId = ({ studentId, internshipId }) =>
 export const getWeeklyLogbooks = () => {
   try {
     return JSON.parse(localStorage.getItem(WEEKLY_LOGBOOKS_KEY) || "[]");
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -338,4 +339,165 @@ export const advisorFinalizeWeek = (appOrIntern, weekNumber, action) => {
       advisorReviewedAt: new Date().toISOString(),
     };
   });
+};
+
+// ─── API integration helpers ──────────────────────────────────────────────────
+// Maps "studentId::internshipId::weekNumber" → backend logbook id
+const LOGBOOK_API_IDS_KEY = "weeklyLogbookApiIds";
+
+export const getLogbookApiId = (studentId, internshipId, weekNumber) => {
+  try {
+    const map = JSON.parse(localStorage.getItem(LOGBOOK_API_IDS_KEY) || "{}");
+    return map[`${normalize(studentId)}::${normalize(internshipId)}::${weekNumber}`] || null;
+  } catch {
+    return null;
+  }
+};
+
+export const setLogbookApiId = (studentId, internshipId, weekNumber, apiId) => {
+  try {
+    const map = JSON.parse(localStorage.getItem(LOGBOOK_API_IDS_KEY) || "{}");
+    map[`${normalize(studentId)}::${normalize(internshipId)}::${weekNumber}`] = apiId;
+    localStorage.setItem(LOGBOOK_API_IDS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+};
+
+/**
+ * Map backend WeeklyLogbook status → frontend WEEK_STATUS
+ */
+export const backendStatusToFrontend = (backendStatus) => {
+  switch (String(backendStatus || "").toUpperCase()) {
+    case "DRAFT":       return WEEK_STATUS.NOT_SUBMITTED;
+    case "SUBMITTED":   return WEEK_STATUS.PENDING_COMPANY;
+    case "VERIFIED":    return WEEK_STATUS.PENDING_ADVISOR;
+    case "REVIEWED":    return WEEK_STATUS.APPROVED;
+    default:            return WEEK_STATUS.NOT_SUBMITTED;
+  }
+};
+
+/**
+ * Convert a single backend WeeklyLogbook record (from /logbooks/advisor/ or
+ * /logbooks/company/) into the shape InternshipLogbookForm expects.
+ *
+ * Backend shape:
+ *   { id, week_number, status, student_full_name, student_id, company_name,
+ *     submitted_at, company_comment, advisor_comment, daily_log_entries: [
+ *       { id, day_number, work_date, work_performed }
+ *     ] }
+ *
+ * Frontend week shape:
+ *   { weekNumber, status (WEEK_STATUS), days: [{ dayNumber, workPerformed, supervisorComment }],
+ *     apiId, companyComment, advisorComment, submittedAt }
+ */
+export const apiLogbookToWeek = (apiLogbook) => {
+  const days = (apiLogbook.daily_log_entries || apiLogbook.daily_entries || [])
+    .sort((a, b) => a.day_number - b.day_number)
+    .map((entry) => ({
+      dayNumber: entry.day_number,
+      workPerformed: entry.work_performed || "",
+      supervisorComment: entry.supervisor_comment || "",
+    }));
+
+  // Pad to 6 days if fewer entries exist
+  while (days.length < 6) {
+    days.push({ dayNumber: days.length + 1, workPerformed: "", supervisorComment: "" });
+  }
+
+  return {
+    weekNumber: apiLogbook.week_number,
+    status: backendStatusToFrontend(apiLogbook.status),
+    apiId: apiLogbook.id,
+    apiStatus: apiLogbook.status,   // raw backend status for submit/verify/review calls
+    companyComment: apiLogbook.company_comment || "",
+    advisorComment: apiLogbook.advisor_comment || "",
+    submittedAt: apiLogbook.submitted_at || null,
+    days,
+    // keep legacy fields so existing code doesn't break
+    companyStatus: apiLogbook.status === "VERIFIED" || apiLogbook.status === "REVIEWED" ? "APPROVED" : "PENDING",
+    advisorStatus: apiLogbook.status === "REVIEWED" ? "APPROVED" : "PENDING",
+  };
+};
+
+/**
+ * Group a flat array of backend logbook records by internship student.
+ * Returns a Map: studentId → { studentName, companyName, weeks[] }
+ */
+export const groupApiLogbooksByStudent = (apiLogbooks) => {
+  const map = new Map();
+  for (const lb of apiLogbooks) {
+    const sid = lb.student_id || "";
+    if (!map.has(sid)) {
+      map.set(sid, {
+        studentId: sid,
+        internshipId: lb.internship_id || lb.internship || "",
+        studentName: lb.student_full_name || "",
+        companyName: lb.company_name || "",
+        meta: { studentName: lb.student_full_name || "", companyName: lb.company_name || "", supervisorName: "", safetyBrief: "" },
+        weeks: [],
+      });
+    }
+    map.get(sid).weeks.push(apiLogbookToWeek(lb));
+  }
+  // Sort weeks by weekNumber within each student
+  for (const rec of map.values()) {
+    rec.weeks.sort((a, b) => a.weekNumber - b.weekNumber);
+  }
+  return map;
+};
+
+/**
+ * Sync backend logbooks into the localStorage format used by the dashboards.
+ * Keeps existing manual records that do not match API-backed student/internship pairs.
+ */
+export const syncWeeklyLogbooksFromApi = (apiLogbooks, { merge = true } = {}) => {
+  const grouped = groupApiLogbooksByStudent(Array.isArray(apiLogbooks) ? apiLogbooks : []);
+  const existing = getWeeklyLogbooks();
+  const apiRecords = [];
+
+  for (const rec of grouped.values()) {
+    const studentId = String(rec.studentId || "").trim();
+    const internshipId = String(rec.internshipId || "").trim();
+    if (!studentId || !internshipId) continue;
+
+    const weeks = (rec.weeks || []).map((week) => ({
+      ...week,
+      companyStatus: week.companyStatus || "PENDING",
+      advisorStatus: week.advisorStatus || "PENDING",
+    }));
+
+    const record = {
+      recordId: `${studentId}::${internshipId}`,
+      studentId,
+      internshipId,
+      companyId: "",
+      advisorId: "",
+      meta: {
+        studentName: rec.studentName || "",
+        companyName: rec.companyName || "",
+        supervisorName: "",
+        safetyBrief: "",
+      },
+      weeks,
+    };
+
+    apiRecords.push(record);
+
+    for (const week of weeks) {
+      if (week.apiId) {
+        setLogbookApiId(studentId, internshipId, week.weekNumber, week.apiId);
+      }
+    }
+  }
+
+  const merged = merge
+    ? [
+        ...existing.filter((record) => !apiRecords.some((next) => next.recordId === record.recordId)),
+        ...apiRecords,
+      ]
+    : apiRecords;
+
+  saveWeeklyLogbooks(merged);
+  return merged;
 };

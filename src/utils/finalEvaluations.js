@@ -30,7 +30,7 @@ export const getAllFinalEvaluations = () => {
 
 const saveAll = (list) => {
   localStorage.setItem(KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new CustomEvent("final-evaluation-updated"));
 };
 
 /** Return the final evaluation record for a specific student, or null */

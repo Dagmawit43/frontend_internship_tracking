@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
@@ -7,6 +7,9 @@ import {
 import logoSrc from "../assets/aastu-logo.jpg";
 import ExaminerSidebar from "./ExaminerSidebar";
 import { useAuth } from "../contexts/AuthContext";
+import api from "../api";
+import internshipService from "../services/internshipService";
+import evaluationService from "../services/evaluationService";
 import {
   getExaminerEvaluation,
   submitExaminerEvaluation,
@@ -17,38 +20,70 @@ import {
   getOverallApprovals,
 } from "../utils/overallEvaluation";
 import {
-  getDocumentsForExaminerStudents,
+  getDocumentsByInternshipId,
   examinerDecideInternshipDocument,
-  examinerCanReviewDocument,
   ROLE_DOC_STATUS,
+  syncInternshipDocumentsFromApi,
 } from "../utils/internshipDocuments";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
+import LoadingState from "./LoadingState";
+import ButtonWithSpinner from "./ButtonWithSpinner";
 
-const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayName }) => {
+const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdentity, displayName }) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
+  const [processingByDoc, setProcessingByDoc] = useState({});
 
-  const reload = () => {
-    const list = getDocumentsForExaminerStudents(examinerIdentity, [studentId]).filter((d) =>
-      examinerCanReviewDocument(d, examinerIdentity)
-    );
+  const reload = useCallback(() => {
+    const list = getDocumentsByInternshipId(internshipId || studentId);
     setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
-  };
+  }, [internshipId, studentId]);
 
   useEffect(() => {
-    reload();
+    // Also fetch from API directly so we don't depend on sync having run first
+    const fetchFromApi = async () => {
+      try {
+        const res = await internshipService.getExaminerDocuments({ internship_id: internshipId });
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (items.length > 0) {
+            syncInternshipDocumentsFromApi(items, { merge: true });
+          }
+        }
+      } catch { /* ignore */ }
+      reload();
+    };
+    fetchFromApi();
     window.addEventListener("storage", reload);
     return () => window.removeEventListener("storage", reload);
-  }, [studentId, examinerIdentity]);
+  }, [reload, internshipId]);
 
-  const decide = (docId, action) => {
+  const decide = async (docId, action) => {
+    setProcessingByDoc((p) => ({ ...p, [docId]: true }));
+    const comment = commentByDoc[docId] || "";
+    const doc = docs.find((d) => d.id === docId);
+    if (doc && doc.apiId) {
+      try {
+        const res = await internshipService.examinerReviewDocument(doc.apiId, action, comment);
+        if (res.success && res.data) {
+          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          reload();
+          setProcessingByDoc((p) => ({ ...p, [docId]: false }));
+          return;
+        }
+      } catch {
+        // fallback to local update
+      }
+    }
+
     examinerDecideInternshipDocument(
       docId,
       action,
-      commentByDoc[docId] || "",
+      comment,
       displayName || examinerIdentity
     );
     reload();
+    setProcessingByDoc((p) => ({ ...p, [docId]: false }));
   };
 
   if (docs.length === 0) {
@@ -100,20 +135,20 @@ const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayNam
                   placeholder="Optional comment for the student"
                 />
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
+                  <ButtonWithSpinner
                     onClick={() => decide(doc.id, "approve")}
-                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+                    isLoading={Boolean(processingByDoc?.[doc.id])}
+                    className="flex-1"
                   >
                     <CheckCircle className="w-4 h-4" /> Approve
-                  </button>
-                  <button
-                    type="button"
+                  </ButtonWithSpinner>
+                  <ButtonWithSpinner
                     onClick={() => decide(doc.id, "reject")}
-                    className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                    isLoading={Boolean(processingByDoc?.[doc.id])}
+                    className="flex-1 bg-white border border-red-200 text-red-700 hover:bg-red-50"
                   >
                     Reject
-                  </button>
+                  </ButtonWithSpinner>
                 </div>
               </div>
             ) : (
@@ -135,10 +170,27 @@ const ExaminerStudentDocumentsPanel = ({ studentId, examinerIdentity, displayNam
 const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, onDecided }) => {
   const [comment, setComment] = useState("");
   const pending = doc.examinerStatus === ROLE_DOC_STATUS.PENDING;
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const decide = (action) => {
+  const decide = async (action) => {
+    setIsProcessing(true);
+    if (doc.apiId) {
+      try {
+        const res = await internshipService.examinerReviewDocument(doc.apiId, action, comment);
+        if (res.success && res.data) {
+          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          onDecided?.();
+          setIsProcessing(false);
+          return;
+        }
+      } catch {
+        // fallback
+      }
+    }
+
     examinerDecideInternshipDocument(doc.id, action, comment, displayName || examinerIdentity);
     onDecided?.();
+    setIsProcessing(false);
   };
 
   return (
@@ -172,20 +224,12 @@ const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, o
             placeholder="Optional comment for the student"
           />
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onClick={() => decide("approve")}
-              className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-bold hover:bg-green-700"
-            >
+            <ButtonWithSpinner onClick={() => decide("approve")} isLoading={isProcessing} className="flex-1">
               <CheckCircle className="w-4 h-4" /> Approve
-            </button>
-            <button
-              type="button"
-              onClick={() => decide("reject")}
-              className="flex-1 flex justify-center items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
-            >
+            </ButtonWithSpinner>
+            <ButtonWithSpinner onClick={() => decide("reject")} isLoading={isProcessing} className="flex-1 bg-white border border-red-200 text-red-700 hover:bg-red-50">
               Reject
-            </button>
+            </ButtonWithSpinner>
           </div>
         </div>
       ) : (
@@ -314,15 +358,19 @@ const ExaminerDashboard = () => {
   const [mainTab, setMainTab] = useState("students");
   const [studentModalTab, setStudentModalTab] = useState("eval");
   const [docQueueNonce, setDocQueueNonce] = useState(0);
+  // API-fetched evaluations keyed by internship id
+  const [apiEvals, setApiEvals] = useState({});
+  // API-fetched documents keyed by internship id
+  const [apiDocuments, setApiDocuments] = useState([]);
   const [overallNonce, setOverallNonce] = useState(0);
 
   useEffect(() => {
     const s = JSON.parse(localStorage.getItem("user"));
-    if (!s || s.role !== "Examiner") {
+    if (!s || !["examiner", "evaluator"].includes(String(s.role || "").toLowerCase())) {
       navigate("/login");
       return;
     }
-    setSession(s);
+    setSession({ ...s, role: "Examiner" });
   }, [navigate]);
 
   const examinerIdentity = session
@@ -330,21 +378,73 @@ const ExaminerDashboard = () => {
     : "";
 
   useEffect(() => {
-    if (!examinerIdentity) return;
-    const load = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const active = allApps.filter((app) => {
-        if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
-        const e1 = String(app.examinerName || "").trim().toLowerCase();
-        const e2 = String(app.examiner2Name || "").trim().toLowerCase();
-        return e1 === examinerIdentity || e2 === examinerIdentity;
-      });
-      setAssignedStudents(active);
+    if (!session) return;
+    const load = async () => {
+      try {
+        // Primary: fetch from API endpoint — auth token identifies the examiner
+        const res = await api.get("/examiner/my-students/");
+        const items = Array.isArray(res.data)
+          ? res.data
+          : res.data?.results || res.data || [];
+        const localApps = JSON.parse(localStorage.getItem("applications") || "[]");
+        const localMap = new Map(localApps.map((a) => [a.id, a]));
+        const mapped = items.map((app) => {
+          const local = localMap.get(app.id) || {};
+          return {
+            id: app.id,
+            studentName: app.student_name || app.form_snapshot?.student?.name || "",
+            studentId: app.form_snapshot?.student?.student_id || app.student_id || "",
+            studentUserPk: app.student_user_id || null,
+            companyName: app.company_name || app.form_snapshot?.company?.name || "",
+            positionTitle: app.position_title || "",
+            advisorName: app.advisor_name || "",
+            // Preserve slot names from localStorage so examiner slot detection works
+            examinerName: local.examinerName || app.examinerName || "",
+            examiner2Name: local.examiner2Name || app.examiner2Name || "",
+            department: app.form_snapshot?.student?.department_name || app.form_snapshot?.student?.department || "",
+            finalInternshipStatus: "ACTIVE_INTERN",
+            __raw: app,
+          };
+        });
+        setAssignedStudents(mapped);
+      } catch (apiErr) {
+        // Fallback: filter from localStorage by examiner name
+        console.warn("API /examiner/my-students/ failed, falling back to localStorage:", apiErr.message);
+        const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+        const active = allApps.filter((app) => {
+          if (app.finalInternshipStatus !== "ACTIVE_INTERN") return false;
+          const e1 = String(app.examinerName || "").trim().toLowerCase();
+          const e2 = String(app.examiner2Name || "").trim().toLowerCase();
+          return e1 === examinerIdentity || e2 === examinerIdentity;
+        });
+        setAssignedStudents(active);
+      }
     };
     load();
     window.addEventListener("storage", load);
     return () => window.removeEventListener("storage", load);
-  }, [examinerIdentity]);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    const syncExaminerDocuments = async () => {
+      const res = await internshipService.getExaminerDocuments();
+      if (!res.success || cancelled) return;
+      const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      syncInternshipDocumentsFromApi(items, { merge: true });
+      if (!cancelled) setApiDocuments(items);
+    };
+
+    syncExaminerDocuments();
+    const interval = setInterval(syncExaminerDocuments, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [session, assignedStudents.length]);
 
   useEffect(() => {
     const bump = () => {
@@ -362,14 +462,80 @@ const ExaminerDashboard = () => {
     };
   }, []);
 
-  const assignedStudentIds = useMemo(() => assignedStudents.map((a) => a.studentId), [assignedStudents]);
+  // Fetch examiner evaluations from API whenever session is ready or after a submit
+  useEffect(() => {
+    if (!session) return;
+    const fetchEvals = async () => {
+      try {
+        const res = await evaluationService.getExaminerEvaluations();
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          // Key by internship id for fast lookup
+          const map = {};
+          items.forEach((item) => {
+            map[item.internship] = {
+              id: item.id,
+              internshipId: item.internship,
+              studentId: item.student_id,
+              studentName: item.student_full_name,
+              examinerName: item.examiner_name,
+              formData: item.form_data || {},
+              status: "SUBMITTED",
+              submittedAt: item.submitted_at,
+              updatedAt: item.submitted_at,
+              totalScore: item.total_score,
+              weightedScore: item.weighted_score,
+            };
+          });
+          setApiEvals(map);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch examiner evals from API:", err.message);
+      }
+    };
+    fetchEvals();
+  }, [session, examinerEvalNonce]);
 
   const pendingExaminerDocuments = useMemo(() => {
-    if (!examinerIdentity) return [];
-    return getDocumentsForExaminerStudents(examinerIdentity, assignedStudentIds).filter(
-      (d) => d.examinerStatus === ROLE_DOC_STATUS.PENDING
-    );
-  }, [examinerIdentity, assignedStudentIds, docQueueNonce]);
+    // Prefer API data — filter to docs where examiner hasn't approved/rejected yet
+    if (apiDocuments.length > 0) {
+      const appIds = new Set(assignedStudents.map(a => String(a.id)));
+      return apiDocuments
+        .filter((doc) => {
+          const iid = String(doc.internship_id ?? "");
+          if (!appIds.has(iid)) return false;
+          // examiner_status from API: "PENDING", "APPROVED", "REJECTED"
+          const es = String(doc.examiner_status || "PENDING").toUpperCase();
+          return es === "PENDING";
+        })
+        .map((doc) => ({
+          id: `api-doc-${doc.id}`,
+          apiId: doc.id,
+          internshipId: doc.internship_id,
+          studentId: String(doc.student_id ?? ""),
+          studentName: doc.student_full_name || "",
+          title: (doc.title || doc.file_name || "Internship document").trim(),
+          description: (doc.description || "").trim(),
+          fileName: doc.file_name || "file",
+          fileData: doc.file_url || "",
+          advisorName: (doc.advisor_name || "").trim(),
+          examinerName: (doc.examiner_name || "").trim(),
+          examiner2Name: (doc.examiner2_name || "").trim(),
+          advisorStatus: doc.advisor_status || ROLE_DOC_STATUS.PENDING,
+          examinerStatus: ROLE_DOC_STATUS.PENDING,
+          advisorComment: doc.advisor_comment || "",
+          examinerComment: "",
+          submittedAt: doc.submitted_at || new Date().toISOString(),
+        }))
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    }
+
+    // Fall back to localStorage
+    return assignedStudents
+      .flatMap((app) => getDocumentsByInternshipId(app.id))
+      .filter((d) => d.examinerStatus === ROLE_DOC_STATUS.PENDING)
+      .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  }, [assignedStudents, docQueueNonce, apiDocuments]);
 
   const getExaminerSlotForApp = (app) => {
     if (!examinerIdentity || !app) return null;
@@ -400,9 +566,12 @@ const ExaminerDashboard = () => {
   }, [assignedStudents, examinerIdentity, examinerEvalNonce, overallNonce, docQueueNonce]);
 
   const examinerOwnEval = useMemo(() => {
-    if (!selectedStudent || !examinerIdentity) return null;
+    if (!selectedStudent) return null;
+    const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
+    // Prefer API data; fall back to localStorage
+    if (internshipId && apiEvals[internshipId]) return apiEvals[internshipId];
     return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity);
-  }, [selectedStudent, examinerIdentity, examinerEvalNonce]);
+  }, [selectedStudent, examinerIdentity, examinerEvalNonce, apiEvals]);
 
   const overall = useMemo(() => {
     if (!selectedStudent) return null;
@@ -434,14 +603,7 @@ const ExaminerDashboard = () => {
   }, [selectedStudent, examinerOwnEval, session]);
 
   if (!session) {
-    return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
-          <p className="text-slate-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState title="Loading examiner dashboard" subtitle="Fetching your assigned students and approval queues." />;
   }
 
   const displayName = session.fullName || session.name || session.username || "Examiner";
@@ -572,7 +734,11 @@ const ExaminerDashboard = () => {
             ) : (
               <div className="space-y-8" key={examinerEvalNonce}>
                 {assignedStudents.map((app) => {
-                  const ev = getExaminerEvaluation(app.studentId, examinerIdentity);
+                  const internshipId = app?.id || app?.__raw?.id;
+                  // Prefer API data; fall back to localStorage
+                  const ev = (internshipId && apiEvals[internshipId])
+                    ? apiEvals[internshipId]
+                    : getExaminerEvaluation(app.studentId, examinerIdentity);
                   const submitted = Boolean(ev?.submittedAt);
                   const slot = getExaminerSlotForApp(app);
                   return (
@@ -758,7 +924,18 @@ const ExaminerDashboard = () => {
                       studentApp={studentApp}
                       examinerIdentity={examinerIdentity}
                       displayName={displayName}
-                      onDecided={() => setDocQueueNonce((n) => n + 1)}
+                      onDecided={async () => {
+                        setDocQueueNonce((n) => n + 1);
+                        // Refresh API documents so queue updates immediately
+                        try {
+                          const res = await internshipService.getExaminerDocuments();
+                          if (res.success) {
+                            const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+                            syncInternshipDocumentsFromApi(items, { merge: true });
+                            setApiDocuments(items);
+                          }
+                        } catch { /* ignore */ }
+                      }}
                     />
                   );
                 })}
@@ -835,7 +1012,8 @@ const ExaminerDashboard = () => {
                 <ExaminerUniversityEvaluationForm
                   key={`${selectedStudent.studentId}-${examinerOwnEval?.updatedAt || "new"}`}
                   initialData={examinerEvalFormInitial}
-                  onSubmit={(formPayload) => {
+                  onSubmit={async (formPayload) => {
+                    // 1. Save to localStorage immediately for instant UI feedback
                     submitExaminerEvaluation({
                       studentId: selectedStudent.studentId,
                       studentName: selectedStudent.studentName,
@@ -845,6 +1023,22 @@ const ExaminerDashboard = () => {
                       formData: formPayload,
                     });
                     setExaminerEvalNonce((n) => n + 1);
+
+                    // 2. Persist to backend API
+                    const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
+                    if (internshipId) {
+                      try {
+                        const res = await evaluationService.submitExaminerEvaluation(
+                          internshipId,
+                          formPayload
+                        );
+                        if (!res.success) {
+                          console.warn("Examiner eval API failed:", res.error);
+                        }
+                      } catch (err) {
+                        console.warn("Examiner eval API error:", err.message);
+                      }
+                    }
                   }}
                 />
               </div>
@@ -853,6 +1047,7 @@ const ExaminerDashboard = () => {
             {studentModalTab === "documents" && examinerIdentity && (
               <ExaminerStudentDocumentsPanel
                 studentId={selectedStudent.studentId}
+                internshipId={selectedStudent.id}
                 examinerIdentity={examinerIdentity}
                 displayName={displayName}
               />

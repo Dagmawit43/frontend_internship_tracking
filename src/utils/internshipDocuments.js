@@ -81,10 +81,65 @@ export const getAllInternshipDocuments = () => {
 
 const saveAll = (list) => localStorage.setItem(KEY, JSON.stringify(list));
 
+const normalizeRoleStatus = (value) => {
+  const v = String(value || "").toUpperCase();
+  if (v === ROLE_DOC_STATUS.APPROVED || v === "ADVISOR_APPROVED" || v === "EXAMINER_APPROVED") {
+    return ROLE_DOC_STATUS.APPROVED;
+  }
+  if (v === ROLE_DOC_STATUS.REJECTED || v === "EXAMINER_REJECTED") {
+    return ROLE_DOC_STATUS.REJECTED;
+  }
+  return ROLE_DOC_STATUS.PENDING;
+};
+
+const mapApiDocumentToLocal = (doc) => ({
+  id: `api-doc-${doc.id}`,
+  apiId: doc.id,
+  internshipId: doc.internship_id,
+  studentId: String(doc.student_id ?? ""),
+  studentName: doc.student_full_name || "",
+  title: (doc.title || doc.file_name || "Internship document").trim(),
+  description: (doc.description || "").trim(),
+  fileName: doc.file_name || "file",
+  fileData: doc.file_url || "",
+  advisorName: (doc.advisor_name || "").trim(),
+  examinerName: (doc.examiner_name || "").trim(),
+  examiner2Name: (doc.examiner2_name || "").trim(),
+  advisorStatus: normalizeRoleStatus(doc.advisor_status),
+  examinerStatus: normalizeRoleStatus(doc.examiner_status),
+  advisorComment: doc.advisor_comment || "",
+  examinerComment: doc.examiner_comment || "",
+  examinerDecidedBy: "",
+  submittedAt: doc.submitted_at || new Date().toISOString(),
+});
+
+export const syncInternshipDocumentsFromApi = (apiDocs, { merge = true } = {}) => {
+  const mapped = Array.isArray(apiDocs) ? apiDocs.map(mapApiDocumentToLocal) : [];
+  if (!merge) {
+    saveAll(mapped);
+    window.dispatchEvent(new Event("storage"));
+    return mapped;
+  }
+
+  const existing = getAllInternshipDocuments();
+  const nonApi = existing.filter((d) => !String(d.id || "").startsWith("api-doc-"));
+  const merged = [...nonApi, ...mapped];
+  saveAll(merged);
+  window.dispatchEvent(new Event("storage"));
+  return merged;
+};
+
 export const getDocumentsByStudentId = (studentId) => {
   const sid = String(studentId ?? "");
   return getAllInternshipDocuments()
     .filter((d) => String(d.studentId ?? "") === sid)
+    .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+};
+
+export const getDocumentsByInternshipId = (internshipId) => {
+  const iid = String(internshipId ?? "");
+  return getAllInternshipDocuments()
+    .filter((d) => String(d.internshipId ?? "") === iid)
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
 };
 

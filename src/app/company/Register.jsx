@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "../../components/ui/Button";
+import ButtonWithSpinner from "../../components/ButtonWithSpinner";
 
 const Register = () => {
   const [form, setForm] = useState({
@@ -11,6 +12,7 @@ const Register = () => {
     location: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,8 +21,12 @@ const Register = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    localStorage.setItem("companyRegistration", JSON.stringify(form));
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setSubmitted(true);
+      localStorage.setItem("companyRegistration", JSON.stringify(form));
+      setIsSubmitting(false);
+    }, 600);
   };
 
   if (submitted) {
@@ -131,7 +137,9 @@ const Register = () => {
         </div>
 
         <div className="flex justify-end">
-          <Button type="submit">Submit Registration</Button>
+          <ButtonWithSpinner type="submit" isLoading={isSubmitting} className="px-4 py-2">
+            Submit Registration
+          </ButtonWithSpinner>
         </div>
       </form>
     </div>

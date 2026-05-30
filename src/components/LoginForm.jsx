@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
+import { normalizeRole } from "../utils/roleUtils";
 
 const roleRoutes = {
   Student: "/student-dashboard",
@@ -31,12 +32,11 @@ const toCanonicalRole = (value) => {
 
 const inferRoleFromUser = (user) => {
   if (!user || typeof user !== "object") return null;
-
   return (
-    toCanonicalRole(user?.role) ||
-    toCanonicalRole(user?.role_name) ||
-    toCanonicalRole(user?.user_type) ||
-    toCanonicalRole(user?.accountType) ||
+    normalizeRole(user?.role) ||
+    normalizeRole(user?.role_name) ||
+    normalizeRole(user?.user_type) ||
+    normalizeRole(user?.accountType) ||
     null
   );
 };
@@ -45,6 +45,23 @@ const LoginForm = () => {
   const navigate = useNavigate();
   const auth = useAuth();
   const login = auth?.login;
+  const isAuthenticated = auth?.isAuthenticated;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const storedUser = auth?.user || (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user")) || null;
+      } catch {
+        return null;
+      }
+    })();
+    const detectedRole = inferRoleFromUser(storedUser) || toCanonicalRole(storedUser?.role) || "Student";
+    const dashboardPath = roleRoutes[detectedRole] || "/student-dashboard";
+
+    navigate(dashboardPath, { replace: true });
+  }, [auth?.user, isAuthenticated, navigate]);
 
   const [accountType, setAccountType] = useState("Student");
   const [identifier, setIdentifier] = useState("");
@@ -72,41 +89,50 @@ const LoginForm = () => {
 
     setIsSubmitting(true);
     try {
-      const payload = {
-        identifier: credential,
+      // For API login, we use email as the primary credential and include selected role
+      const result = await login({
+        email: credential,
         password,
         role: accountType,
-      };
-
-      console.log("Selected role:", accountType);
-      console.log("Login payload:", payload);
-
-      const result = await login(payload);
+      });
 
       if (result.ok) {
         const user = result.user;
         const detectedRole = inferRoleFromUser(user);
+        const roleToUse = detectedRole || accountType;
+        const normalizedUser = { ...user, role: roleToUse };
 
-        if (detectedRole && detectedRole !== accountType) {
-          auth?.logout?.();
-          localStorage.removeItem(accountType.toLowerCase());
-          setError(
-            `These credentials belong to a ${detectedRole} account. Please select ${detectedRole} as account type.`,
-          );
-          return;
+        localStorage.setItem("user", JSON.stringify(normalizedUser));
+
+        // Also store role-specific key for easier access
+        if (roleToUse === "Advisor") {
+          localStorage.setItem("advisor", JSON.stringify(normalizedUser));
+        } else if (roleToUse === "Coordinator") {
+          localStorage.setItem("coordinator", JSON.stringify(normalizedUser));
+        } else if (roleToUse === "Examiner") {
+          localStorage.setItem("examiner", JSON.stringify(normalizedUser));
+        } else if (roleToUse === "Company") {
+          localStorage.setItem("company", JSON.stringify(normalizedUser));
+        } else if (roleToUse === "Student") {
+          localStorage.setItem("student", JSON.stringify(normalizedUser));
         }
 
-        localStorage.setItem(accountType.toLowerCase(), JSON.stringify(user));
-        navigate(roleRoutes[accountType], {
+        // Redirect based on role
+        const dashboardPath = roleRoutes[roleToUse] || "/student-dashboard";
+        console.log(`Login successful for role: ${roleToUse}. Redirecting to ${dashboardPath}`);
+
+        navigate(dashboardPath, {
+          replace: true,
           state: {
+            user: normalizedUser,
             userName:
-              user?.name ||
-              user?.fullName ||
-              [user?.first_name, user?.last_name]
+              normalizedUser?.name ||
+              normalizedUser?.fullName ||
+              [normalizedUser?.first_name, normalizedUser?.last_name]
                 .filter(Boolean)
                 .join(" ")
                 .trim() ||
-              user?.username ||
+              normalizedUser?.username ||
               credential,
           },
         });
@@ -116,15 +142,15 @@ const LoginForm = () => {
           result.error?.message ||
           (typeof result.error === "string"
             ? result.error
-            : "Unable to login. Check your credentials.");
+            : "Invalid email or password");
 
         setError(errMsg);
       }
     } catch (err) {
       setError(
-        "Unable to login right now. Please check your credentials and internet connection.",
+        "Unable to login. Please check your credentials and internet connection.",
       );
-      console.error(err);
+      console.error("Login error:", err);
     } finally {
       setIsSubmitting(false);
     }

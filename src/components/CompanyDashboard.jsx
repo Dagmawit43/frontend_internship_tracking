@@ -8,20 +8,24 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import CompanySidebar from "./CompanySidebar";
+import internshipService from "../services/internshipService";
+import evaluationService from "../services/evaluationService";
 import { DEPARTMENTS } from "../constants/departments";
 import InternshipAcceptanceForm from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
 import InternshipEvaluationForm from "./InternshipEvaluationForm";
+import LoadingState from "./LoadingState";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
-  ensureWeeklyLogbookForInternship,
   companyReviewWeek,
   getLogbookForApplication,
   getLogbookScope,
   updateWeekForInternship,
   updateWeeklyLogbookMeta,
+  getLogbookApiId,
+  groupApiLogbooksByStudent,
 } from "../utils/weeklyLogbook";
 import {
   EVAL_STATUS,
@@ -47,7 +51,8 @@ const getValidCompanySession = () => {
         if (
           parsed.companyName || parsed.company_name ||
           parsed.contactEmail || parsed.representative_email ||
-          parsed.role === "Company"
+          parsed.company_id || parsed.companyId ||
+          String(parsed.role || "").trim().toLowerCase() === "company"
         ) return parsed;
       } catch { continue; }
     }
@@ -88,7 +93,7 @@ const InternshipModal = ({ isOpen, onClose, onSubmit, initialData, companySessio
       ...formData,
       required_skills: skillsArray,
       id: initialData ? initialData.id : Date.now().toString(),
-      company_id: companySession?.id || companySession?.company_id || "mock-company-id",
+      company_id: companySession?.company_id || companySession?.companyId || companySession?.id || "mock-company-id",
     });
   };
 
@@ -262,40 +267,119 @@ const InternshipCard = ({ data, onEdit, onDelete }) => {
 // ─── AppliedStudentsPage ──────────────────────────────────────────────────────
 const AppliedStudentsPage = ({ companySession }) => {
   const [applications, setApplications] = useState([]);
+  const [internships, setInternships] = useState([]);
+  const [selectedInternshipId, setSelectedInternshipId] = useState("");
   const [selectedApplication, setSelectedApplication] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const cName = companySession?.companyName || companySession?.company_name || "";
+  const companyId = companySession?.company_id || companySession?.companyId || companySession?.id;
+
+  const loadInternships = useCallback(async () => {
+    try {
+      const result = await internshipService.getPositions(companyId);
+      const payload = result.success ? result.data : [];
+      const items = Array.isArray(payload) ? payload : payload?.results || [];
+      setInternships(items);
+      if (!selectedInternshipId && items.length > 0) {
+        setSelectedInternshipId(String(items[0].id));
+      }
+    } catch (err) {
+      console.error("Failed to load company internships:", err);
+      setInternships([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId, selectedInternshipId]);
+
+  const mapApplication = useCallback((app) => {
+    const snapshot = app.form_snapshot || {};
+    const student = snapshot.student || {};
+    const company = snapshot.company || {};
+    const internship = snapshot.internship || {};
+    const mentorStatus = String(app.mentor_status || "PENDING").toUpperCase();
+
+    return {
+      ...app,
+      studentName: app.student_name || student.name || "Unknown student",
+      studentId: app.student_id || student.student_id || `#${app.id}`,
+      companyName: app.company_name || company.name || cName,
+      companyId: app.company_id || companyId,
+      internshipTitle: app.position_title || internship.position_title || "General Internship",
+      appliedAt: app.created_at,
+      reason: app.reason_for_joining || "",
+      additionalDocument: app.resume_url || student.resume_url || "",
+      documentName: student.resume_url ? "CV / Resume" : "CV / Resume",
+      acceptanceForm: {
+        internName: student.name || app.student_name || "",
+        idNo: student.student_id || app.student_id || "",
+        college: student.college || "",
+        department: student.department || "",
+        mobile: student.mobile || "",
+        startDate: internship.requested_start_date || app.requested_start_date || "",
+        endDate: internship.requested_end_date || app.requested_end_date || "",
+        workingDays: internship.working_days_per_week || app.working_days_per_week || "",
+        workingHours: internship.working_hours_per_day || app.working_hours_per_day || "",
+        orgName: company.name || app.company_name || cName,
+        mailingAddress: company.mailing_address || "",
+        physicalAddress: company.physical_address || company.address || "",
+        phone: company.phone || "",
+        supervisorName: snapshot.mentor?.name || "",
+        supervisorPhone: snapshot.mentor?.phone || "",
+        supervisorEmail: snapshot.mentor?.email || "",
+        accepted: mentorStatus === "ACCEPTED",
+        rejected: mentorStatus === "REJECTED",
+        reason: app.rejection_reason || "",
+      },
+      status: mentorStatus === "ACCEPTED" ? "accepted" : mentorStatus === "REJECTED" ? "rejected" : "Pending",
+    };
+  }, [cName, companyId]);
+
+  const loadApplications = useCallback(async () => {
+      try {
+        if (!selectedInternshipId) {
+          setApplications([]);
+          return;
+        }
+        const result = await internshipService.getCompanyApplicants(companyId, {
+          position_id: selectedInternshipId,
+        });
+        const payload = result.success ? result.data : [];
+        const items = Array.isArray(payload) ? payload : payload?.results || [];
+        setApplications(items.map(mapApplication).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+      } catch (err) {
+        console.error("Failed to load applications:", err);
+        setApplications([]);
+      }
+  }, [companyId, mapApplication, selectedInternshipId]);
 
   useEffect(() => {
-    const load = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const filtered = allApps.filter(app =>
-        app.companyName === cName ||
-        app.companyId === companySession?.id ||
-        app.companyId === companySession?.company_id
-      );
-      setApplications(filtered.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
-    };
-    load();
-    window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
-  }, [cName, companySession]);
+    loadInternships();
+  }, [loadInternships]);
 
-  const handleUpdateStatus = (appId, acceptanceFormData) => {
-    const newStatus = acceptanceFormData.accepted ? "accepted" : acceptanceFormData.rejected ? "rejected" : "Pending";
-    const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-    const updated = allApps.map(app =>
-      app.id === appId
-        ? { ...app, acceptanceForm: acceptanceFormData, status: newStatus, applicationStatus: acceptanceFormData.accepted ? "COMPANY_ACCEPTED" : "COMPANY_REJECTED", updatedAt: new Date().toISOString() }
-        : app
+  useEffect(() => {
+    loadApplications();
+    const interval = setInterval(() => loadApplications(), 5000); // Refresh every 5 seconds
+    return () => clearInterval(interval);
+  }, [loadApplications]);
+
+  const handleUpdateStatus = async (appId, acceptanceFormData) => {
+    const action = acceptanceFormData.accepted ? "accept" : "reject";
+    const result = await internshipService.mentorReviewApplication(
+      appId,
+      action,
+      cName,
+      acceptanceFormData.rejected ? acceptanceFormData.reason || "" : ""
     );
-    localStorage.setItem("applications", JSON.stringify(updated));
-    setApplications(updated.filter(app => app.companyName === cName || app.companyId === companySession?.id || app.companyId === companySession?.company_id));
-    const targetApp = updated.find(a => a.id === appId);
-    if (targetApp) {
-      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      notifications.push({ id: Date.now(), type: newStatus === "accepted" ? "success" : "error", title: "Application Status Updated", message: `${cName} has marked your application for ${targetApp.internshipTitle || "the internship"} as ${newStatus}.`, date: new Date().toISOString(), studentId: targetApp.studentId, studentName: targetApp.studentName, read: false });
-      localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    if (!result.success) {
+      const errorMessage = typeof result.error === "string"
+        ? result.error
+        : result.error?.detail || result.error?.error || "Unable to update application.";
+      window.alert(errorMessage);
+      return;
     }
+
+    await loadApplications();
   };
 
   return (
@@ -303,14 +387,32 @@ const AppliedStudentsPage = ({ companySession }) => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Applied Students</h2>
-          <p className="text-sm text-gray-500">Review and manage student application requests</p>
+          <p className="text-sm text-gray-500">Review and manage student application requests for one internship posting</p>
         </div>
+      </div>
+      {isLoading ? (
+        <LoadingState title="Loading applied students" subtitle="Fetching your internships and application requests." />
+      ) : null}
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+        <label className="mb-2 block text-sm font-semibold text-gray-700">Select internship posting</label>
+        <select
+          value={selectedInternshipId}
+          onChange={(event) => setSelectedInternshipId(event.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+        >
+          <option value="">Choose one of your internships</option>
+          {internships.map((internship) => (
+            <option key={internship.id} value={String(internship.id)}>
+              {internship.title || internship.position_title || `Internship #${internship.id}`}
+            </option>
+          ))}
+        </select>
       </div>
       {applications.length === 0 ? (
         <div className="app-card p-12 text-center">
           <User className="w-12 h-12 text-gray-200 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-1">No applications yet</h3>
-          <p className="text-gray-500">Student applications for your posted jobs will appear here.</p>
+          <p className="text-gray-500">Student applications for the selected internship will appear here.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -388,21 +490,65 @@ const AppliedStudentsPage = ({ companySession }) => {
 
 // ─── InternshipPage ───────────────────────────────────────────────────────────
 const InternshipPage = ({ companySession }) => {
-  const [internships, setInternships] = useState(() => {
-    const saved = localStorage.getItem("allInternships");
-    return saved ? JSON.parse(saved) : [
-      { id: "1", title: "Software Engineer Intern", department: "Software Engineering", description: "Join our team to work on real-world projects.", required_skills: ["React", "JavaScript", "CSS"], company_name: companySession?.companyName || "AASTU Labs", location: "Addis Ababa", internship_type: "Onsite", start_date: "2026-06-01", end_date: "2026-09-01", total_hours: "160", days_in_week: "5", number_interns: "3", status: "ACTIVE" },
-    ];
-  });
+  const [internships, setInternships] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInternship, setEditingInternship] = useState(null);
+  const companyId = companySession?.company_id || companySession?.companyId || companySession?.id;
 
-  useEffect(() => { localStorage.setItem("allInternships", JSON.stringify(internships)); }, [internships]);
+  const loadInternships = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const result = await internshipService.getPositions(companyId);
+      const payload = result.success ? result.data : [];
+      const items = Array.isArray(payload) ? payload : payload?.results || [];
+      setInternships(items);
+    } catch (err) {
+      console.error("Failed to load internships:", err);
+      setInternships([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId]);
 
-  const handleSubmit = (data) => {
-    if (editingInternship) setInternships(internships.map(i => i.id === data.id ? data : i));
-    else setInternships([data, ...internships]);
+  useEffect(() => {
+    loadInternships();
+  }, [loadInternships]);
+
+  const handleSubmit = async (data) => {
+    const payload = {
+      ...data,
+      required_skills: Array.isArray(data.required_skills) ? data.required_skills : String(data.required_skills || "").split(",").map((skill) => skill.trim()).filter(Boolean),
+    };
+
+    const result = editingInternship
+      ? await internshipService.updatePosition(companyId, editingInternship.id, payload)
+      : await internshipService.createPosition(companyId, payload);
+
+    if (!result.success) {
+      const errorMessage = typeof result.error === "string"
+        ? result.error
+        : result.error?.detail || result.error?.error || "Unable to save internship.";
+      window.alert(errorMessage);
+      return;
+    }
+
+    setEditingInternship(null);
     setIsModalOpen(false);
+    await loadInternships();
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this internship?")) return;
+    const result = await internshipService.deletePosition(companyId, id);
+    if (!result.success) {
+      const errorMessage = typeof result.error === "string"
+        ? result.error
+        : result.error?.detail || result.error?.error || "Unable to delete internship.";
+      window.alert(errorMessage);
+      return;
+    }
+    await loadInternships();
   };
 
   return (
@@ -416,12 +562,15 @@ const InternshipPage = ({ companySession }) => {
           <Plus className="w-5 h-5" /> Create Internship
         </button>
       </div>
+      {isLoading ? (
+        <LoadingState title="Loading internships" subtitle="Fetching your posted internship opportunities." />
+      ) : null}
       {internships.length === 0 ? (
         <div className="app-card p-12 text-center"><p className="text-gray-500">No internships posted yet.</p></div>
       ) : (
         <div className="space-y-4">
           {internships.map(internship => (
-            <InternshipCard key={internship.id} data={internship} onEdit={(d) => { setEditingInternship(d); setIsModalOpen(true); }} onDelete={(id) => { if (window.confirm("Delete this internship?")) setInternships(internships.filter(i => i.id !== id)); }} />
+            <InternshipCard key={internship.id} data={internship} onEdit={(d) => { setEditingInternship(d); setIsModalOpen(true); }} onDelete={handleDelete} />
           ))}
         </div>
       )}
@@ -435,13 +584,15 @@ const InternsPage = ({ companySession }) => {
   const [interns, setInterns] = useState([]);
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [logbookLoading, setLogbookLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [openEvalMonth, setOpenEvalMonth] = useState(null);
   const [evalRecords, setEvalRecords] = useState({ 1: null, 2: null });
   const [finalEvalRecord, setFinalEvalRecord] = useState(null);
   /** True after "Start Final Evaluation" so the form shows while status is still NOT_STARTED */
   const [finalEvalDraftOpen, setFinalEvalDraftOpen] = useState(false);
-  const companyId = companySession?.id || companySession?.company_id;
+  const companyId = companySession?.company_id || companySession?.companyId || companySession?.id;
 
   const emptyFinalFormData = () => ({
     studentName: "",
@@ -458,74 +609,185 @@ const InternsPage = ({ companySession }) => {
   });
 
   useEffect(() => {
-    const load = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const students = JSON.parse(localStorage.getItem("students")) || [];
-      const cName = companySession?.companyName || companySession?.company_name;
-      const activeInterns = allApps
-        .filter(app => (String(app.companyId ?? "") === String(companyId ?? "") || app.companyName === cName) && app.finalInternshipStatus === "ACTIVE_INTERN")
-        .map(app => ({ ...app, studentFull: students.find(s => s.studentId === app.studentId || s.name === app.studentName) }));
-      setInterns(activeInterns);
+    if (!companyId) return;
+    const load = async () => {
+      try {
+        // Fetch coordinator-approved applications for this company — these are the active interns
+        const result = await internshipService.getCompanyApplicants(companyId);
+        const payload = result.success ? result.data : [];
+        const items = Array.isArray(payload) ? payload : payload?.results || [];
+        // Filter to only dept_status=APPROVED (coordinator approved = active intern)
+        const active = items.filter((record) => {
+          const dept = String(record.dept_status || "").toUpperCase();
+          const decision = String(record.student_decision || "").toUpperCase();
+          return dept === "APPROVED" || decision === "ACCEPTED";
+        });
+        setInterns(active.map((record) => ({
+          ...record,
+          studentName: record.student_name || record.studentName || "Unknown student",
+          studentId: record.student_id || record.studentId || `#${record.id}`,
+          companyName: record.company_name || companySession?.companyName || companySession?.company_name || "",
+          companyId: record.company_id || companyId,
+          internshipTitle: record.position_title || record.internshipTitle || "General Internship",
+          department: record.form_snapshot?.student?.department_name || record.form_snapshot?.student?.department || record.department || "",
+          advisorName: record.advisor_name || record.advisorName || "",
+          finalInternshipStatus: "ACTIVE_INTERN",
+          studentFull: record.student || null,
+        })));
+      } catch (err) {
+        console.error("Failed to load interns:", err);
+        setInterns([]);
+      }
     };
     load();
-    window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, [companyId, companySession]);
 
   useEffect(() => {
-    if (!selectedIntern) return;
-    const refreshRecord = () => {
+    if (!selectedIntern?.id) return;
+
+    const fetchLogbook = async () => {
+      setLogbookLoading(true);
+      setSelectedRecord(null);
+      try {
+        const internshipId = selectedIntern.id || selectedIntern?.__raw?.id;
+        const params = internshipId ? { internship_id: internshipId } : {};
+        const res = await internshipService.getCompanyLogbooks(params);
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (items.length > 0) {
+            const grouped = groupApiLogbooksByStudent(items);
+            const sid = String(selectedIntern.studentId || "").trim();
+            const rec = grouped.get(sid) || grouped.values().next().value;
+            if (rec) {
+              setSelectedRecord(rec);
+              setLogbookLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch logbook from API, falling back to localStorage:", err.message);
+      }
+      // Fallback to localStorage
       setSelectedRecord(getLogbookForApplication(selectedIntern));
+      setLogbookLoading(false);
     };
-    refreshRecord();
-    window.addEventListener("storage", refreshRecord);
-    window.addEventListener("weekly-logbook-updated", refreshRecord);
-    return () => {
-      window.removeEventListener("storage", refreshRecord);
-      window.removeEventListener("weekly-logbook-updated", refreshRecord);
-    };
-  }, [selectedIntern]);
 
-  // Auto-reminders: which interns have evaluations not yet submitted
-  const reminders = useMemo(() => {
-    const msgs = [];
-    interns.forEach(intern => {
-      [1, 2].forEach(m => {
-        const rec = getEvaluation(intern.studentId, m);
-        if (!rec || rec.status === EVAL_STATUS.NOT_STARTED) msgs.push({ intern, month: m });
-      });
+    fetchLogbook();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIntern?.id]);
+
+  const loadEvalRecords = useCallback(async (intern) => {
+    // Reset to empty first — don't show stale localStorage data
+    setEvalRecords({ 1: null, 2: null });
+
+    const internshipId = intern?.id || intern?.__raw?.id;
+    if (!internshipId) return;
+
+    try {
+      const res = await evaluationService.getCompanyMonthlyEvaluations({ internship_id: internshipId });
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        // Build records keyed by month_number — API is the only source of truth
+        const byMonth = { 1: null, 2: null };
+        items.forEach((item) => {
+          const m = item.month_number;
+          byMonth[m] = {
+            studentId: intern.studentId,
+            month: m,
+            status: item.status === "ADVISOR_APPROVED" ? "APPROVED" :
+                    item.status === "REJECTED" ? "REJECTED" : "SUBMITTED",
+            evaluationData: item.form_data || {},
+            apiId: item.id,
+            total: item.total_score,
+            advisorComment: item.advisor_comment || "",
+            submittedAt: item.submitted_at,
+          };
+        });
+        setEvalRecords(byMonth);
+        return;
+      }
+    } catch (err) {
+      console.warn("Failed to load monthly evals from API, falling back to localStorage:", err.message);
+    }
+
+    // Fallback to localStorage only if API completely fails
+    setEvalRecords({
+      1: getEvaluation(intern.studentId, 1),
+      2: getEvaluation(intern.studentId, 2),
     });
-    return msgs;
-  }, [interns]);
+  }, []);
 
-  const loadEvalRecords = (intern) => setEvalRecords({ 1: getEvaluation(intern.studentId, 1), 2: getEvaluation(intern.studentId, 2) });
+  const loadFinalEvalRecord = useCallback(async (intern) => {
+    // Reset to empty/null first to avoid showing stale data from previously selected students
+    setFinalEvalRecord(null);
+    setFinalEvalDraftOpen(false);
 
-  const openInternDetail = (intern) => {
+    const internshipId = intern?.id || intern?.__raw?.id;
+    if (!internshipId) return;
+
+    try {
+      const res = await evaluationService.getCompanyFinalEvaluations({ internship_id: internshipId });
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        if (items.length > 0) {
+          const item = items[0];
+          setFinalEvalRecord({
+            studentId: intern.studentId,
+            studentName: intern.studentName,
+            companyName: intern.companyName,
+            status: item.status === "ADVISOR_APPROVED" ? "APPROVED_BY_ADVISOR" :
+                    item.status === "REJECTED" ? "REJECTED" : "PENDING_ADVISOR_APPROVAL",
+            formData: item.form_data || {},
+            apiId: item.id,
+            total: item.total_mark,
+            finalMark: Number(item.overall_student_performance || 0),
+            advisorComment: item.advisor_comment || "",
+            examinerComment: item.examiner_comment || "",
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load final eval from API:", err.message);
+    }
+
+    // Do NOT fall back to localStorage — if the API has no record, there is no record.
+    // setFinalEvalRecord remains null (already set above).
+  }, []);
+
+  const openInternDetail = async (intern) => {
     setSelectedIntern(intern);
     setInternDetailTab("logbook");
     setOpenEvalMonth(null);
     setFinalEvalDraftOpen(false);
-    setSelectedRecord(getLogbookForApplication(intern));
+    // selectedRecord will be fetched by the useEffect above when selectedIntern changes
     loadEvalRecords(intern);
-    // Load final evaluation
-    const finalEval = getFinalEvaluation(intern.studentId);
-    setFinalEvalRecord(finalEval);
+    loadFinalEvalRecord(intern);
   };
 
   const persistCompanySupervisorFields = useCallback((formPayload) => {
-    if (!selectedIntern || !selectedRecord) return;
+    if (!selectedIntern) return;
     const weekSlice = formPayload.weeks?.[0];
     if (!weekSlice) return;
+    // Only persist to localStorage — don't call setSelectedRecord to avoid re-render loops
     const scope = getLogbookScope(selectedIntern);
     updateWeeklyLogbookMeta(scope, { supervisorName: formPayload.supervisorName || "" });
-    const updated = updateWeekForInternship(scope, weekSlice.weekNumber, (week) => ({ ...week, days: week.days.map((day, i) => ({ ...day, supervisorComment: weekSlice.days[i]?.supervisorComment ?? day.supervisorComment })) }));
-    setSelectedRecord(updated);
-  }, [selectedIntern, selectedRecord]);
+    updateWeekForInternship(scope, weekSlice.weekNumber, (week) => ({
+      ...week,
+      days: week.days.map((day, i) => ({
+        ...day,
+        supervisorComment: weekSlice.days[i]?.supervisorComment ?? day.supervisorComment,
+      })),
+    }));
+  }, [selectedIntern]);
 
   const updateCompanyDecision = (weekNumber, action) => {
     if (!selectedIntern) return;
-    const updated = companyReviewWeek(selectedIntern, weekNumber, action);
-    setSelectedRecord(updated);
+    // Optimistic local update for immediate feedback
+    companyReviewWeek(selectedIntern, weekNumber, action);
 
     const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
     notifications.push({
@@ -555,12 +817,50 @@ const InternsPage = ({ companySession }) => {
       });
     }
     localStorage.setItem("notifications", JSON.stringify(notifications));
+
+    // ── API sync ──────────────────────────────────────────────────────────
+    (async () => {
+      try {
+        // Find logbook API id from the current selectedRecord weeks
+        const week = selectedRecord?.weeks?.find((w) => Number(w.weekNumber) === Number(weekNumber));
+        const internshipId = String(selectedIntern?.id || selectedIntern?.internshipId || "");
+        const logbookId = week?.apiId || getLogbookApiId(selectedIntern.studentId, internshipId, weekNumber);
+        if (logbookId) {
+          await internshipService.verifyLogbook(logbookId, action);
+        }
+      } catch (err) {
+        console.warn("Logbook verify API sync failed (local state is still saved):", err.message);
+      }
+      // Refresh logbook from API so UI reflects the new status
+      try {
+        const internshipId = selectedIntern?.id || selectedIntern?.__raw?.id;
+        const params = internshipId ? { internship_id: internshipId } : {};
+        const res = await internshipService.getCompanyLogbooks(params);
+        if (res.success) {
+          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          if (items.length > 0) {
+            const grouped = groupApiLogbooksByStudent(items);
+            const sid = String(selectedIntern.studentId || "").trim();
+            const rec = grouped.get(sid) || grouped.values().next().value;
+            if (rec) setSelectedRecord(rec);
+          }
+        }
+      } catch {
+        // keep the local state if refresh fails
+      }
+    })();
   };
 
-  const handleEvalSubmit = (month, formData) => {
-    submitEvaluation({ studentId: selectedIntern.studentId, companyId: companyId || selectedIntern.companyName || "", advisorName: selectedIntern.advisorName || "", month, evaluationData: formData });
+  const handleEvalSubmit = async (month, formData) => {
+    // 1. Save to localStorage immediately for instant UI feedback
+    submitEvaluation({
+      studentId: selectedIntern.studentId,
+      companyId: companyId || selectedIntern.companyName || "",
+      advisorName: selectedIntern.advisorName || "",
+      month,
+      evaluationData: formData,
+    });
 
-    // Notify the student
     const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
     notifications.push({
       id: Date.now(),
@@ -573,42 +873,78 @@ const InternsPage = ({ companySession }) => {
       read: false,
     });
     localStorage.setItem("notifications", JSON.stringify(notifications));
-
     window.dispatchEvent(new Event("storage"));
-    loadEvalRecords(selectedIntern);
     setOpenEvalMonth(null);
+
+    // 2. POST to backend and refresh from API
+    const internshipId = selectedIntern?.id || selectedIntern?.__raw?.id;
+    if (internshipId) {
+      try {
+        const res = await evaluationService.submitCompanyMonthlyEvaluation(internshipId, month, formData);
+        if (res.success) {
+          // Refresh eval records from API to get the persisted status
+          await loadEvalRecords(selectedIntern);
+        } else {
+          console.warn("Monthly eval API failed:", res.error);
+          loadEvalRecords(selectedIntern);
+        }
+      } catch (err) {
+        console.warn("Monthly eval API error:", err.message);
+        loadEvalRecords(selectedIntern);
+      }
+    } else {
+      loadEvalRecords(selectedIntern);
+    }
   };
 
-  const handleFinalEvalSubmit = (payload) => {
+  const handleFinalEvalSubmit = async (payload) => {
     const { total, finalMark, ...formOnly } = payload;
-    const record = submitFinalEvaluation({
-      studentId: selectedIntern.studentId,
-      studentName: selectedIntern.studentName,
-      companyName: selectedIntern.companyName,
-      formData: formOnly,
-      total,
-      finalMark,
-    });
 
-    // Update local state
-    setFinalEvalRecord(record);
+    // POST to backend first — only persist locally on success
+    const internshipId = selectedIntern?.id || selectedIntern?.__raw?.id;
+    if (!internshipId) {
+      console.warn("No internship ID found for selected intern — cannot submit final evaluation.");
+      return;
+    }
 
-    // Notify the student
-    const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
-    notifications.push({
-      id: Date.now(),
-      type: "info",
-      title: "Company Final Evaluation Submitted",
-      message: `Your company final evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for approval.`,
-      date: new Date().toISOString(),
-      studentId: selectedIntern.studentId,
-      studentName: selectedIntern.studentName,
-      read: false,
-    });
-    localStorage.setItem("notifications", JSON.stringify(notifications));
+    try {
+      const res = await evaluationService.submitCompanyFinalEvaluation(internshipId, payload);
+      if (res.success) {
+        // Save to localStorage and update UI only after confirmed API success
+        const record = submitFinalEvaluation({
+          studentId: selectedIntern.studentId,
+          studentName: selectedIntern.studentName,
+          companyName: selectedIntern.companyName,
+          formData: formOnly,
+          total,
+          finalMark,
+        });
+        setFinalEvalRecord(record);
 
-    window.dispatchEvent(new Event("storage"));
-    setFinalEvalDraftOpen(false);
+        const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+        notifications.push({
+          id: Date.now(),
+          type: "info",
+          title: "Company Final Evaluation Submitted",
+          message: `Your company final evaluation has been filled by ${selectedIntern.companyName || "your company"} and sent to your advisor for approval.`,
+          date: new Date().toISOString(),
+          studentId: selectedIntern.studentId,
+          studentName: selectedIntern.studentName,
+          read: false,
+        });
+        localStorage.setItem("notifications", JSON.stringify(notifications));
+        window.dispatchEvent(new Event("storage"));
+        setFinalEvalDraftOpen(false);
+
+        await loadFinalEvalRecord(selectedIntern);
+      } else {
+        console.warn("Final eval API failed:", res.error);
+        alert(`Failed to submit final evaluation: ${res.error?.error || res.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.warn("Final eval API error:", err.message);
+      alert(`Failed to submit final evaluation: ${err.message}`);
+    }
   };
 
   const evalStatusBadge = (status) => ({
@@ -628,6 +964,9 @@ const InternsPage = ({ companySession }) => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {isLoading ? (
+        <LoadingState title="Loading active interns" subtitle="Fetching approved placements for your company." />
+      ) : null}
       {/* Auto reminders */}
       {reminders.length > 0 && (
         <div className="space-y-2">
@@ -708,18 +1047,38 @@ const InternsPage = ({ companySession }) => {
               <button type="button" onClick={() => { setInternDetailTab("logbook"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "logbook" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <FileText className="w-4 h-4" /> Weekly Logbook
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "monthly" ? "app-tab-active" : "app-tab-inactive"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("monthly"); setOpenEvalMonth(null); if (selectedIntern) loadEvalRecords(selectedIntern); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "monthly" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <ClipboardList className="w-4 h-4" /> Company Monthly Evaluation
               </button>
-              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "final" ? "app-tab-active" : "app-tab-inactive"}`}>
+              <button type="button" onClick={() => { setInternDetailTab("final"); setOpenEvalMonth(null); if (selectedIntern) loadFinalEvalRecord(selectedIntern); }} className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${internDetailTab === "final" ? "app-tab-active" : "app-tab-inactive"}`}>
                 <ClipboardList className="w-4 h-4" /> Company Final Evaluation
               </button>
             </div>
 
             {/* Weekly Logbook tab */}
-            {internDetailTab === "logbook" && selectedRecord && (
+            {internDetailTab === "logbook" && (
+              logbookLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600 mr-3" />
+                  <p className="text-sm text-gray-500">Loading logbook…</p>
+                </div>
+              ) : !selectedRecord ? (
+                <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-xl">
+                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No logbook available yet.</p>
+                </div>
+              ) : selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).length === 0 ? (
+                <div className="text-center py-14 border-2 border-dashed border-gray-200 rounded-xl">
+                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No logbook weeks submitted yet.</p>
+                </div>
+              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedRecord.weeks.map(week => (
+                {selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).map(week => {
+                  // Company can act when status is SUBMITTED (mapped to PENDING_COMPANY) or PENDING_COMPANY
+                  const canAct = week.status === WEEK_STATUS.PENDING_COMPANY ||
+                    week.apiStatus === "SUBMITTED";
+                  return (
                   <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 space-y-3">
                     <div className="flex justify-between items-center gap-3">
                       <p className="font-black text-gray-900">Week {week.weekNumber}</p>
@@ -728,23 +1087,32 @@ const InternsPage = ({ companySession }) => {
                     <InternshipLogbookForm
                       key={`${selectedIntern.studentId}-w${week.weekNumber}-${week.status}`}
                       role="company"
-                      readOnly={week.status !== WEEK_STATUS.PENDING_COMPANY}
+                      readOnly={!canAct}
                       title={`Week ${week.weekNumber}`}
                       initialData={{ studentName: selectedRecord.meta?.studentName || selectedIntern.studentName || "", companyName: selectedRecord.meta?.companyName || selectedIntern.companyName || "", supervisorName: selectedRecord.meta?.supervisorName || "", safetyBrief: selectedRecord.meta?.safetyBrief || "", weeks: [week] }}
                       onValuesChange={persistCompanySupervisorFields}
                     />
-                    <div className="text-[11px] font-semibold text-gray-600">Company: {week.companyStatus} | Advisor: {week.advisorStatus}</div>
-                    {week.status === WEEK_STATUS.PENDING_COMPANY ? (
+                    {week.companyComment && (
+                      <p className="text-[11px] text-gray-500 italic">Company note: {week.companyComment}</p>
+                    )}
+                    {canAct ? (
                       <div className="flex gap-2">
                         <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "approve")} className="flex-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold">Approve</button>
                         <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "reject")} className="flex-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold">Reject</button>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-gray-400 font-semibold">No company action available for this status.</p>
+                      <p className="text-[11px] text-gray-400 font-semibold">
+                        {week.status === WEEK_STATUS.APPROVED ? "✓ Approved by advisor" :
+                         week.status === WEEK_STATUS.PENDING_ADVISOR ? "Awaiting advisor review" :
+                         week.status === WEEK_STATUS.REJECTED_COMPANY ? "Returned — awaiting student revision" :
+                         "No company action available for this status."}
+                      </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
+              )
             )}
 
             {/* Company Monthly Evaluation tab */}
@@ -902,15 +1270,20 @@ const InternsPage = ({ companySession }) => {
 
 // ─── CompanyDashboard (root) ──────────────────────────────────────────────────
 const CompanyDashboard = () => {
-  const [session, setSession] = useState({});
+  const [session, setSession] = useState(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [view, setView] = useState("home");
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   useEffect(() => {
     const currentSession = getValidCompanySession();
-    if (!currentSession || Object.keys(currentSession).length === 0) navigate("/login");
-    else setSession(currentSession);
+    if (!currentSession || Object.keys(currentSession).length === 0) {
+      navigate("/login");
+      return;
+    }
+    setSession(currentSession);
+    setIsBootstrapping(false);
   }, [navigate]);
 
   const handleLogout = () => {
@@ -918,9 +1291,36 @@ const CompanyDashboard = () => {
     navigate("/login");
   };
 
+  if (isBootstrapping || !session) {
+    return <LoadingState title="Loading company dashboard" subtitle="Fetching your company profile and internship data." />;
+  }
+
   const cName   = session.companyName || session.company_name || "Company";
   const email   = session.contactEmail || session.representative_email || session.email || "N/A";
   const repName = session.representative_name || session.fullName || "Representative";
+  const shortcutCards = [
+    {
+      view: "internships",
+      title: "Internships",
+      description: "Create and manage your internship postings.",
+      icon: Briefcase,
+      accent: "bg-indigo-50 text-indigo-600 ring-indigo-100",
+    },
+    {
+      view: "applications",
+      title: "Applied students",
+      description: "Review students who applied for your openings.",
+      icon: Users,
+      accent: "bg-amber-50 text-amber-700 ring-amber-100",
+    },
+    {
+      view: "interns",
+      title: "Active interns",
+      description: "Track approved interns and their ongoing work.",
+      icon: ClipboardList,
+      accent: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    },
+  ];
 
   return (
     <div className="app-shell flex min-h-screen flex-col">
@@ -991,35 +1391,50 @@ const CompanyDashboard = () => {
               </div>
             </div>
 
-            <div className="mx-auto max-w-7xl">
+            <div className="w-full">
               {view === "home" && (
-                <div className="grid animate-fade-in grid-cols-1 gap-6 md:grid-cols-3">
-                  <div className="app-card p-12 text-center md:col-span-2">
-                    <Briefcase className="mx-auto mb-4 h-12 w-12 text-gray-200" />
-                    <h3 className="mb-2 text-xl font-bold text-gray-900">Welcome to your dashboard</h3>
-                    <p className="mx-auto max-w-sm text-gray-500">
-                      Track student applications and manage your company postings from the menu on the left.
-                    </p>
+                <div className="grid animate-fade-in grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {shortcutCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <button
+                          key={card.view}
+                          type="button"
+                          onClick={() => setView(card.view)}
+                          className="group app-card flex h-full min-h-[168px] flex-col justify-between p-6 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                        >
+                          <div>
+                            <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${card.accent}`}>
+                              <Icon className="h-6 w-6" aria-hidden />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">{card.title}</h3>
+                            <p className="mt-1 max-w-sm text-sm text-gray-500">{card.description}</p>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between text-sm font-semibold text-indigo-600">
+                            <span>Open section</span>
+                            <ChevronDown className="h-4 w-4 -rotate-90 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="app-card p-8">
+                  <aside className="app-card h-fit p-8 xl:sticky xl:top-6">
                     <h4 className="mb-4 flex items-center gap-2 font-bold text-gray-900">
                       <Clock className="h-4 w-4 text-indigo-600" /> System reminders
                     </h4>
-                    <ul className="space-y-4">
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                        <p className="text-gray-600">Ensure all active internships have correct contact info.</p>
-                      </li>
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
-                        <p className="text-gray-600">Review new student applications daily for fast onboarding.</p>
-                      </li>
-                      <li className="flex gap-3 text-sm">
-                        <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                        <p className="text-gray-600">Company monthly evaluations are due at 30 and 60 days — check Active interns.</p>
-                      </li>
-                    </ul>
-                  </div>
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Keep internship postings current and accurate.
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Check applied students regularly to avoid delayed onboarding.
+                      </div>
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-gray-600">
+                        Use Active interns to follow ongoing placements and evaluations.
+                      </div>
+                    </div>
+                  </aside>
                 </div>
               )}
               {view === "internships" && <InternshipPage companySession={session} />}

@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getInternships } from "../mock/internshipApi";
-import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, Bot, MessageCircle, Send, X, Sparkles } from "lucide-react";
+import { Bell, LogOut, ChevronDown, CheckCircle, Clock, XCircle, AlertCircle, Upload, FileText, MapPin, Building2, User, Mail, Phone, Loader2, Eye, Layers, Briefcase, ChevronUp, Globe, ClipboardList, BookOpen, BarChart3, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
 import StudentSidebar from "./StudentSidebar";
+import LoadingState from "./LoadingState";
 import ApplicationModal from "./modals/ApplicationModal";
-import companiesMock from "../mock/companies.json";
 import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
+import internshipService from "../services/internshipService";
+import logbookService from "../services/logbookService";
+import evaluationService from "../services/evaluationService";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -16,10 +18,12 @@ import {
   getLogbookForApplication,
   getLogbookScope,
   submitWeekForInternship,
+  getLogbookApiId,
+  setLogbookApiId,
+  groupApiLogbooksByStudent,
 } from "../utils/weeklyLogbook";
 import {
   getDocumentsByStudentId,
-  submitInternshipDocument,
   getStudentDocumentSummary,
   ROLE_DOC_STATUS,
 } from "../utils/internshipDocuments";
@@ -40,7 +44,7 @@ import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 
 // Top navigation (inlined)
-const TopNavigation = ({ studentName, notificationCount = 0 }) => {
+const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -63,7 +67,12 @@ const TopNavigation = ({ studentName, notificationCount = 0 }) => {
 
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative">
-              <button type="button" className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30">
+              <button
+                type="button"
+                onClick={onNotificationClick}
+                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+                aria-label="Open notifications"
+              >
                 <Bell className="w-5 h-5" />
                 {notificationCount > 0 && (
                   <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
@@ -133,131 +142,192 @@ const CHATBOT_EXAMPLE_MESSAGES = [
   },
 ];
 
-/** UI-only AI chatbot — no backend or real messaging */
-const StudentHeaderChatbot = () => {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+const getMyApplicationsPayload = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // UI preview only — no message handling
+const getApplicationWorkflowStatus = (application) =>
+  String(
+    application?.overallStatus ||
+      application?.overall_status ||
+      application?.student_decision ||
+      application?.dept_status ||
+      ""
+  )
+    .trim()
+    .toUpperCase();
+
+const toLegacyApplicationStatus = (application) => {
+  const workflowStatus = getApplicationWorkflowStatus(application);
+
+  switch (workflowStatus) {
+    case "ACCEPTED":
+      return "Active";
+    case "OFFER_RECEIVED":
+      return "accepted_by_company";
+    case "AWAITING_MENTOR":
+      return "Pending";
+    case "PENDING":
+      return "applied";
+    case "DECLINED":
+      return "Declined";
+    default:
+      return "Pending";
+  }
+};
+
+const normalizeMyApplication = (application, studentId, studentName) => {
+  const workflowStatus = getApplicationWorkflowStatus(application);
+  const resolvedStudentId =
+    application?.student_id ||
+    application?.studentId ||
+    application?.form_snapshot?.student?.student_id ||
+    application?.form_snapshot?.student?.studentId ||
+    studentId ||
+    "";
+
+  return {
+    ...application,
+    studentId: resolvedStudentId,
+    studentName: application?.studentName ?? studentName ?? "",
+    internshipId: application?.internshipId ?? application?.id ?? null,
+    companyName: application?.company_name ?? application?.companyName ?? "",
+    internshipTitle: application?.position_title ?? application?.internshipTitle ?? "",
+    appliedAt: application?.applied_at ?? application?.appliedAt ?? application?.created_at ?? null,
+    advisorName: application?.advisor_name ?? application?.advisorName ?? "",
+    overallStatus: workflowStatus,
+    status: toLegacyApplicationStatus(application),
+    coordinatorApprovalStatus: application?.dept_status ?? application?.coordinatorApprovalStatus ?? "PENDING",
+    mentorStatus: application?.mentor_status ?? application?.mentorStatus ?? null,
+    acceptanceForm: {
+      ...ACCEPTANCE_FORM_DEFAULTS,
+      internName: application?.form_snapshot?.student?.name || application?.student_name || "",
+      idNo: application?.form_snapshot?.student?.student_id || "",
+      college: application?.form_snapshot?.student?.college || "",
+      department: application?.form_snapshot?.student?.department || "",
+      mobile: application?.form_snapshot?.student?.mobile || application?.student_mobile || "",
+      orgName: application?.form_snapshot?.company?.name || application?.company_name || "",
+      mailingAddress: application?.form_snapshot?.company?.mailing_address || "",
+      physicalAddress: application?.form_snapshot?.company?.physical_address || "",
+      phone: application?.form_snapshot?.company?.phone || "",
+      supervisorName: application?.form_snapshot?.mentor?.name || "",
+      supervisorPhone: application?.form_snapshot?.mentor?.phone || "",
+      supervisorEmail: application?.form_snapshot?.mentor?.email || "",
+      accepted: String(application?.mentor_status || "").toUpperCase() === "ACCEPTED",
+      rejected: String(application?.mentor_status || "").toUpperCase() === "REJECTED",
+      reason: application?.rejection_reason || "",
+      date: application?.mentor_signed_at ? application?.mentor_signed_at.split("T")[0] : "",
+      coordinatorStatus: application?.dept_status || application?.coordinatorApprovalStatus || "PENDING",
+      companyStatus: application?.mentor_status || null,
+      studentStatus: application?.student_decision || null,
+      overallStatus: application?.overall_status || application?.overallStatus || null,
+    },
+    finalInternshipStatus:
+      workflowStatus === "ACCEPTED"
+        ? "ACTIVE_INTERN"
+        : workflowStatus === "OFFER_RECEIVED"
+          ? "ACCEPTED_BY_COMPANY"
+          : workflowStatus,
   };
+};
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="group inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/15 px-3.5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/20 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/25 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:px-4"
-        aria-label="Open AI assistant"
-      >
-        <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-violet-500 shadow-inner transition-transform duration-200 group-hover:scale-105">
-          <Sparkles className="h-4 w-4 text-white" aria-hidden />
-        </span>
-        <span className="hidden sm:inline">AI Assistant</span>
-        <MessageCircle className="h-4 w-4 sm:hidden" aria-hidden />
-      </button>
+const sortApplicationsByDate = (applications) =>
+  [...applications].sort((left, right) => {
+    const leftTime = new Date(left?.appliedAt || left?.created_at || 0).getTime();
+    const rightTime = new Date(right?.appliedAt || right?.created_at || 0).getTime();
+    return rightTime - leftTime;
+  });
 
-      {open && (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[190] bg-slate-900/40 backdrop-blur-[2px] transition-opacity"
-            aria-label="Close chat"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="student-chatbot-title"
-            className="fixed z-[200] flex w-[min(100vw-1.5rem,24rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-indigo-900/15 transition-all duration-300 ease-out bottom-4 right-4 sm:bottom-auto sm:right-6 sm:top-24 max-h-[min(32rem,calc(100vh-6rem))]"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-indigo-600 to-slate-900 px-4 py-3.5 text-white">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
-                  <Bot className="h-5 w-5" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <h2 id="student-chatbot-title" className="truncate text-sm font-bold tracking-tight">
-                    Internship AI Assistant
-                  </h2>
-                  <p className="flex items-center gap-1.5 text-[11px] text-indigo-100/90">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-                    Preview · UI only
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="shrink-0 rounded-lg p-2 text-white/80 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                aria-label="Close assistant"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+const getDashboardApplicationStatus = (applications) => {
+  if (!applications.length) return "Not Applied";
 
-            <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50/80 p-4">
-              {CHATBOT_EXAMPLE_MESSAGES.map((msg) =>
-                msg.role === "bot" ? (
-                  <div key={msg.id} className="flex gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-                      <Bot className="h-4 w-4" aria-hidden />
-                    </div>
-                    <div className="max-w-[85%]">
-                      <div className="rounded-2xl rounded-tl-md border border-slate-100 bg-white px-3.5 py-2.5 text-sm leading-relaxed text-slate-700 shadow-sm">
-                        {msg.text}
-                      </div>
-                      <p className="mt-1 pl-1 text-[10px] font-medium text-slate-400">{msg.time}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={msg.id} className="flex justify-end">
-                    <div className="max-w-[85%]">
-                      <div className="rounded-2xl rounded-tr-md bg-gradient-to-br from-indigo-600 to-indigo-700 px-3.5 py-2.5 text-sm leading-relaxed text-white shadow-md shadow-indigo-200/50">
-                        {msg.text}
-                      </div>
-                      <p className="mt-1 pr-1 text-right text-[10px] font-medium text-slate-400">{msg.time}</p>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
+  const ordered = sortApplicationsByDate(applications);
+  if (ordered.some((application) => application.overallStatus === "ACCEPTED")) {
+    return "Active";
+  }
+  if (ordered.some((application) => application.overallStatus === "OFFER_RECEIVED")) {
+    return "Company Accepted";
+  }
+  if (ordered.some((application) => application.overallStatus === "AWAITING_MENTOR")) {
+    return "Pending Mentor Approval";
+  }
+  if (ordered.some((application) => application.overallStatus === "PENDING")) {
+    return "Applied";
+  }
+  if (ordered.some((application) => application.overallStatus === "DECLINED")) {
+    return "Declined";
+  }
 
-            <form
-              onSubmit={handleSubmit}
-              className="border-t border-slate-100 bg-white p-3"
-            >
-              <div className="flex items-end gap-2">
-                <label htmlFor="student-chatbot-input" className="sr-only">
-                  Message
-                </label>
-                <input
-                  id="student-chatbot-input"
-                  type="text"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Type a message… (preview)"
-                  className="min-h-[2.75rem] flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition-colors focus:border-indigo-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  autoComplete="off"
-                />
-                <button
-                  type="submit"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-200 transition-all duration-200 hover:bg-indigo-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:scale-95"
-                  aria-label="Send message"
-                >
-                  <Send className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-              <p className="mt-2 text-center text-[10px] text-slate-400">
-                Demo interface — messages are not sent or stored.
-              </p>
-            </form>
-          </div>
-        </>
-      )}
-    </>
+  return "Applied";
+};
+
+const pickActiveApplication = (applications) =>
+  sortApplicationsByDate(applications).find(
+    (application) => ["ACCEPTED", "OFFER_RECEIVED"].includes(application.overallStatus)
+  ) || null;
+
+const buildStudentNotifications = (studentId, studentName) => {
+  const readIds = new Set(JSON.parse(localStorage.getItem("notification_read_ids") || "[]"));
+  const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+  const studentNotifications = allNotifications
+    .filter((n) => n.studentId === studentId || n.studentName === studentName)
+    .map((notification) => ({
+      ...notification,
+      read: Boolean(notification.read) || readIds.has(String(notification.id)),
+    }));
+
+  const applications = JSON.parse(localStorage.getItem("applications") || "[]");
+  const studentApps = applications.filter(
+    (app) => app.studentId === studentId || app.studentName === studentName
   );
+
+  const appNotifications = studentApps
+    .filter((app) => app.status && app.status !== "applied")
+    .map((app) => ({
+      id: `app-${app.id}`,
+      type: app.status === "accepted" ? "success" : app.status === "rejected" ? "error" : "info",
+      title:
+        app.status === "accepted"
+          ? `${app.companyName} accepted your application`
+          : app.status === "rejected"
+          ? `${app.companyName} rejected your application`
+          : `Update on your application to ${app.companyName}`,
+      message: app.statusMessage || "",
+      date: app.updatedAt || app.appliedAt,
+      studentId,
+      studentName,
+      read: readIds.has(`app-${app.id}`),
+    }));
+
+  const merged = [...studentNotifications, ...appNotifications];
+  const unique = merged.filter((notification, index, self) => index === self.findIndex((candidate) => candidate.id === notification.id));
+  unique.sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+
+  return unique.slice(0, 10);
+};
+
+const markStudentNotificationsRead = (studentId, studentName) => {
+  const readIds = new Set(JSON.parse(localStorage.getItem("notification_read_ids") || "[]"));
+  const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
+  const updated = allNotifications.map((notification) => {
+    if (notification.studentId !== studentId && notification.studentName !== studentName) {
+      return notification;
+    }
+    readIds.add(String(notification.id));
+    return { ...notification, read: true };
+  });
+
+  const studentApps = JSON.parse(localStorage.getItem("applications") || "[]").filter(
+    (app) => app.studentId === studentId || app.studentName === studentName
+  );
+  studentApps.forEach((app) => readIds.add(`app-${app.id}`));
+
+  localStorage.setItem("notifications", JSON.stringify(updated));
+  localStorage.setItem("notification_read_ids", JSON.stringify(Array.from(readIds)));
+  return updated;
 };
 
 // Welcome header (inlined)
@@ -319,7 +389,6 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
           </div>
 
           <div className="flex flex-col items-stretch gap-3 sm:items-end shrink-0">
-            <StudentHeaderChatbot />
             <div
               className={`flex items-center gap-3 px-4 py-3 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border-2`}
             >
@@ -380,115 +449,164 @@ const buildInitialAcceptanceForm = ({ student, internship, applicationData }) =>
   orgName: applicationData?.companyName || internship?.company_name || "",
 });
 
+import dataService from "../services/dataService";
+import userService from "../services/userService";
+
 const AvailableInternships = ({ studentId, studentDepartment, studentProfile, onApplicationSubmit }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedInternship, setSelectedInternship] = useState(null);
+  const [selectedPositionId, setSelectedPositionId] = useState(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     loadInternships();
   }, [studentDepartment]);
 
   const loadInternships = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const localInternships = JSON.parse(localStorage.getItem("allInternships")) || null;
-      
-      let data = [];
-      if (localInternships) {
-        data = localInternships;
-      } else {
-        data = await getInternships();
+      const [internshipsResult, companiesResult] = await Promise.all([
+        dataService.getInternships(),
+        dataService.getCompanies(),
+      ]);
+
+      if (!internshipsResult.success) {
+        throw new Error(internshipsResult.error || "Failed to load internships.");
+      }
+      if (!companiesResult.success) {
+        // Companies are optional, so we can proceed without them but log an error
+        console.error("Failed to load companies:", companiesResult.error);
       }
 
-      const localCompanies = JSON.parse(localStorage.getItem("companies")) || [];
-      const allCompanies = [...localCompanies, ...companiesMock];
+      const internshipsData = internshipsResult.data || [];
+      const companiesData = companiesResult.data || [];
 
-      const processed = data
-        .map(internship => {
-          const comp = allCompanies.find(c => c.company_id === internship.company_id || c.id === internship.company_id || c.company_name === internship.company_name);
-          return {
+      console.log("Raw internships data:", internshipsData);
+      console.log("Raw companies data:", companiesData);
+      console.log("Student department for filtering:", studentDepartment);
+
+      const processed = internshipsData
+        .map((internship) => {
+          const comp = companiesData.find((c) =>
+            c.id === internship.company
+          );
+
+          const resolvedCompanyName = comp ? comp.name : "Unknown Company";
+
+          // Normalize department field from several possible shapes
+          const dept = internship.department?.name || internship.department || "";
+
+          // Normalize active/status
+          const isActive = Boolean(internship.is_active);
+
+          const processedInternship = {
             ...internship,
-            companyName: internship.company_name || (comp ? comp.companyName || comp.company_name : "Unknown Company")
+            companyName: resolvedCompanyName,
+            department: dept,
+            isActive,
           };
+          
+          console.log(`Processing internship ID ${internship.id}:`, {
+            original: internship,
+            foundCompany: comp,
+            processed: processedInternship
+          });
+          return processedInternship;
         })
-        .filter(i => {
-          const isActive = i.status !== "CLOSED" && i.status !== "FULL";
-          const deptMatch = !studentDepartment || 
-            String(i.department).trim().toLowerCase() === String(studentDepartment).trim().toLowerCase();
-            
-          return isActive && deptMatch;
+        .filter((i) => {
+          if (!i.isActive) {
+            console.log(`Filtering out internship ID ${i.id} because it's not active.`);
+            return false;
+          }
+
+          if (!studentDepartment) {
+            console.log(`Showing internship ID ${i.id} because student has no department set.`);
+            return true;
+          }
+          const internDept = String(i.department || "").trim().toLowerCase();
+          const studentDeptNorm = String(studentDepartment || "").trim().toLowerCase();
+          
+          if (!internDept) {
+            console.log(`Showing internship ID ${i.id} because internship has no department specified.`);
+            return true;
+          }
+          
+          const isMatch = internDept === studentDeptNorm;
+          console.log(`Filtering internship ID ${i.id} by department: internship_dept='${internDept}', student_dept='${studentDeptNorm}', match=${isMatch}`);
+          return isMatch;
         });
 
+      console.log("Final processed and filtered internships:", processed);
       setInternships(processed);
     } catch (error) {
       console.error("Error loading internships:", error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500">Loading internships...</div>;
+  if (loading) {
+    return <LoadingState title="Loading opportunities" subtitle="Fetching available internships and company data." />;
+  }
+  if (error) return <div className="py-8 text-center text-red-500">Error: {error}</div>;
 
   const handleApplySubmit = async (applicationData) => {
+    if (!selectedInternship) return;
+    
+    setIsApplying(true);
+    setError(null);
+
     try {
-      const studentName = JSON.parse(localStorage.getItem("student"))?.name || 
-                          JSON.parse(localStorage.getItem("student"))?.fullName || "Student";
-      
-      const applications = JSON.parse(localStorage.getItem("applications")) || [];
-      const existing = applications.find(
-        (app) =>
-          (app.studentId === studentId || app.studentName === studentName) &&
-          app.internshipId === selectedInternship.id
-      );
-
-      if (existing) {
-        alert("You have already applied to this internship.");
-        return;
+      const positionId =
+        selectedPositionId ||
+        selectedInternship.id ||
+        selectedInternship.position_id ||
+        selectedInternship.internship_id ||
+        selectedInternship.pk;
+      if (!positionId) {
+        throw new Error("Missing internship position id.");
       }
 
-      const newApplication = {
-        id: Date.now(),
-        ...applicationData,
-        studentId,
-        studentName,
-        internshipId: selectedInternship.id,
-        internshipTitle: selectedInternship.title,
-        status: "Pending",
-        applicationStatus: "PENDING_COMPANY_REVIEW",
-        acceptanceForm: buildInitialAcceptanceForm({
-          student: studentProfile,
-          internship: selectedInternship,
-          applicationData,
-        }),
-        appliedAt: new Date().toISOString(),
-      };
-
-      applications.push(newApplication);
-      localStorage.setItem("applications", JSON.stringify(applications));
-
-      const notifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      notifications.push({
-        id: Date.now(),
-        type: "info",
-        title: `Application submitted for ${selectedInternship.title} at ${applicationData.companyName}`,
-        message: "Your application is pending review",
-        date: new Date().toISOString(),
-        studentId,
-        studentName,
-      });
-      localStorage.setItem("notifications", JSON.stringify(notifications));
-
-      if (onApplicationSubmit) {
-        onApplicationSubmit(newApplication);
+      const payload = new FormData();
+      if (applicationData.studentId) {
+        payload.append("student_id", applicationData.studentId);
       }
+      payload.append("reason_for_joining", applicationData.reason_for_joining || "");
+      payload.append("cv_file", applicationData.cv_file);
 
-      alert(`Successfully applied to ${selectedInternship.title}!`);
-      setIsApplyModalOpen(false);
-      setSelectedInternship(null);
+      const result = await internshipService.applyToPosition(positionId, payload);
+
+      if (result.success) {
+        alert(`Successfully applied to ${selectedInternship.title}!`);
+        
+        // Optionally, refresh data or notify other components
+        if (onApplicationSubmit) {
+          onApplicationSubmit(result.data);
+        }
+        
+        setIsApplyModalOpen(false);
+        setSelectedInternship(null);
+        loadInternships(); // Refresh the list of internships
+      } else {
+        // Handle specific backend errors, e.g., "already applied"
+        const errorMessage = result.error?.detail || result.error || "An unknown error occurred.";
+        if (errorMessage.includes("already applied")) {
+          alert("You have already applied to this internship.");
+        } else {
+          alert(`Error: ${errorMessage}`);
+        }
+        throw new Error(errorMessage);
+      }
     } catch (error) {
       console.error("Error submitting internship application:", error);
-      alert("Error submitting application. Please try again.");
+      setError(error.message || "Failed to submit application. Please try again.");
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -523,7 +641,11 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
                 </div>
               </div>
               <button
-                onClick={() => setSelectedInternship(internship)}
+                type="button"
+                onClick={() => {
+                  setSelectedInternship(internship);
+                  setSelectedPositionId(internship.id || internship.position_id || internship.internship_id || internship.pk || null);
+                }}
                 className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
               >
                 <Eye className="w-4 h-4" />
@@ -548,7 +670,11 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
                   <p className="text-indigo-600 font-medium">{selectedInternship.start_date} to {selectedInternship.end_date}</p>
                 </div>
                 <button 
-                  onClick={() => setSelectedInternship(null)}
+                  type="button"
+                  onClick={() => {
+                    setSelectedInternship(null);
+                    setSelectedPositionId(null);
+                  }}
                   className="p-2 hover:bg-gray-100 rounded-full"
                 >
                   <XCircle className="w-6 h-6 text-gray-500" />
@@ -617,13 +743,24 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
 
               <div className="mt-8 flex gap-3 justify-end pt-4 border-t">
                 <button 
-                  onClick={() => setSelectedInternship(null)}
+                  type="button"
+                  onClick={() => {
+                    setSelectedInternship(null);
+                    setSelectedPositionId(null);
+                  }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
                 >
                   Close
                 </button>
                 <button
-                  onClick={() => setIsApplyModalOpen(true)}
+                  type="button"
+                  onClick={() => {
+                    if (!selectedPositionId && !selectedInternship?.id) {
+                      alert("This opportunity is missing an application id.");
+                      return;
+                    }
+                    setIsApplyModalOpen(true);
+                  }}
                   className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
                 >
                   Apply Now
@@ -638,7 +775,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
         <ApplicationModal
           company={{ 
             ...selectedInternship, 
-            id: selectedInternship.company_id || selectedInternship.id,
+            id: selectedPositionId || selectedInternship.company_id || selectedInternship.id,
             companyName: selectedInternship.companyName || selectedInternship.company_name 
           }}
           studentId={studentId}
@@ -654,14 +791,55 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
 const AppliedInternshipsList = ({ studentId, studentName }) => {
   const [appliedInternships, setAppliedInternships] = useState([]);
   const [previewForm, setPreviewForm] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadApplied = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const studentApps = allApps.filter(
-        (app) => app.studentId === studentId || app.studentName === studentName
-      );
-      setAppliedInternships(studentApps.sort((a,b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+    const loadApplied = async () => {
+      setLoading(true);
+      try {
+        const placementResult = await internshipService.getCurrentPlacement();
+        if (placementResult.success && placementResult.data?.placement) {
+          const placement = placementResult.data.placement;
+          setAppliedInternships([
+            normalizeMyApplication(
+              {
+                ...placement,
+                overall_status: placement.overall_status || placement.status,
+                company_name: placement.company_name,
+                position_title: placement.position_title,
+                applied_at: placement.start_date,
+                student_decision: placement.student_decision || (placement.type === "internship" ? "ACCEPTED" : "PENDING"),
+              },
+              studentId,
+              studentName
+            ),
+          ]);
+          return;
+        }
+
+        const result = await internshipService.getMyApplications();
+        if (!result.success) {
+          throw new Error(result.error?.detail || result.error || "Failed to load applications");
+        }
+
+        const studentApps = sortApplicationsByDate(
+          getMyApplicationsPayload(result.data).map((application) =>
+            normalizeMyApplication(application, studentId, studentName)
+          )
+        );
+
+        setAppliedInternships(studentApps);
+      } catch (error) {
+        const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+        const studentApps = allApps.filter(
+          (app) => app.studentId === studentId || app.studentName === studentName
+        );
+        setAppliedInternships(
+          studentApps.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt))
+        );
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadApplied();
@@ -710,7 +888,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     return "Pending";
   };
 
-  const getStatusDisplay = (status, coordStatus) => {
+  const getStatusDisplay = (status, coordStatus, mentorStatus) => {
     const s = status?.toLowerCase();
     const cs = coordStatus;
 
@@ -722,6 +900,22 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     }
     if (cs === "REJECTED") {
        return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
+    }
+
+    // If company/mentor has already acted, surface that to the student
+    if ((mentorStatus || "").toString().toUpperCase() === "ACCEPTED") {
+      return {
+        text: 'Accepted by Company',
+        classes: 'bg-green-100 text-green-700 border-green-200',
+        canSelect: true,
+      };
+    }
+    if ((mentorStatus || "").toString().toUpperCase() === "REJECTED") {
+      return {
+        text: 'Rejected by Company',
+        classes: 'bg-red-100 text-red-700 border-red-200',
+        canSelect: false,
+      };
     }
 
     if (s === 'accepted' || s === 'accepted_by_company' || s === 'active') {
@@ -745,6 +939,18 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     };
   };
 
+  const getReviewStatusLabel = (value, fallback = "Pending") => {
+    const normalized = String(value || "").trim().toUpperCase();
+    if (!normalized) return fallback;
+
+    if (normalized === "PENDING") return "Pending";
+    if (normalized === "APPROVED" || normalized === "ACCEPTED") return "Approved";
+    if (normalized === "REJECTED") return "Rejected";
+    if (normalized === "OFFER_RECEIVED") return "Accepted by Company";
+
+    return normalized.replace(/_/g, " ");
+  };
+
   return (
     <div className="app-card p-6">
       <div className="mb-6">
@@ -752,15 +958,23 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         <p className="text-gray-600">Track and finalize your internship placements</p>
       </div>
 
-      {appliedInternships.length === 0 ? (
+      {loading ? (
+        <LoadingState title="Loading your applications" subtitle="Fetching your submitted internship requests." />
+      ) : null}
+
+      {!loading && appliedInternships.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
            <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
            <p className="text-gray-500">You haven't applied to any internships yet.</p>
         </div>
-      ) : (
+      ) : null}
+
+      {!loading && appliedInternships.length > 0 ? (
         <div className="space-y-4">
           {appliedInternships.map(app => {
-            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus);
+            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus, app.mentorStatus);
+            const companyStatus = getReviewStatusLabel(app.mentorStatus, "Pending");
+            const coordinatorStatus = getReviewStatusLabel(app.coordinatorApprovalStatus, "Pending");
             return (
               <div key={app.id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 border border-gray-100 rounded-xl bg-gray-50/50 gap-4 hover:border-indigo-200 transition-colors">
                 <div className="flex gap-4 items-center">
@@ -782,6 +996,14 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
                         <FileText className="w-3 h-3" />
                         <span>Acceptance Form: {formatAcceptanceStatus(app)}</span>
                       </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black uppercase">
+                      <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-700">
+                        Coordinator: {coordinatorStatus}
+                      </span>
+                      <span className={`rounded-full border px-2.5 py-1 ${app.mentorStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : app.mentorStatus === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                        Company: {companyStatus}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -809,7 +1031,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
             );
           })}
         </div>
-      )}
+      ) : null}
 
       {previewForm && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 flex items-start justify-center overflow-y-auto">
@@ -827,6 +1049,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 };
 
 const MyInternshipView = ({ studentId, studentName }) => {
+  const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState(null);
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -841,43 +1064,208 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [docUploadSuccess, setDocUploadSuccess] = useState(false);
   const docFileInputRef = useRef(null);
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
+  const [apiCompanyEvalSummaries, setApiCompanyEvalSummaries] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
   const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
+  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
-    const loadActive = () => {
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+    const loadActive = async () => {
+      if (!hasBootstrappedRef.current) {
+        setLoading(true);
+      }
+      const tryLoadLiveLogbook = async (appLike) => {
+        try {
+          const internshipId = String(appLike?.internshipId ?? appLike?.id ?? "").trim();
+          const sid = String(appLike?.studentId || studentId || "").trim();
+          if (!internshipId || !sid) return false;
+
+          const apiRes = await logbookService.getLogbooksForInternship(internshipId, sid);
+          if (!apiRes.success) return false;
+
+          const items = Array.isArray(apiRes.data)
+            ? apiRes.data
+            : (apiRes.data?.results || []);
+          if (!sid || items.length === 0) return false;
+
+          const grouped = groupApiLogbooksByStudent(items);
+          const rec = grouped.get(sid) || grouped.values().next().value;
+          if (!rec) return false;
+
+          setWeeklyLogbook(rec);
+          return true;
+        } catch (err) {
+          console.warn("Failed to load live weekly logbook:", err.message);
+          return false;
+        }
+      };
+
+      const sid = String(studentId ?? "").trim();
+      const sname = String(studentName ?? "").trim();
       const companies = JSON.parse(localStorage.getItem("companies")) || [];
       const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
-      
-      const sid = String(studentId ?? "").trim();
-      const sname = String(studentName ?? "").trim().toLowerCase();
-      const found = allApps.find((app) => {
-        const aid = String(app.studentId ?? "").trim();
-        const aname = String(app.studentName ?? "").trim().toLowerCase();
-        const idMatch = sid && aid && sid === aid;
-        const nameMatch = sname && aname && aname === sname;
-        return (idMatch || nameMatch) && app.finalInternshipStatus === "ACTIVE_INTERN";
-      });
 
-      if (found) {
-        const company = companies.find(c => c.company_id === found.companyId || c.id === found.companyId || c.companyName === found.companyName);
-        const internship = internships.find(i => i.id === found.internshipId);
-        const canonicalStudentId = String(found.studentId ?? studentId ?? "").trim();
-        setActiveApp({
-          ...found,
-          studentId: canonicalStudentId || found.studentId || studentId,
-          companyFull: company,
-          internshipFull: internship
-        });
-        setWeeklyLogbook(
-          getLogbookForApplication({ ...found, studentId: found.studentId || studentId })
+      try {
+        const placementResult = await internshipService.getCurrentPlacement();
+        if (placementResult.success && placementResult.data?.placement) {
+          const placement = placementResult.data.placement;
+          const normalizedPlacement = {
+            ...placement,
+            studentId: placement.student_id || sid,
+            studentName: placement.student_name || sname,
+            internshipId: placement.internship_id || placement.id,
+            companyName: placement.company_name || "",
+            internshipTitle: placement.position_title || "",
+            appliedAt: placement.start_date || null,
+            advisorName: placement.advisor_name || "",
+            overallStatus:
+              placement.overall_status ||
+              (placement.type === "internship"
+                ? "ACCEPTED"
+                : placement.student_decision || placement.status || "PENDING"),
+            status:
+              placement.type === "internship"
+                ? "Active"
+                : placement.overall_status === "ACCEPTED"
+                  ? "Active"
+                  : placement.overall_status === "OFFER_RECEIVED"
+                    ? "accepted_by_company"
+                    : placement.overall_status === "DECLINED"
+                      ? "Rejected"
+                      : "applied",
+            coordinatorApprovalStatus: placement.dept_status || "PENDING",
+            finalInternshipStatus:
+              placement.type === "internship" || placement.overall_status === "ACCEPTED"
+                ? "ACTIVE_INTERN"
+                : placement.overall_status || "PENDING",
+          };
+
+          const company = companies.find(
+            (entry) =>
+              entry.company_id === normalizedPlacement.companyId ||
+              entry.id === normalizedPlacement.companyId ||
+              entry.companyName === normalizedPlacement.companyName
+          );
+          const internship = internships.find(
+            (entry) =>
+              entry.id === normalizedPlacement.internshipId ||
+              entry.title === normalizedPlacement.internshipTitle
+          );
+          const canonicalStudentId = String(normalizedPlacement.studentId ?? studentId ?? "").trim();
+
+          setActiveApp({
+            ...normalizedPlacement,
+            studentId: canonicalStudentId || normalizedPlacement.studentId || studentId,
+            companyFull: company || null,
+            internshipFull: internship || null,
+          });
+          if (normalizedPlacement.type === "internship") {
+            const liveLoaded = await tryLoadLiveLogbook({
+              ...normalizedPlacement,
+              studentId: canonicalStudentId || normalizedPlacement.studentId || studentId,
+            });
+            if (!liveLoaded) {
+              setWeeklyLogbook(
+                getLogbookForApplication({
+                  ...normalizedPlacement,
+                  studentId: canonicalStudentId || normalizedPlacement.studentId || studentId,
+                })
+              );
+            }
+          } else {
+            setWeeklyLogbook(null);
+          }
+          return;
+        }
+
+        const result = await internshipService.getMyApplications();
+        if (!result.success) {
+          throw new Error(result.error?.detail || result.error || "Failed to load applications");
+        }
+
+        const allApps = getMyApplicationsPayload(result.data).map((application) =>
+          normalizeMyApplication(application, sid, sname)
         );
-      } else {
-        setActiveApp(null);
-        setWeeklyLogbook(null);
+        const activeApplication = pickActiveApplication(allApps);
+
+        if (!activeApplication) {
+          setActiveApp(null);
+          setWeeklyLogbook(null);
+          return;
+        }
+
+        const company = companies.find(
+          (entry) =>
+            entry.company_id === activeApplication.companyId ||
+            entry.id === activeApplication.companyId ||
+            entry.companyName === activeApplication.companyName
+        );
+        const internship = internships.find(
+          (entry) =>
+            entry.id === activeApplication.internshipId ||
+            entry.title === activeApplication.internshipTitle
+        );
+        const canonicalStudentId = String(activeApplication.studentId ?? studentId ?? "").trim();
+
+        setActiveApp({
+          ...activeApplication,
+          studentId: canonicalStudentId || activeApplication.studentId || studentId,
+          companyFull: company || null,
+          internshipFull: internship || null,
+        });
+        const liveLoaded = await tryLoadLiveLogbook({
+          ...activeApplication,
+          studentId: canonicalStudentId || activeApplication.studentId || studentId,
+        });
+        if (!liveLoaded) {
+          setWeeklyLogbook(
+            getLogbookForApplication({
+              ...activeApplication,
+              studentId: canonicalStudentId || activeApplication.studentId || studentId,
+            })
+          );
+        }
+      } catch (error) {
+        const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+        const companies = JSON.parse(localStorage.getItem("companies")) || [];
+        const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
+        const sid = String(studentId ?? "").trim();
+        const sname = String(studentName ?? "").trim().toLowerCase();
+        const found = allApps.find((app) => {
+          const aid = String(app.studentId ?? "").trim();
+          const aname = String(app.studentName ?? "").trim().toLowerCase();
+          const idMatch = sid && aid && sid === aid;
+          const nameMatch = sname && aname && aname === sname;
+          return (idMatch || nameMatch) && app.finalInternshipStatus === "ACTIVE_INTERN";
+        });
+
+        if (found) {
+          const company = companies.find(c => c.company_id === found.companyId || c.id === found.companyId || c.companyName === found.companyName);
+          const internship = internships.find(i => i.id === found.internshipId);
+          const canonicalStudentId = String(found.studentId ?? studentId ?? "").trim();
+          setActiveApp({
+            ...found,
+            studentId: canonicalStudentId || found.studentId || studentId,
+            companyFull: company,
+            internshipFull: internship
+          });
+          const liveLoaded = await tryLoadLiveLogbook({ ...found, studentId: found.studentId || studentId });
+          if (!liveLoaded) {
+            setWeeklyLogbook(
+              getLogbookForApplication({ ...found, studentId: found.studentId || studentId })
+            );
+          }
+        } else {
+          setActiveApp(null);
+          setWeeklyLogbook(null);
+        }
+      } finally {
+        if (!hasBootstrappedRef.current) {
+          hasBootstrappedRef.current = true;
+          setLoading(false);
+        }
       }
     };
 
@@ -893,21 +1281,145 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   const docStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
 
-  const refreshDocuments = () => {
+  const refreshDocuments = async () => {
+    try {
+      const params = activeApp?.id || activeApp?.internshipId
+        ? { internship_id: activeApp?.id || activeApp?.internshipId }
+        : {};
+      const res = await internshipService.getMyDocuments(params);
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        const mapped = items.map((d) => ({
+          id: d.id,
+          title: d.title || "Internship document",
+          description: d.description || "",
+          fileName: d.file_name || "document",
+          fileData: d.file_url || "",
+          submittedAt: d.submitted_at || d.submission_date || new Date().toISOString(),
+          advisorStatus: d.advisor_status || ROLE_DOC_STATUS.PENDING,
+          examinerStatus: d.examiner_status || ROLE_DOC_STATUS.PENDING,
+          advisorComment: d.advisor_comment || "",
+          examinerComment: d.examiner_comment || "",
+        }));
+        setDocuments(mapped);
+        // ensure staff dashboards see these API-backed documents
+        try {
+          // sync raw API items into localStorage using existing mapper
+          const { syncInternshipDocumentsFromApi } = await import("../utils/internshipDocuments");
+          syncInternshipDocumentsFromApi(items, { merge: true });
+        } catch (e) {
+          // ignore sync failures
+        }
+        return;
+      }
+    } catch {
+      // API failed; fallback to local cache
+    }
+
     setDocuments(getDocumentsByStudentId(docStudentKey));
   };
 
+  const refreshLiveWeeklyLogbook = async (weekNumberToFocus = null) => {
+    try {
+      const internshipId = String(activeApp?.internshipId ?? activeApp?.id ?? "").trim();
+      const sid = String(activeApp?.studentId ?? studentId ?? "").trim();
+      if (!internshipId || !sid) return null;
+
+      const apiRes = await logbookService.getLogbooksForInternship(internshipId, sid);
+      if (!apiRes.success) return null;
+
+      const items = Array.isArray(apiRes.data)
+        ? apiRes.data
+        : (apiRes.data?.results || []);
+      if (!sid || items.length === 0) return null;
+
+      const grouped = groupApiLogbooksByStudent(items);
+      const rec = grouped.get(sid) || grouped.values().next().value;
+      if (!rec) return null;
+
+      setWeeklyLogbook(rec);
+
+      if (weekNumberToFocus !== null) {
+        const liveWeek = (rec.weeks || []).find(
+          (week) => Number(week.weekNumber) === Number(weekNumberToFocus)
+        );
+        if (liveWeek) {
+          setSelectedWeek(liveWeek);
+          setDraftWeek(liveWeek);
+        }
+      }
+
+      return rec;
+    } catch (err) {
+      console.warn("Failed to refresh live weekly logbook:", err?.message || err);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    refreshDocuments();
-    window.addEventListener("storage", refreshDocuments);
-    return () => window.removeEventListener("storage", refreshDocuments);
-  }, [docStudentKey]);
+    const load = () => { refreshDocuments(); };
+    load();
+    window.addEventListener("storage", load);
+    return () => window.removeEventListener("storage", load);
+  }, [docStudentKey, activeApp?.id, activeApp?.internshipId]);
 
   useEffect(() => {
     const sid = activeApp?.studentId ?? studentId;
-    const loadAdvisorEval = () => {
+    const internshipId = activeApp?.id || activeApp?.internshipId;
+
+    const mapAdvisorEvalFromApi = (d) => {
+      if (!d) return null;
+      return {
+        id: `api-advisor-${d.id}`,
+        apiId: d.id,
+        status: ADVISOR_EVAL_STATUS.SUBMITTED,
+        submittedAt: d.submitted_at,
+        advisorName: d.advisor_name || "",
+        apiStatus: d.status,
+        formData: {
+          reportScores: [
+            d.report_format_score,
+            d.organization_background_score,
+            d.activities_score,
+            d.data_figure_table_score,
+            d.report_content_score,
+            d.recommendation_score,
+            d.conclusion_score,
+          ],
+          logbookScores: [
+            d.pictures_and_data_score,
+            d.weekly_summary_score,
+            d.daily_detail_score,
+            d.improvement_score,
+            d.initiative_score,
+          ],
+          performanceScores: [
+            d.understanding_objective_score,
+            d.engagement_score,
+            d.discipline_score,
+          ],
+          totalMarks: d.total_marks,
+          finalMark: Number(d.final_weighted_mark ?? 0),
+          supervisorName: d.advisor_name || "",
+        },
+      };
+    };
+
+    const loadAdvisorEval = async () => {
+      if (internshipId) {
+        try {
+          const res = await evaluationService.getAdvisorEvaluationForInternship(internshipId);
+          if (res.success && res.data) {
+            setAdvisorOwnEval(mapAdvisorEvalFromApi(res.data));
+            return;
+          }
+        } catch {
+          // fall back to local cache below
+        }
+      }
       setAdvisorOwnEval(getAdvisorEvaluation(sid));
     };
+
     loadAdvisorEval();
     const onUpdate = () => loadAdvisorEval();
     window.addEventListener("storage", onUpdate);
@@ -916,7 +1428,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
       window.removeEventListener("storage", onUpdate);
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
-  }, [studentId, activeApp?.studentId]);
+  }, [studentId, activeApp?.studentId, activeApp?.id, activeApp?.internshipId]);
 
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
@@ -941,9 +1453,84 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
   const overallApprovals = useMemo(() => getOverallApprovals(approvalStudentKey), [approvalStudentKey, overallEvalNonce]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const internshipId = activeApp?.id || activeApp?.internshipId;
+    if (!internshipId) {
+      setApiCompanyEvalSummaries(null);
+      return;
+    }
+
+    const toLabel = (status) => {
+      const s = String(status || "").toUpperCase();
+      if (s === "ADVISOR_APPROVED") return "Approved";
+      if (s === "SUBMITTED") return "Submitted to Advisor";
+      return "Pending";
+    };
+
+    const loadCompanyEvalSummaries = async () => {
+      try {
+        const [mRes, fRes] = await Promise.all([
+          evaluationService.getAdvisorMonthlyEvaluations({ internship_id: internshipId }),
+          evaluationService.getAdvisorFinalEvaluations({ internship_id: internshipId }),
+        ]);
+
+        const monthlyItems = mRes.success
+          ? (Array.isArray(mRes.data) ? mRes.data : (mRes.data?.results || []))
+          : [];
+        const finalItems = fRes.success
+          ? (Array.isArray(fRes.data) ? fRes.data : (fRes.data?.results || []))
+          : [];
+
+        const m1 = monthlyItems.find((item) => Number(item.month_number) === 1) || null;
+        const m2 = monthlyItems.find((item) => Number(item.month_number) === 2) || null;
+        const finalEval = finalItems[0] || null;
+
+        const summaries = [
+          {
+            key: "month-1",
+            title: "Company Month 1 Evaluation Form",
+            label: toLabel(m1?.status),
+            submittedAt: m1?.submitted_at || null,
+            approvedAt: m1?.advisor_approved_at || null,
+          },
+          {
+            key: "month-2",
+            title: "Company Month 2 Evaluation Form",
+            label: toLabel(m2?.status),
+            submittedAt: m2?.submitted_at || null,
+            approvedAt: m2?.advisor_approved_at || null,
+          },
+          {
+            key: "final",
+            title: "Company Final Evaluation Form",
+            label: toLabel(finalEval?.status),
+            submittedAt: finalEval?.submitted_at || null,
+            approvedAt: finalEval?.advisor_approved_at || null,
+          },
+        ];
+
+        if (!cancelled) setApiCompanyEvalSummaries(summaries);
+      } catch {
+        if (!cancelled) setApiCompanyEvalSummaries(null);
+      }
+    };
+
+    loadCompanyEvalSummaries();
+    const onRefresh = () => loadCompanyEvalSummaries();
+    window.addEventListener("storage", onRefresh);
+    window.addEventListener("overall-evaluation-updated", onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", onRefresh);
+      window.removeEventListener("overall-evaluation-updated", onRefresh);
+    };
+  }, [activeApp?.id, activeApp?.internshipId, companyEvalNonce]);
+
   const companyEvalSummaries = useMemo(
-    () => getStudentCompanyEvaluationSummaries(approvalStudentKey),
-    [approvalStudentKey, companyEvalNonce]
+    () => apiCompanyEvalSummaries || getStudentCompanyEvaluationSummaries(approvalStudentKey),
+    [apiCompanyEvalSummaries, approvalStudentKey, companyEvalNonce]
   );
 
   useEffect(() => {
@@ -1006,12 +1593,10 @@ const MyInternshipView = ({ studentId, studentName }) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setDocFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => setDocFile(ev.target.result);
-    reader.readAsDataURL(file);
+    setDocFile(file);
   };
 
-  const handleDocumentSubmit = (e) => {
+  const handleDocumentSubmit = async (e) => {
     e.preventDefault();
     if (!activeApp || !docFile) {
       alert("Please choose a file to upload.");
@@ -1019,25 +1604,29 @@ const MyInternshipView = ({ studentId, studentName }) => {
     }
     setDocSubmitting(true);
     try {
-      submitInternshipDocument({
-        studentId: activeApp.studentId,
-        studentName: activeApp.studentName || studentName,
+      const res = await internshipService.uploadMyDocument({
+        internshipId: activeApp?.id || activeApp?.internshipId,
         title: docTitle || docFileName || "Internship document",
         description: docDescription,
-        fileName: docFileName || "document",
-        fileData: docFile,
-        advisorName: activeApp.advisorName || "",
-        examinerName: activeApp.examinerName || "",
-        examiner2Name: activeApp.examiner2Name || "",
+        file: docFile,
       });
+      if (!res.success) {
+        throw new Error(
+          typeof res.error === "string"
+            ? res.error
+            : res.error?.detail || res.error?.error || "Failed to upload document"
+        );
+      }
       setDocTitle("");
       setDocDescription("");
       setDocFile(null);
       setDocFileName("");
       if (docFileInputRef.current) docFileInputRef.current.value = "";
-      refreshDocuments();
+      await refreshDocuments();
       setDocUploadSuccess(true);
       window.setTimeout(() => setDocUploadSuccess(false), 4000);
+    } catch (error) {
+      alert(error?.message || "Failed to upload document.");
     } finally {
       setDocSubmitting(false);
     }
@@ -1105,6 +1694,85 @@ const MyInternshipView = ({ studentId, studentName }) => {
     setLogbookSubmitSuccess(true);
     window.setTimeout(() => setLogbookSubmitSuccess(false), 4000);
     closeWeek();
+
+    // ── API sync ──────────────────────────────────────────────────────────
+    // Fire-and-forget: create logbook on backend if needed, then submit it.
+    (async () => {
+      try {
+        // activeApp.id is the InternshipApplication PK — pass it so the backend
+        // doesn't have to guess which application to use.
+        const internshipId = String(activeApp?.id || scope.internshipId || "");
+        let logbookId = getLogbookApiId(scope.studentId, internshipId, weekNum);
+
+        if (!logbookId) {
+          // Create (or get existing) logbook week on the backend
+          const createRes = await internshipService.createLogbook(weekNum, internshipId);
+          if (createRes.success && createRes.data?.id) {
+            logbookId = createRes.data.id;
+            setLogbookApiId(scope.studentId, internshipId, weekNum, logbookId);
+
+            // Add each daily entry
+            for (const day of mergedDays) {
+              if (String(day.workPerformed || "").trim()) {
+                try {
+                  const entryRes = await internshipService.addLogbookEntry(logbookId, {
+                    day_number: day.dayNumber,
+                    work_date: new Date().toISOString().split("T")[0],
+                    work_performed: day.workPerformed,
+                  });
+                  if (!entryRes.success) {
+                    const entryMessage = typeof entryRes.error === "string"
+                      ? entryRes.error
+                      : entryRes.error?.detail || entryRes.error?.error || "";
+                    if (/Cannot edit submitted logbook\./i.test(String(entryMessage))) {
+                      await refreshLiveWeeklyLogbook(weekNum);
+                      return;
+                    }
+                    console.warn("Logbook entry API failed:", entryRes.error);
+                  }
+                } catch (entryError) {
+                  const entryMessage = entryError?.response?.data?.detail || entryError?.response?.data?.error || entryError?.message || "";
+                  if (/Cannot edit submitted logbook\./i.test(String(entryMessage))) {
+                    await refreshLiveWeeklyLogbook(weekNum);
+                    return;
+                  }
+                  throw entryError;
+                }
+              }
+            }
+          } else {
+            console.warn("Failed to create logbook on backend:", createRes.error);
+            return;
+          }
+        }
+
+        if (logbookId) {
+          const studentComment = payload.studentComment || "";
+          try {
+            const submitRes = await internshipService.submitLogbook(logbookId, studentComment);
+            if (!submitRes.success) {
+              const submitMessage = typeof submitRes.error === "string"
+                ? submitRes.error
+                : submitRes.error?.detail || submitRes.error?.error || "";
+              if (/Cannot edit submitted logbook\./i.test(String(submitMessage))) {
+                await refreshLiveWeeklyLogbook(weekNum);
+                return;
+              }
+              console.warn("Logbook submit API failed:", submitRes.error);
+            }
+          } catch (submitError) {
+            const submitMessage = submitError?.response?.data?.detail || submitError?.response?.data?.error || submitError?.message || "";
+            if (/Cannot edit submitted logbook\./i.test(String(submitMessage))) {
+              await refreshLiveWeeklyLogbook(weekNum);
+              return;
+            }
+            throw submitError;
+          }
+        }
+      } catch (err) {
+        console.warn("Logbook API sync failed (local state is still saved):", err.message);
+      }
+    })();
   };
 
   const getStatusPill = (status) => {
@@ -1140,6 +1808,10 @@ const MyInternshipView = ({ studentId, studentName }) => {
         ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
         : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
+
+  if (loading) {
+    return <LoadingState title="Loading my internship" subtitle="Fetching your placement, logbook, and evaluation data." />;
+  }
 
   if (!activeApp) {
     return (
@@ -1185,7 +1857,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
                 <span className="whitespace-nowrap sm:hidden">{shortLabel}</span>
                 <span className="hidden whitespace-nowrap sm:inline">{label}</span>
-                {id === "advisor-eval" && advisorOwnEval?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                {id === "advisor-eval" && advisorOwnEval && (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" title="Available" />
                 )}
                 {id === "examiner-eval" && examinerEvalsVisible.length > 0 && (
@@ -1628,7 +2300,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                 Your academic advisor&apos;s assessment of your internship. It appears here once they submit it.
               </p>
             </div>
-            {!advisorOwnEval || advisorOwnEval.status !== ADVISOR_EVAL_STATUS.SUBMITTED ? (
+            {!advisorOwnEval ? (
               <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
                 Your advisor has not submitted their evaluation yet. You will be notified when it is ready.
               </div>
@@ -1717,6 +2389,8 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
   });
   const [status, setStatus] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestId, setRequestId] = useState(null);
+  const [reviewNotes, setReviewNotes] = useState("");
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -1725,17 +2399,52 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFormData({
-          ...formData,
-          companyLicense: event.target.result,
-          licenseFileName: file.name,
-        });
-      };
-      reader.readAsDataURL(file);
+      setFormData({
+        ...formData,
+        companyLicense: file,
+        licenseFileName: file.name,
+      });
     }
   };
+
+  useEffect(() => {
+    const loadRequest = async () => {
+      try {
+        const result = await internshipService.getSelfPlacementRequest();
+        if (!result.success) {
+          throw new Error(result.error?.detail || result.error || "Failed to load self-placement request");
+        }
+
+        const requestData = result.data?.request;
+        if (requestData) {
+          setRequestId(requestData.id || null);
+          setStatus(requestData.status || "PENDING");
+          setReviewNotes(requestData.review_notes || "");
+          setFormData((current) => ({
+            ...current,
+            companyName: requestData.company_name || current.companyName,
+            representativeName: requestData.representative_name || current.representativeName,
+            representativeEmail: requestData.representative_email || current.representativeEmail,
+            representativePhone: requestData.representative_phone || current.representativePhone,
+            location: requestData.location || current.location,
+            licenseFileName: requestData.company_license ? requestData.company_license.split("/").pop() : current.licenseFileName,
+          }));
+        } else {
+          setRequestId(null);
+          setStatus(null);
+          setReviewNotes("");
+        }
+      } catch (error) {
+        const selfPlacements = JSON.parse(localStorage.getItem("selfPlacements")) || [];
+        const studentPlacement = selfPlacements.find((sp) => sp.studentId === studentId);
+        if (studentPlacement) {
+          setStatus(studentPlacement.status);
+        }
+      }
+    };
+
+    loadRequest();
+  }, [studentId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1746,19 +2455,25 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
 
     setIsSubmitting(true);
     try {
-      const selfPlacementData = {
-        id: Date.now(),
-        studentId,
-        ...formData,
-        status: "Pending Verification",
-        submittedAt: new Date().toISOString(),
-      };
+      const payload = new FormData();
+      payload.append("company_name", formData.companyName);
+      payload.append("representative_name", formData.representativeName || "");
+      payload.append("representative_email", formData.representativeEmail);
+      payload.append("representative_phone", formData.representativePhone || "");
+      payload.append("location", formData.location || "");
+      payload.append("company_license", formData.companyLicense);
+      payload.append("additional_notes", formData.additionalNotes || "");
 
-      const existing = JSON.parse(localStorage.getItem("selfPlacements")) || [];
-      existing.push(selfPlacementData);
-      localStorage.setItem("selfPlacements", JSON.stringify(existing));
+      const result = await internshipService.submitSelfPlacementRequest(payload);
+      if (!result.success) {
+        const errorMessage = result.error?.detail || result.error || "Error submitting request. Please try again.";
+        throw new Error(errorMessage);
+      }
 
-      setStatus("Pending Verification");
+      const requestData = result.data?.request;
+      setRequestId(requestData?.id || requestId);
+      setStatus(requestData?.status || "PENDING");
+      setReviewNotes(requestData?.review_notes || "");
       setFormData({
         companyName: "",
         representativeName: "",
@@ -1771,28 +2486,22 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
       });
       setIsFormOpen(false);
 
-      if (onSubmit) onSubmit(selfPlacementData);
+      if (onSubmit) {
+        onSubmit(requestData || { id: requestId, status: requestData?.status || "PENDING" });
+      }
     } catch (error) {
       console.error("Error submitting self-placement:", error);
-      alert("Error submitting request. Please try again.");
+      alert(error.message || "Error submitting request. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    const selfPlacements = JSON.parse(localStorage.getItem("selfPlacements")) || [];
-    const studentPlacement = selfPlacements.find((sp) => sp.studentId === studentId);
-    if (studentPlacement) {
-      setStatus(studentPlacement.status);
-    }
-  }, [studentId]);
-
   const getStatusColor = (status) => {
     const statusMap = {
-      "Pending Verification": "bg-yellow-100 text-yellow-800 border-yellow-300",
-      Approved: "bg-green-100 text-green-800 border-green-300",
-      Rejected: "bg-red-100 text-red-800 border-red-300",
+      PENDING: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      APPROVED: "bg-green-100 text-green-800 border-green-300",
+      REJECTED: "bg-red-100 text-red-800 border-red-300",
     };
     return statusMap[status] || "bg-gray-100 text-gray-800 border-gray-300";
   };
@@ -1810,7 +2519,7 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
               status
             )}`}
           >
-            {status}
+            {status === "PENDING" ? "Pending Approval" : status === "APPROVED" ? "Approved" : status === "REJECTED" ? "Rejected" : status}
           </div>
         )}
       </div>
@@ -1986,56 +2695,37 @@ const SelfPlacementSection = ({ studentId, onSubmit }) => {
           )}
         </>
       ) : (
-        <div className="text-center py-4">
-          <p className="text-gray-600">
-            Your self-placement request status: <span className="font-semibold">{status}</span>
+        <div className="space-y-3 py-4">
+          <p className="text-center text-gray-600">
+            Your self-placement request status: <span className="font-semibold">{status === "PENDING" ? "Pending Approval" : status === "APPROVED" ? "Approved" : status === "REJECTED" ? "Rejected" : status}</span>
           </p>
+          {reviewNotes && (
+            <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+              <span className="font-semibold">Review notes:</span> {reviewNotes}
+            </p>
+          )}
+          {status === "REJECTED" && (
+            <button
+              type="button"
+              onClick={() => {
+                setStatus(null);
+                setRequestId(null);
+                setReviewNotes("");
+                setIsFormOpen(true);
+              }}
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Submit a new request
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// Notifications panel (inlined)
-const NotificationsPanel = ({ studentId, studentName }) => {
-  const [notifications, setNotifications] = useState([]);
-
-  useEffect(() => {
-    const allNotifications = JSON.parse(localStorage.getItem("notifications")) || [];
-    const studentNotifications = allNotifications
-      .filter((n) => n.studentId === studentId || n.studentName === studentName)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 10);
-
-    const applications = JSON.parse(localStorage.getItem("applications")) || [];
-    const studentApps = applications.filter(
-      (app) => app.studentId === studentId || app.studentName === studentName
-    );
-
-    const appNotifications = studentApps
-      .filter((app) => app.status && app.status !== "applied")
-      .map((app) => ({
-        id: `app-${app.id}`,
-        type: app.status === "accepted" ? "success" : app.status === "rejected" ? "error" : "info",
-        title:
-          app.status === "accepted"
-            ? `${app.companyName} accepted your application`
-            : app.status === "rejected"
-            ? `${app.companyName} rejected your application`
-            : `Update on your application to ${app.companyName}`,
-        message: app.statusMessage || "",
-        date: app.updatedAt || app.appliedAt,
-        studentId,
-        studentName,
-      }));
-
-  const merged = [...studentNotifications, ...appNotifications];
-  const unique = merged.filter(
-    (n, index, self) => index === self.findIndex((t) => t.id === n.id)
-  );
-  setNotifications(unique.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10));
-  }, [studentId, studentName]);
-
+// Notifications drawer
+const NotificationsDrawer = ({ isOpen, onClose, notifications }) => {
   const getNotificationIcon = (type) => {
     const iconMap = {
       success: CheckCircle,
@@ -2048,12 +2738,12 @@ const NotificationsPanel = ({ studentId, studentName }) => {
 
   const getNotificationColor = (type) => {
     const colorMap = {
-      success: "text-green-600 bg-green-50",
-      error: "text-red-600 bg-red-50",
-      warning: "text-yellow-600 bg-yellow-50",
-      info: "text-indigo-600 bg-indigo-50",
+      success: "text-green-700 bg-green-50 border-green-200",
+      error: "text-red-700 bg-red-50 border-red-200",
+      warning: "text-amber-700 bg-amber-50 border-amber-200",
+      info: "text-indigo-700 bg-indigo-50 border-indigo-200",
     };
-    return colorMap[type] || "text-gray-600 bg-gray-50";
+    return colorMap[type] || "text-slate-700 bg-slate-50 border-slate-200";
   };
 
   const formatDate = (dateString) => {
@@ -2072,56 +2762,75 @@ const NotificationsPanel = ({ studentId, studentName }) => {
     return date.toLocaleDateString();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="app-card p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Bell className="w-5 h-5 text-gray-700" />
-        <h3 className="text-lg font-bold text-gray-900">Recent Notifications</h3>
-      </div>
-
-      {notifications.length === 0 ? (
-        <div className="text-center py-8">
-          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No notifications yet</p>
-          <p className="text-sm text-gray-400 mt-1">
-            You'll see updates about your applications here
-          </p>
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[180] bg-slate-950/30 backdrop-blur-[2px]"
+        aria-label="Close notifications"
+        onClick={onClose}
+      />
+      <aside className="fixed right-0 top-0 z-[190] flex h-full w-full max-w-[24rem] flex-col border-l border-slate-200 bg-white shadow-2xl shadow-slate-300/40">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Updates</p>
+            <h3 className="text-lg font-bold text-slate-900">Notifications</h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Close notifications panel"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {notifications.map((notification) => {
-            const Icon = getNotificationIcon(notification.type);
-            const colorClass = getNotificationColor(notification.type);
 
-            return (
-              <div
-                key={notification.id}
-                className={`p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow ${colorClass}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-full ${colorClass}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">
-                      {notification.title}
-                    </h4>
-                    {notification.message && (
-                      <p className="text-sm text-gray-600 mb-2">
-                        {notification.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {formatDate(notification.date)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto p-4">
+          {notifications.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 px-6 py-16 text-center">
+              <Bell className="mb-3 h-12 w-12 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-700">No notifications yet</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Application updates and approvals will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {notifications.map((notification) => {
+                const Icon = getNotificationIcon(notification.type);
+                const colorClass = getNotificationColor(notification.type);
+
+                return (
+                  <article
+                    key={notification.id}
+                    className={`rounded-2xl border p-4 shadow-sm transition-all duration-200 ${colorClass} ${notification.read ? "opacity-80" : "ring-1 ring-indigo-200"}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-xl border border-white/70 bg-white/80 p-2">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <h4 className="text-sm font-semibold text-slate-900">{notification.title}</h4>
+                          {!notification.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-500" aria-hidden />}
+                        </div>
+                        {notification.message && (
+                          <p className="mt-1 text-sm leading-relaxed text-slate-600">{notification.message}</p>
+                        )}
+                        <p className="mt-2 text-xs font-medium text-slate-500">{formatDate(notification.date)}</p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </aside>
+    </>
   );
 };
 
@@ -2131,8 +2840,11 @@ const StudentDashboard = () => {
   const { studentName, userName } = location.state || {};
   
   const [studentData, setStudentData] = useState(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [internshipStatus, setInternshipStatus] = useState("Not Applied");
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [applications, setApplications] = useState([]);
   const [advisor, setAdvisor] = useState(null);
   const [examiner, setExaminer] = useState(null);
@@ -2151,15 +2863,25 @@ const StudentDashboard = () => {
   };
 
   useEffect(() => {
+    setIsBootstrapping(true);
     // Get student data from localStorage or context
     const storedStudent = JSON.parse(localStorage.getItem("student")) || {};
+    const storedStudentId =
+      localStorage.getItem("student_id") ||
+      storedStudent?.student_id ||
+      storedStudent?.studentId ||
+      user?.student?.student_id ||
+      user?.student?.studentId ||
+      user?.student_id ||
+      user?.studentId ||
+      "";
     const name =
       resolveDisplayName(user) ||
       studentName ||
       userName ||
       resolveDisplayName(storedStudent) ||
       "Student";
-    const studentId = user?.id || user?.studentId || user?.student_id || storedStudent.id || storedStudent.studentId || storedStudent.student_id || "";
+    const studentId = storedStudentId;
     const department = user?.department || storedStudent.department || "";
     const college = user?.college || storedStudent.college || "Addis Ababa Science and Technology University";
     const email = user?.email || storedStudent.email || "";
@@ -2174,14 +2896,19 @@ const StudentDashboard = () => {
       email,
     });
 
-    // Load assignment information (advisor and examiner)
-    loadAssignment(studentId, name, email, department);
+    const bootstrap = async () => {
+      // Load assignment information (advisor and examiner)
+      await loadAssignment(studentId, name, email, department);
 
-    // Load applications to determine status
-    loadApplications(studentId, name);
-    
-    // Load notification count
-    loadNotificationCount(studentId, name);
+      // Load applications to determine status
+      await loadApplications(studentId, name);
+
+      // Load notification count only after the base data is ready
+      loadNotificationCount(studentId, name);
+      setIsBootstrapping(false);
+    };
+
+    bootstrap();
   }, [user, studentName, userName]);
 
   // Listen for storage changes to refresh assignments
@@ -2210,7 +2937,7 @@ const StudentDashboard = () => {
     };
   }, [studentData]);
 
-  const loadAssignment = (studentId, studentName, studentEmail, department) => {
+  const loadAssignment = async (studentId, studentName, studentEmail, department) => {
     try {
       const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
       const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
@@ -2219,10 +2946,25 @@ const StudentDashboard = () => {
       console.log("📋 Available assignments:", assignments);
       
       if (assignments.length === 0) {
-        console.log("❌ No assignments found in localStorage");
-        setAdvisor(null);
-        setExaminer(null);
-        setExaminer2(null);
+        console.log("❌ No assignments found in localStorage — falling back to API");
+        // Try API: get assigned advisors/examiners for this department
+        try {
+          const advisorsRes = await userService.getAssignedAdvisors({ department });
+          if (advisorsRes && advisorsRes.success && advisorsRes.data && advisorsRes.data.length > 0) {
+            // pick the first advisor for display
+            const adv = advisorsRes.data[0];
+            setAdvisor(adv.name || adv.user_name || adv.username || adv.email || null);
+          }
+          const examinersRes = await userService.getAssignedExaminers({ department });
+          if (examinersRes && examinersRes.success && examinersRes.data && examinersRes.data.length > 0) {
+            const ex = examinersRes.data[0];
+            setExaminer(ex.name || ex.user_name || ex.username || ex.email || null);
+            if (examinersRes.data.length > 1) setExaminer2(examinersRes.data[1].name || null);
+          }
+        } catch (apiErr) {
+          console.error("API fallback for assignments failed", apiErr);
+        }
+
         return;
       }
       
@@ -2265,27 +3007,21 @@ const StudentDashboard = () => {
         let examiner2Name = assignment.examiner2;
         
         if (assignment.advisor) {
-          const advisorUser = otherUsers.find(u => u.username === assignment.advisor && u.role === "Advisor");
+          const advisorUser = otherUsers.find(u => u.username === assignment.advisor && String(u.role || "").toLowerCase() === "advisor");
           if (advisorUser) {
             advisorName = advisorUser.fullName || advisorUser.name || advisorUser.username;
-            console.log("👤 Advisor found:", advisorName);
-          } else {
-            console.log("⚠️ Advisor username not found in otherUsers:", assignment.advisor);
           }
         }
         
         if (assignment.examiner) {
-          const examinerUser = otherUsers.find(u => u.username === assignment.examiner && u.role === "Examiner");
+          const examinerUser = otherUsers.find(u => u.username === assignment.examiner && String(u.role || "").toLowerCase() === "examiner");
           if (examinerUser) {
             examinerName = examinerUser.fullName || examinerUser.name || examinerUser.username;
-            console.log("👤 Examiner found:", examinerName);
-          } else {
-            console.log("⚠️ Examiner username not found in otherUsers:", assignment.examiner);
           }
         }
 
         if (assignment.examiner2) {
-          const examiner2User = otherUsers.find(u => u.username === assignment.examiner2 && u.role === "Examiner");
+          const examiner2User = otherUsers.find(u => u.username === assignment.examiner2 && String(u.role || "").toLowerCase() === "examiner");
           if (examiner2User) {
             examiner2Name = examiner2User.fullName || examiner2User.name || examiner2User.username;
           }
@@ -2321,7 +3057,7 @@ const StudentDashboard = () => {
   };
 
   const loadApplications = (studentId, studentName) => {
-    try {
+    const loadFromLocalStorage = () => {
       const apps = JSON.parse(localStorage.getItem("applications")) || [];
       const studentApps = apps.filter(
         (app) => app.studentId === studentId || app.studentName === studentName
@@ -2352,22 +3088,66 @@ const StudentDashboard = () => {
           setInternshipStatus("Not Applied");
         }
       }
-    } catch (error) {
-      console.error("Error loading applications:", error);
-    }
+    };
+
+    const loadFromApi = async () => {
+      try {
+        const result = await internshipService.getMyApplications();
+        if (!result.success) {
+          throw new Error(result.error?.detail || result.error || "Failed to load applications");
+        }
+
+        const studentApps = sortApplicationsByDate(
+          getMyApplicationsPayload(result.data).map((application) =>
+            normalizeMyApplication(application, studentId, studentName)
+          )
+        );
+      setApplications(studentApps);
+
+        setInternshipStatus(getDashboardApplicationStatus(studentApps));
+      } catch (error) {
+        console.error("Error loading applications from API:", error);
+        loadFromLocalStorage();
+      }
+    };
+
+    return loadFromApi();
   };
 
   const loadNotificationCount = (studentId, studentName) => {
     try {
-      const allNotifications = JSON.parse(localStorage.getItem("notifications")) || [];
-      const unreadCount = allNotifications.filter(
-        (n) => (n.studentId === studentId || n.studentName === studentName) && !n.read
-      ).length;
+      const allNotifications = buildStudentNotifications(studentId, studentName);
+      const unreadCount = allNotifications.filter((n) => !n.read).length;
       setNotificationCount(unreadCount);
+      setNotifications(allNotifications);
     } catch (error) {
       console.error("Error loading notifications:", error);
     }
   };
+
+  const openNotifications = useCallback(() => {
+    if (!studentData) return;
+    markStudentNotificationsRead(studentData.studentId, studentData.name);
+    const fresh = buildStudentNotifications(studentData.studentId, studentData.name).map((notification) => ({
+      ...notification,
+      read: true,
+    }));
+    setNotifications(fresh);
+    setNotificationCount(0);
+    setNotificationPanelOpen(true);
+  }, [studentData]);
+
+  useEffect(() => {
+    if (!studentData) return;
+    loadNotificationCount(studentData.studentId, studentData.name);
+    const sync = () => loadNotificationCount(studentData.studentId, studentData.name);
+    window.addEventListener("storage", sync);
+    window.addEventListener("localStorageChange", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("localStorageChange", sync);
+    };
+  }, [studentData]);
 
   const handleApplicationSubmit = (newApplication) => {
     // Reload applications and update status
@@ -2375,15 +3155,8 @@ const StudentDashboard = () => {
     loadNotificationCount(studentData?.studentId, studentData?.name);
   };
 
-  if (!studentData) {
-    return (
-      <div className="app-shell flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
-          <p className="text-slate-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+  if (isBootstrapping || !studentData) {
+    return <LoadingState title="Loading student dashboard" subtitle="Fetching your profile, applications, and notifications." />;
   }
 
   return (
@@ -2391,6 +3164,7 @@ const StudentDashboard = () => {
       <TopNavigation
         studentName={studentData.name}
         notificationCount={notificationCount}
+        onNotificationClick={openNotifications}
       />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -2445,11 +3219,6 @@ const StudentDashboard = () => {
 
               {/* Right Column */}
               <div className="space-y-6">
-                <NotificationsPanel
-                  studentId={studentData.studentId}
-                  studentName={studentData.name}
-                />
-
                 <div className="app-card p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
                   <div className="space-y-3">
@@ -2476,6 +3245,12 @@ const StudentDashboard = () => {
           </div>
         </div>
       </div>
+
+      <NotificationsDrawer
+        isOpen={notificationPanelOpen}
+        onClose={() => setNotificationPanelOpen(false)}
+        notifications={notifications}
+      />
     </div>
   );
 };

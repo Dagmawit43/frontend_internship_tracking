@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Upload, FileText } from "lucide-react";
+import userService from "../services/userService";
 
 const UploadStudentList = () => {
   const [file, setFile] = useState(null);
@@ -29,32 +30,43 @@ const UploadStudentList = () => {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        
+
         // Validate that it's an array
         if (!Array.isArray(data)) {
           setError("JSON file must contain an array of students");
           return;
         }
 
-        // Validate student structure (at minimum should have studentId or email)
-        const validStudents = data.filter((student) => 
-          student.studentId || student.email || student.fullName
-        );
+        const validStudents = data.map((student) => ({
+          studentId: String(student.studentId || student.student_id || student.id || "").trim(),
+          fullName: String(student.fullName || student.full_name || student.name || "").trim(),
+          email: String(student.email || "").trim(),
+          department: String(student.department || "").trim(),
+        }));
 
-        if (validStudents.length === 0) {
-          setError("No valid students found in the file");
+        if (!validStudents.every((student) => student.studentId && student.fullName && student.department)) {
+          setError("JSON file must include studentId, fullName, and department for each student");
           return;
         }
 
-        // Store eligible students
-        const existingStudents = JSON.parse(localStorage.getItem("eligibleStudents")) || [];
-        const updatedStudents = [...existingStudents, ...validStudents];
-        localStorage.setItem("eligibleStudents", JSON.stringify(updatedStudents));
+        userService.uploadEligibleStudents(validStudents).then((res) => {
+          if (!res.success) {
+            const apiError = res.error || {};
+            const message = typeof apiError === "string"
+              ? apiError
+              : apiError.error || apiError.detail || apiError.message || "Failed to upload eligible students.";
+            setError(message);
+            return;
+          }
 
-        setSuccess(`Successfully uploaded ${validStudents.length} student(s)!`);
-        setFile(null);
-        setTimeout(() => setSuccess(""), 3000);
-      } catch (err) {
+          localStorage.setItem("eligibleStudents", JSON.stringify(validStudents));
+          setSuccess(`Successfully uploaded ${res.data?.count || validStudents.length} student(s)!`);
+          setFile(null);
+          setTimeout(() => setSuccess(""), 3000);
+        }).catch((err) => {
+          setError(err?.message || "Failed to upload eligible students.");
+        });
+      } catch {
         setError("Invalid JSON file. Please check the format.");
       }
     };

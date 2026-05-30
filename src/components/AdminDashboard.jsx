@@ -54,7 +54,7 @@ const AdminDashboard = () => {
     setUsers([...studentUsers, ...otherUsersNorm, ...verifiedCompaniesAsUsers]);
 
     // keep a staff-only list for coordinator promotion
-    const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
+    const staffMembers = storedOtherUsers.filter((u) => String(u.role || "").toLowerCase() === "staff");
     setStaffList(staffMembers);
   }, []);
 
@@ -63,7 +63,7 @@ const AdminDashboard = () => {
     if (activeTab === "coordinator") {
       const storedOtherUsers =
         JSON.parse(localStorage.getItem("otherUsers")) || [];
-      const staffMembers = storedOtherUsers.filter((u) => u.role === "Staff");
+      const staffMembers = storedOtherUsers.filter((u) => String(u.role || "").toLowerCase() === "staff");
       setStaffList(staffMembers);
     }
   }, [activeTab]);
@@ -106,7 +106,7 @@ const AdminDashboard = () => {
       // Remove from users list if it was there
       setUsers((prev) =>
         prev.filter(
-          (u) => !(u.email === rejected.contactEmail && u.role === "Company"),
+          (u) => !(u.email === rejected.contactEmail && String(u.role || "").toLowerCase() === "company"),
         ),
       );
       setSuccess(`Company ${rejected.companyName} rejected.`);

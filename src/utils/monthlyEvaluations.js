@@ -28,7 +28,7 @@ export const getAllEvaluations = () => {
 
 const saveAll = (list) => {
   localStorage.setItem(KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new CustomEvent("monthly-evaluation-updated"));
 };
 
 /** Return the evaluation record for a specific student + month, or null */
