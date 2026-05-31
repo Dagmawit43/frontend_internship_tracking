@@ -403,7 +403,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
         </div>
 
         {/* Assignment Information Row */}
-        {(advisor || examiner || examiner2) && (
+        {/* {(advisor || examiner || examiner2) && (
           <div className="border-t border-indigo-500/30 pt-4">
             <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -430,7 +430,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
               )}
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
