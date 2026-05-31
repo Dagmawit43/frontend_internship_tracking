@@ -91,9 +91,38 @@ const readCoordinatorProfile = () => {
 
 export const getCoordinatorDepartment = () => {
   const coord = readCoordinatorProfile();
-  const d = coord?.department;
+  const d =
+    coord?.department ||
+    coord?.department_name ||
+    coord?.departmentName ||
+    coord?.user?.department ||
+    coord?.user?.department_name ||
+    coord?.user?.departmentName;
   if (d != null && String(d).trim() !== "") return String(d).trim();
   return "";
+};
+
+const normalizeDepartmentText = (value) => String(value || "").trim().toLowerCase();
+
+const getEntityDepartment = (entity) => {
+  if (!entity || typeof entity !== "object") return "";
+  return (
+    entity.department_name ||
+    entity.departmentName ||
+    entity.department ||
+    entity.department_code ||
+    entity.departmentCode ||
+    entity?.user?.department_name ||
+    entity?.user?.departmentName ||
+    entity?.user?.department ||
+    ""
+  );
+};
+
+const matchesDepartment = (entity, department) => {
+  const target = normalizeDepartmentText(department);
+  if (!target) return true;
+  return normalizeDepartmentText(getEntityDepartment(entity)) === target;
 };
 
 // Notifications drawer state for coordinator
@@ -155,10 +184,10 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
 
     const useDeptFilter = liveDept.length > 0;
     const deptEligible = useDeptFilter
-      ? allEligible.filter((s) => normalize(s.department) === normalize(liveDept))
+      ? allEligible.filter((s) => matchesDepartment(s, liveDept))
       : allEligible;
     const deptRegistered = useDeptFilter
-      ? allRegistered.filter((s) => normalize(s.department) === normalize(liveDept))
+      ? allRegistered.filter((s) => matchesDepartment(s, liveDept))
       : allRegistered;
 
     const registeredKeys = new Set();
@@ -729,7 +758,13 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
         const dept = String(coordinatorDept || "").trim().toLowerCase();
         if (!dept) return true;
 
-        const rawStudentDept = String(app.__raw?.form_snapshot?.student?.department || app.__raw?.department || "").trim().toLowerCase();
+        const rawStudentDept = String(
+          app.__raw?.form_snapshot?.student?.department_name ||
+            app.__raw?.form_snapshot?.student?.department ||
+            app.__raw?.department_name ||
+            app.__raw?.department ||
+            ""
+        ).trim().toLowerCase();
         const student = students.find((s) => {
           const sid = String(s.studentId || s.id || "").trim();
           const nameMatch = String(s.name || s.fullName || s.full_name || "").trim() === String(app.studentName || "").trim();
@@ -737,19 +772,26 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
           return nameMatch || idMatch;
         });
 
-        const studentDept = String(student?.department || app.__raw?.form_snapshot?.student?.department || app.__raw?.department || "").trim().toLowerCase();
+        const studentDept = String(
+          student?.department_name ||
+            student?.department ||
+            app.__raw?.form_snapshot?.student?.department_name ||
+            app.__raw?.form_snapshot?.student?.department ||
+            app.__raw?.department_name ||
+            app.__raw?.department ||
+            ""
+        ).trim().toLowerCase();
         return rawStudentDept === dept || studentDept === dept;
       });
       
       setActiveInterns(filtered);
 
-      const normalize = (value) => String(value || "").trim().toLowerCase();
-      const dept = normalize(coordinatorDept);
+      const dept = String(coordinatorDept || "").trim();
       const advisors = JSON.parse(localStorage.getItem("assignedAdvisors") || "[]").filter(
-        (a) => normalize(a.department) === dept
+        (a) => matchesDepartment(a, dept)
       );
       const examiners = JSON.parse(localStorage.getItem("assignedExaminers") || "[]").filter(
-        (e) => normalize(e.department) === dept
+        (e) => matchesDepartment(e, dept)
       );
       
       setAdvisorsPool(advisors);
@@ -2251,10 +2293,10 @@ function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorC
   }
 
   const deptStudents = useDeptFilter
-    ? students.filter((s) => normalize(s.department) === deptNorm)
+    ? students.filter((s) => matchesDepartment(s, liveDept))
     : students;
   const deptEligible = useDeptFilter
-    ? eligible.filter((s) => normalize(s.department) === deptNorm)
+    ? eligible.filter((s) => matchesDepartment(s, liveDept))
     : eligible;
 
   const registeredKeys = new Set();
@@ -2280,7 +2322,15 @@ function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorC
     const student = students.find(
       (s) => String(s.studentId || s.id || "") === String(app.studentId || app.student_id || "") || String(s.name || s.fullName || s.full_name || "") === String(app.studentName || "")
     );
-    const resolvedDept = normalize(student?.department || raw?.form_snapshot?.student?.department || raw?.department || "");
+    const resolvedDept = normalize(
+      student?.department_name ||
+        student?.department ||
+        raw?.form_snapshot?.student?.department_name ||
+        raw?.form_snapshot?.student?.department ||
+        raw?.department_name ||
+        raw?.department ||
+        ""
+    );
     if (useDeptFilter && resolvedDept !== deptNorm) return;
     if (app.coordinatorApprovalStatus === "PENDING" || raw.dept_status === "PENDING") pendingApprovals += 1;
     if (isActive) activeInterns += 1;
@@ -2313,7 +2363,15 @@ function getCoordinatorActiveInterns(coordinatorDept) {
     const student = students.find(
       (s) => String(s.studentId || s.id || "") === String(app.studentId || app.student_id || "") || String(s.name || s.fullName || s.full_name || "") === String(app.studentName || "")
     );
-    const resolvedDept = String(student?.department || raw?.form_snapshot?.student?.department || raw?.department || "").trim().toLowerCase();
+    const resolvedDept = String(
+      student?.department_name ||
+        student?.department ||
+        raw?.form_snapshot?.student?.department_name ||
+        raw?.form_snapshot?.student?.department ||
+        raw?.department_name ||
+        raw?.department ||
+        ""
+    ).trim().toLowerCase();
     return resolvedDept === deptNorm;
   });
 }
@@ -2334,6 +2392,19 @@ const CoordinatorDashboard = () => {
   const [overallNonce, setOverallNonce] = useState(0);
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  const departmentFilteredStaff = useMemo(
+    () => mockStaff.filter((item) => matchesDepartment(item, coordinatorDept)),
+    [mockStaff, coordinatorDept]
+  );
+  const departmentFilteredAdvisors = useMemo(
+    () => assignedAdvisors.filter((item) => matchesDepartment(item, coordinatorDept)),
+    [assignedAdvisors, coordinatorDept]
+  );
+  const departmentFilteredExaminers = useMemo(
+    () => assignedExaminers.filter((item) => matchesDepartment(item, coordinatorDept)),
+    [assignedExaminers, coordinatorDept]
+  );
 
   useEffect(() => {
     setCoordinatorDept(getCoordinatorDepartment());
@@ -2387,15 +2458,15 @@ const CoordinatorDashboard = () => {
     () =>
       computeCoordinatorHomeMetrics(
         coordinatorDept,
-        mockStaff.length,
-        assignedAdvisors.length,
-        assignedExaminers.length
+        departmentFilteredStaff.length,
+        departmentFilteredAdvisors.length,
+        departmentFilteredExaminers.length
       ),
     [
       coordinatorDept,
-      mockStaff.length,
-      assignedAdvisors.length,
-      assignedExaminers.length,
+      departmentFilteredStaff.length,
+      departmentFilteredAdvisors.length,
+      departmentFilteredExaminers.length,
       view,
       homeMetricsNonce,
     ]
@@ -2428,7 +2499,7 @@ const CoordinatorDashboard = () => {
       if (!res.success) throw new Error(res.error || "Assign failed");
 
       setMockStaff((prev) => prev.filter((s) => s.id !== staff.id && s.email !== staff.email));
-      setAssignedAdvisors((prev) => [...prev.filter((a) => a.id !== staff.id && a.email !== staff.email), { ...staff, role: "ADVISOR", is_assigned: true }]);
+      setAssignedAdvisors((prev) => [...prev.filter((a) => a.id !== staff.id && a.email !== staff.email), { ...staff, department: staff.department || coordinatorDept || "", role: "ADVISOR", is_assigned: true }]);
       setAssignedExaminers((prev) => prev.filter((a) => a.id !== staff.id && a.email !== staff.email));
       showToast(`Assigned ${staff.email} as advisor.`);
     } catch (err) {
@@ -2443,7 +2514,7 @@ const CoordinatorDashboard = () => {
       if (!res.success) throw new Error(res.error || "Assign failed");
 
       setMockStaff((prev) => prev.filter((s) => s.id !== staff.id && s.email !== staff.email));
-      setAssignedExaminers((prev) => [...prev.filter((a) => a.id !== staff.id && a.email !== staff.email), { ...staff, role: "EXAMINER", is_assigned: true }]);
+      setAssignedExaminers((prev) => [...prev.filter((a) => a.id !== staff.id && a.email !== staff.email), { ...staff, department: staff.department || coordinatorDept || "", role: "EXAMINER", is_assigned: true }]);
       setAssignedAdvisors((prev) => prev.filter((a) => a.id !== staff.id && a.email !== staff.email));
       showToast(`Assigned ${staff.email} as examiner.`);
     } catch (err) {
@@ -2528,8 +2599,8 @@ const CoordinatorDashboard = () => {
         ]);
 
         const assigned = assignedRes && assignedRes.success ? (assignedRes.data || []) : [];
-        const advisors = assigned.filter((item) => String(item.role || "").toUpperCase() === "ADVISOR");
-        const examiners = assigned.filter((item) => String(item.role || "").toUpperCase() === "EXAMINER");
+        const advisors = assigned.filter((item) => String(item.role || "").toUpperCase() === "ADVISOR" && matchesDepartment(item, dept));
+        const examiners = assigned.filter((item) => String(item.role || "").toUpperCase() === "EXAMINER" && matchesDepartment(item, dept));
 
         setAssignedAdvisors(advisors);
         setAssignedExaminers(examiners);
@@ -2537,7 +2608,7 @@ const CoordinatorDashboard = () => {
         try { localStorage.setItem("assignedExaminers", JSON.stringify(examiners)); } catch {}
 
         if (unassignedRes && unassignedRes.success) {
-          setMockStaff(unassignedRes.data || []);
+          setMockStaff((unassignedRes.data || []).filter((item) => matchesDepartment(item, dept)));
         } else {
           // Fallback: generate lightweight mock pool and subtract assigned
           const key = (dept || "department").toString().replace(/\s+/g, "").toLowerCase();
@@ -2902,11 +2973,11 @@ const CoordinatorDashboard = () => {
               </div>
               {staffDataLoading ? (
                 <LoadingState title="Loading staff list" subtitle="Fetching unassigned staff for your department." />
-              ) : mockStaff.length === 0
+              ) : departmentFilteredStaff.length === 0
                 ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {mockStaff.map((s) => (
+                    {departmentFilteredStaff.map((s) => (
                       <li key={s.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
                         <div className="min-w-0">
                           <div className="font-medium text-slate-900">{s.name}</div>
@@ -2936,11 +3007,11 @@ const CoordinatorDashboard = () => {
               </div>
               {staffDataLoading ? (
                 <LoadingState title="Loading advisors" subtitle="Fetching assigned advisors for your department." />
-              ) : assignedAdvisors.length === 0
+              ) : departmentFilteredAdvisors.length === 0
                 ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {assignedAdvisors.map((s) => (
+                    {departmentFilteredAdvisors.map((s) => (
                       <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
                         <div className="min-w-0">
                           <div className="font-medium text-slate-900">{s.name}</div>
@@ -2968,11 +3039,11 @@ const CoordinatorDashboard = () => {
               </div>
               {staffDataLoading ? (
                 <LoadingState title="Loading examiners" subtitle="Fetching assigned examiners for your department." />
-              ) : assignedExaminers.length === 0
+              ) : departmentFilteredExaminers.length === 0
                 ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
                 : (
                   <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {assignedExaminers.map((s) => (
+                    {departmentFilteredExaminers.map((s) => (
                       <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
                         <div className="min-w-0">
                           <div className="font-medium text-slate-900">{s.name}</div>

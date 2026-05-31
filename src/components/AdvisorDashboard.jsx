@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import NotificationsDrawer from "./NotificationsDrawer";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -94,28 +93,6 @@ const readAdvisorProfile = () => {
   }
   console.log("readAdvisorProfile: returning null");
   return null;
-};
-
-// Compute weighted total (0-100) from form_data where fields are 0-20.
-const computeWeightedTotalFromForm = (form) => {
-  if (!form || typeof form !== 'object') return null;
-  // use same weights as the evaluation form
-  const FIELD_WEIGHTS = {
-    punctuality: 5, reliability: 5, independence: 5, communication: 5, professionalism: 5,
-    speedOfWork: 5, accuracy: 5, engagement: 5, workNeed: 5, cooperation: 5,
-    technicalSkills: 5, organizationalSkills: 5, projectSupport: 5, responsibility: 15, teamwork: 20,
-  };
-  let total = 0;
-  let any = false;
-  for (const key of Object.keys(FIELD_WEIGHTS)) {
-    const raw = Number(form[key] ?? form[key === 'speedOfWork' ? 'speedOfWork' : key] ?? 0);
-    if (!isNaN(raw) && raw !== 0) any = true;
-    const clamped = Math.max(0, Math.min(20, isNaN(raw) ? 0 : raw));
-    const weight = FIELD_WEIGHTS[key] || 0;
-    total += (clamped / 20) * weight;
-  }
-  if (!any) return null;
-  return Math.round(total * 100) / 100;
 };
 
 const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
@@ -233,7 +210,7 @@ const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
   );
 };
 
-const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0, onNotificationClick = () => {} }) => {
+const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -266,7 +243,6 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0, onN
           <div className="relative">
             <button
               type="button"
-              onClick={onNotificationClick}
               className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             >
               <Bell className="h-5 w-5" />
@@ -361,7 +337,6 @@ const AdvisorDashboard = () => {
   const location = useLocation();
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
-  const [assignedStudentsLoading, setAssignedStudentsLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedLogbook, setSelectedLogbook] = useState(null);
   const [logbookLoading, setLogbookLoading] = useState(false);
@@ -370,26 +345,19 @@ const AdvisorDashboard = () => {
 
   // Monthly evaluations state
   const [monthlyEvals, setMonthlyEvals] = useState([]);
-  const [monthlyEvalsLoading, setMonthlyEvalsLoading] = useState(true);
   const [selectedEval, setSelectedEval] = useState(null); // { eval, studentApp }
   
   // Final evaluations state
   const [finalEvals, setFinalEvals] = useState([]);
-  const [finalEvalsLoading, setFinalEvalsLoading] = useState(true);
   const [selectedFinalEval, setSelectedFinalEval] = useState(null); // { eval, studentApp }
   const [selectedDocQueue, setSelectedDocQueue] = useState(null); // { doc, studentApp }
-  const [documentsLoading, setDocumentsLoading] = useState(true);
   const [internshipDocsNonce, setInternshipDocsNonce] = useState(0);
   const [advisorEvalNonce, setAdvisorEvalNonce] = useState(0);
   const [advisorEvalApiRecord, setAdvisorEvalApiRecord] = useState(null);
-  const [advisorEvalLoading, setAdvisorEvalLoading] = useState(true);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
-  const [examinerEvalsLoading, setExaminerEvalsLoading] = useState(true);
   const [docQueueComment, setDocQueueComment] = useState("");
   const [logbookNonce, setLogbookNonce] = useState(0);
-  const [logbookQueueLoading, setLogbookQueueLoading] = useState(true);
   const [overallNonce, setOverallNonce] = useState(0);
-  const [overallQueueLoading, setOverallQueueLoading] = useState(true);
   const [focusLogbookWeek, setFocusLogbookWeek] = useState(null);
   // API-fetched examiner evaluations keyed by internship id
   const [apiExaminerEvals, setApiExaminerEvals] = useState({});
@@ -401,11 +369,6 @@ const AdvisorDashboard = () => {
   const [apiFinalEvals, setApiFinalEvals] = useState({});
   // API-fetched overall evaluation keyed by internship (application) PK
   const [apiOverallEval, setApiOverallEval] = useState(null);
-
-  // Notifications state (shared drawer)
-  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationCount, setNotificationCount] = useState(0);
 
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
@@ -426,46 +389,6 @@ const AdvisorDashboard = () => {
     setSession(normalized);
   }, [location, navigate]);
 
-  // Load notifications from localStorage (or API via storageService) for staff
-  useEffect(() => {
-    try {
-      const list = JSON.parse(localStorage.getItem("notifications") || "[]");
-      setNotifications(list);
-      setNotificationCount(list.filter((n) => !n.read).length);
-    } catch (e) {
-      setNotifications([]);
-      setNotificationCount(0);
-    }
-    const onStorage = () => {
-      try {
-        const list = JSON.parse(localStorage.getItem("notifications") || "[]");
-        setNotifications(list);
-        setNotificationCount(list.filter((n) => !n.read).length);
-      } catch {
-        setNotifications([]);
-        setNotificationCount(0);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  const openNotifications = () => {
-    // mark all as read locally
-    try {
-      const list = JSON.parse(localStorage.getItem("notifications") || "[]");
-      const updated = list.map((n) => ({ ...n, read: true }));
-      localStorage.setItem("notifications", JSON.stringify(updated));
-      setNotifications(updated);
-      setNotificationCount(0);
-    } catch {
-      // ignore
-    }
-    setNotificationPanelOpen(true);
-  };
-
-  const closeNotifications = () => setNotificationPanelOpen(false);
-
   const advisorIdentity = useMemo(() => {
     const name = session?.fullName || session?.name || session?.username || "";
     return String(name || "").trim().toLowerCase();
@@ -473,8 +396,6 @@ const AdvisorDashboard = () => {
 
   useEffect(() => {
     if (!session) return;
-    setAssignedStudentsLoading(true);
-    let cancelled = false;
     const loadAssigned = async () => {
       try {
         // Primary: fetch from API endpoint — auth token identifies the advisor
@@ -515,15 +436,12 @@ const AdvisorDashboard = () => {
           console.error("Failed to load assigned students:", err);
           setAssignedStudents([]);
         }
-      } finally {
-        if (!cancelled) setAssignedStudentsLoading(false);
       }
     };
     loadAssigned();
     const interval = setInterval(loadAssigned, 30000);
     window.addEventListener("weekly-logbook-updated", loadAssigned);
     return () => {
-      cancelled = true;
       clearInterval(interval);
       window.removeEventListener("weekly-logbook-updated", loadAssigned);
     };
@@ -532,7 +450,6 @@ const AdvisorDashboard = () => {
   // Fetch examiner evaluations from API so advisor can see them without localStorage
   useEffect(() => {
     if (!session) return;
-    setExaminerEvalsLoading(true);
     const fetchExaminerEvals = async () => {
       try {
         const res = await evaluationService.getExaminerEvaluationsForAdvisor();
@@ -557,8 +474,6 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Examiner eval fetch failed:", err?.message);
-      } finally {
-        setExaminerEvalsLoading(false);
       }
     };
     fetchExaminerEvals();
@@ -567,7 +482,6 @@ const AdvisorDashboard = () => {
   // Fetch company monthly evaluations from API for advisor's students
   useEffect(() => {
     if (!session) return;
-    setMonthlyEvalsLoading(true);
     const fetchMonthlyEvals = async () => {
       try {
         // GET /api/evaluations/monthly/ — advisor-accessible endpoint
@@ -584,8 +498,6 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Monthly eval fetch failed:", err?.message);
-      } finally {
-        setMonthlyEvalsLoading(false);
       }
     };
     fetchMonthlyEvals();
@@ -597,7 +509,6 @@ const AdvisorDashboard = () => {
   // Fetch company final evaluations from API for advisor's students
   useEffect(() => {
     if (!session) return;
-    setFinalEvalsLoading(true);
     const fetchFinalEvals = async () => {
       try {
         // GET /api/evaluations/final/ — advisor-accessible endpoint
@@ -617,8 +528,6 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Final eval fetch failed:", err?.message);
-      } finally {
-        setFinalEvalsLoading(false);
       }
     };
     fetchFinalEvals();
@@ -630,7 +539,6 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
-    setLogbookQueueLoading(true);
 
     const syncAdvisorLogbooks = async () => {
       try {
@@ -650,8 +558,6 @@ const AdvisorDashboard = () => {
         }
       } catch (err) {
         console.warn("Advisor logbook sync failed:", err?.message || err);
-      } finally {
-        if (!cancelled) setLogbookQueueLoading(false);
       }
     };
 
@@ -667,7 +573,6 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
-    setDocumentsLoading(true);
 
     const syncAdvisorDocuments = async () => {
       const res = await internshipService.getAdvisorDocuments();
@@ -676,7 +581,6 @@ const AdvisorDashboard = () => {
         ? res.data
         : res.data?.results || [];
       syncInternshipDocumentsFromApi(items, { merge: true });
-      if (!cancelled) setDocumentsLoading(false);
     };
 
     syncAdvisorDocuments();
@@ -692,8 +596,6 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     refreshMonthlyEvals();
     refreshFinalEvals();
-    setMonthlyEvalsLoading(false);
-    setFinalEvalsLoading(false);
     window.addEventListener("storage", refreshMonthlyEvals);
     window.addEventListener("storage", refreshFinalEvals);
     return () => {
@@ -836,13 +738,7 @@ const AdvisorDashboard = () => {
             status: EVAL_STATUS.SUBMITTED,
             advisorComment: item.advisor_comment || "",
             submittedAt: item.submitted_at,
-            evaluationData: (function() {
-              const form = item.form_data || {};
-              const computed = computeWeightedTotalFromForm(form);
-              const total = computed !== null ? computed : (item.form_data?.totalMarks ?? item.total_score);
-              const perf = form?.monthlyPerformance ?? (total ? ((total / 100) * 20) : null);
-              return { ...(form || {}), totalMarks: total, monthlyPerformance: perf };
-            })(),
+            evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
           });
         }
       });
@@ -880,13 +776,7 @@ const AdvisorDashboard = () => {
           status,
           advisorComment: item.advisor_comment || "",
           submittedAt: item.submitted_at,
-          evaluationData: (function() {
-            const form = item.form_data || {};
-            const computed = computeWeightedTotalFromForm(form);
-            const total = computed !== null ? computed : (item.form_data?.totalMarks ?? item.total_score);
-            const perf = form?.monthlyPerformance ?? (total ? ((total / 100) * 20) : null);
-            return { ...(form || {}), totalMarks: total, monthlyPerformance: perf };
-          })(),
+          evaluationData: { ...(item.form_data || {}), totalMarks: item.total_score },
         });
       });
     });
@@ -996,12 +886,6 @@ const AdvisorDashboard = () => {
     [assignedStudents, advisorEvalNonce, examinerEvalNonce, overallNonce]
   );
 
-  useEffect(() => {
-    setOverallQueueLoading(
-      assignedStudentsLoading || finalEvalsLoading || examinerEvalsLoading || advisorEvalLoading
-    );
-  }, [assignedStudentsLoading, finalEvalsLoading, examinerEvalsLoading, advisorEvalLoading]);
-
   const selectedAdvisorEval = useMemo(() => {
     if (!selectedStudent) return null;
     return advisorEvalApiRecord;
@@ -1011,17 +895,12 @@ const AdvisorDashboard = () => {
   useEffect(() => {
     setAdvisorEvalApiRecord(null);
     setApiOverallEval(null);
-    if (!selectedStudent?.id) {
-      setAdvisorEvalLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setAdvisorEvalLoading(true);
+    if (!selectedStudent?.id) return;
     (async () => {
       // Fetch advisor evaluation
       try {
         const res = await evaluationService.getAdvisorEvaluationForInternship(selectedStudent.id);
-        if (res.success && res.data && !cancelled) {
+        if (res.success && res.data) {
           const d = res.data;
           // Scale DB values back up to the frontend's display range
           const unscale = (dbVal, dbMax, frontendMax) =>
@@ -1071,7 +950,7 @@ const AdvisorDashboard = () => {
       // Fetch overall evaluation status from API
       try {
         const ovRes = await api.get(`/overall-evaluation/${selectedStudent.id}/`);
-        if (ovRes.data && !cancelled) {
+        if (ovRes.data) {
           setApiOverallEval(ovRes.data);
 
           // If advisor eval wasn't fetched separately, populate from overall detail
@@ -1122,11 +1001,7 @@ const AdvisorDashboard = () => {
       } catch {
         // overall may not exist yet — that's fine
       }
-      if (!cancelled) setAdvisorEvalLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [selectedStudent?.id, advisorEvalNonce]);
 
   const advisorEvalFormInitial = useMemo(() => {
@@ -1607,14 +1482,7 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="app-shell flex min-h-screen flex-col">
-      <StaffTopNavigation
-        displayName={displayName}
-        roleLabel="Academic Advisor"
-        notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length + pendingOverallQueue.length}
-        onNotificationClick={openNotifications}
-      />
-
-      <NotificationsDrawer isOpen={notificationPanelOpen} onClose={closeNotifications} notifications={notifications} />
+      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length + pendingOverallQueue.length} />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <AdvisorSidebar
@@ -1647,55 +1515,48 @@ const AdvisorDashboard = () => {
                   <p className="text-gray-600">Students on active placements where you are the academic advisor.</p>
                 </div>
 
-                {assignedStudentsLoading ? (
-                  <LoadingState title="Loading assigned students" subtitle="Fetching the students assigned to you as advisor." />
+                {assignedStudents.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No active internship students are assigned to you yet.</p>
+                    <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                      When a coordinator assigns you as advisor on an approved application, students will appear here.
+                    </p>
+                  </div>
                 ) : (
-                  <>
-
-                  {assignedStudents.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                      <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500">No active internship students are assigned to you yet.</p>
-                      <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                        When a coordinator assigns you as advisor on an approved application, students will appear here.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {assignedStudents.map((app) => (
-                        <button
-                          key={app.id}
-                          type="button"
-                          onClick={() => openStudent(app)}
-                          className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30 hover:border-indigo-200"
-                        >
-                          <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                          <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{app.internshipTitle || "Internship"}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Building2 className="w-4 h-4" />
-                            <span>{app.companyName}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 mt-3">
-                            <p className="text-xs text-gray-500 font-medium">Click to review placement &amp; evaluations</p>
-                            {countPendingAdvisorWeeks(app) > 0 && (
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
-                                {countPendingAdvisorWeeks(app)} logbook week{countPendingAdvisorWeeks(app) !== 1 ? "s" : ""} pending
-                              </span>
-                            )}
-                            {getAdvisorEvaluation(app.studentId)?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
-                                My evaluation submitted
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  </>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {assignedStudents.map((app) => (
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={() => openStudent(app)}
+                        className="text-left border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-indigo-50/30 hover:border-indigo-200"
+                      >
+                        <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
+                        <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
+                          <Briefcase className="w-4 h-4" />
+                          <span>{app.internshipTitle || "Internship"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Building2 className="w-4 h-4" />
+                          <span>{app.companyName}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <p className="text-xs text-gray-500 font-medium">Click to review placement &amp; evaluations</p>
+                          {countPendingAdvisorWeeks(app) > 0 && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                              {countPendingAdvisorWeeks(app)} logbook week{countPendingAdvisorWeeks(app) !== 1 ? "s" : ""} pending
+                            </span>
+                          )}
+                          {getAdvisorEvaluation(app.studentId)?.status === ADVISOR_EVAL_STATUS.SUBMITTED && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200">
+                              My evaluation submitted
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -1708,10 +1569,6 @@ const AdvisorDashboard = () => {
                     Weeks your company partner approved — open each to review and finalize (approve or return).
                   </p>
                 </div>
-                {logbookQueueLoading ? (
-                  <LoadingState title="Loading logbook queue" subtitle="Fetching advisor logbook weeks from your assigned students." />
-                ) : (
-                  <>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingLogbookQueue.length === 0 ? (
@@ -1745,8 +1602,6 @@ const AdvisorDashboard = () => {
                     ))}
                   </div>
                 )}
-                  </>
-                )}
               </div>
             )}
 
@@ -1756,11 +1611,6 @@ const AdvisorDashboard = () => {
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Monthly Evaluations</h2>
                   <p className="text-gray-600">Company-submitted monthly performance evaluations — pending your approval.</p>
                 </div>
-
-                {monthlyEvalsLoading ? (
-                  <LoadingState title="Loading monthly evaluations" subtitle="Fetching monthly company evaluations for your students." />
-                ) : (
-                  <>
 
                 {allMyMonthlyEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1809,8 +1659,6 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
-                      </>
-                    )}
               </div>
             )}
 
@@ -1820,11 +1668,6 @@ const AdvisorDashboard = () => {
                   <h2 className="text-2xl font-bold text-gray-900 mb-1">Company Final Evaluations</h2>
                   <p className="text-gray-600">Company-submitted final internship evaluations — pending your approval.</p>
                 </div>
-
-                {finalEvalsLoading ? (
-                  <LoadingState title="Loading final evaluations" subtitle="Fetching final company evaluations for your students." />
-                ) : (
-                  <>
 
                 {allMyFinalEvals.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1876,8 +1719,6 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
-                      </>
-                    )}
               </div>
             )}
 
@@ -1889,10 +1730,6 @@ const AdvisorDashboard = () => {
                     Internship files uploaded by your students that need your approval (examiner approves separately).
                   </p>
                 </div>
-                {documentsLoading ? (
-                  <LoadingState title="Loading document queue" subtitle="Fetching student document submissions for review." />
-                ) : (
-                  <>
                 {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingAdvisorDocuments.length === 0 ? (
@@ -1934,8 +1771,6 @@ const AdvisorDashboard = () => {
                     })}
                   </div>
                 )}
-                  </>
-                )}
               </div>
             )}
 
@@ -1947,9 +1782,7 @@ const AdvisorDashboard = () => {
                     Your advisor-authored internship evaluations for each assigned student. Open a student from <strong className="text-gray-800">My students</strong> in the sidebar to submit or change (until submitted).
                   </p>
                 </div>
-                {assignedStudentsLoading ? (
-                  <LoadingState title="Loading my evaluations" subtitle="Fetching assigned students and your submitted evaluation status." />
-                ) : assignedStudents.length === 0 ? (
+                {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : (
                   <div className="space-y-8">
@@ -2009,9 +1842,7 @@ const AdvisorDashboard = () => {
                     Internal examiner 1 and examiner 2 submissions for each student (read only).
                   </p>
                 </div>
-                {examinerEvalsLoading ? (
-                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions for your students." />
-                ) : assignedStudents.length === 0 ? (
+                {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : (
                   <div className="space-y-10" key={examinerEvalNonce}>
@@ -2111,9 +1942,7 @@ const AdvisorDashboard = () => {
                     Students with all component evaluations complete. Approve the overall report as academic advisor.
                   </p>
                 </div>
-                {overallQueueLoading ? (
-                  <LoadingState title="Loading overall queue" subtitle="Fetching the advisor, examiner, and company data needed for overall review." />
-                ) : assignedStudents.length === 0 ? (
+                {assignedStudents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No students assigned.</div>
                 ) : pendingOverallQueue.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -2439,12 +2268,6 @@ const AdvisorDashboard = () => {
             {/* ── Company Monthly Evaluation tab ── */}
             {studentDetailTab === "monthly" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {monthlyEvalsLoading ? (
-                  <div className="sm:col-span-2">
-                    <LoadingState title="Loading monthly evaluation" subtitle="Fetching the company monthly records for this student." />
-                  </div>
-                ) : (
-                  <>
                 {[1, 2].map(month => {
                   const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
                   const apiRec = internshipId && apiMonthlyEvals[internshipId]?.[month];
@@ -2457,8 +2280,8 @@ const AdvisorDashboard = () => {
                         advisorComment: apiRec.advisor_comment || "",
                         evaluationData: {
                           ...(apiRec.form_data || {}),
-                          totalMarks: (apiRec.form_data?.totalMarks ?? apiRec.total_score),
-                          monthlyPerformance: (apiRec.form_data?.monthlyPerformance ?? (apiRec.total_score ? ((apiRec.total_score/100)*20) : null)),
+                          totalMarks: apiRec.total_score,
+                          monthlyPerformance: apiRec.total_score,
                         },
                         apiId: apiRec.id,
                       }
@@ -2512,17 +2335,11 @@ const AdvisorDashboard = () => {
                     </div>
                   );
                 })}
-                  </>
-                )}
               </div>
             )}
 
             {studentDetailTab === "advisor-eval" && (
               <div className="space-y-4">
-                {advisorEvalLoading ? (
-                  <LoadingState title="Loading my evaluation" subtitle="Fetching your advisor evaluation and overall status for this student." />
-                ) : (
-                  <>
                 <div className="flex flex-wrap justify-between gap-2 items-center">
                   <p className="text-sm text-gray-600">
                     Complete your own academic assessment of this student&apos;s internship. The student can read it after you submit.
@@ -2543,18 +2360,12 @@ const AdvisorDashboard = () => {
                       : handleAdvisorStudentEvalSubmit
                   }
                 />
-                  </>
-                )}
               </div>
             )}
 
             {/* ── Company Final Evaluation tab ── */}
             {studentDetailTab === "final" && (
               <div className="space-y-6">
-                {finalEvalsLoading ? (
-                  <LoadingState title="Loading final evaluation" subtitle="Fetching the company final evaluation for this student." />
-                ) : (
-                  <>
                 {(() => {
                   const apiRec = apiFinalEvals[selectedStudent.studentId];
                   const finalEval = apiRec
@@ -2625,17 +2436,11 @@ const AdvisorDashboard = () => {
                     </div>
                   );
                 })()}
-                  </>
-                )}
               </div>
             )}
 
             {studentDetailTab === "examiner-eval" && (
               <div className="space-y-4">
-                {examinerEvalsLoading ? (
-                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions for this student." />
-                ) : (
-                  <>
                 <p className="text-sm text-gray-600">
                   Internal examiner forms for this student (read only). The same view is available under{" "}
                   <strong className="text-gray-800">Examiner evaluations</strong> on the main dashboard.
@@ -2712,17 +2517,11 @@ const AdvisorDashboard = () => {
                     )}
                   </div>
                 </div>
-                  </>
-                )}
               </div>
             )}
 
             {studentDetailTab === "overall-eval" && (
               <div className="space-y-6">
-                {advisorEvalLoading ? (
-                  <LoadingState title="Loading overall evaluation" subtitle="Fetching the advisor and overall evaluation data for this student." />
-                ) : (
-                  <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h4 className="font-bold text-gray-900 text-lg">Overall evaluation</h4>
@@ -2841,21 +2640,15 @@ const AdvisorDashboard = () => {
                     )}
                   </div>
                 )}
-                  </>
-                )}
               </div>
             )}
 
             {studentDetailTab === "documents" && (
-              documentsLoading ? (
-                <LoadingState title="Loading documents" subtitle="Fetching document submissions for this student." />
-              ) : (
-                <AdvisorStudentDocumentsPanel
-                  studentId={selectedStudent.studentId}
-                  internshipId={selectedStudent.id}
-                  advisorIdentity={advisorIdentity}
-                />
-              )
+              <AdvisorStudentDocumentsPanel
+                studentId={selectedStudent.studentId}
+                internshipId={selectedStudent.id}
+                advisorIdentity={advisorIdentity}
+              />
             )}
           </div>
         </div>

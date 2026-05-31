@@ -11,6 +11,8 @@ import InternshipLogbookForm from "./InternshipLogbookForm";
 import internshipService from "../services/internshipService";
 import logbookService from "../services/logbookService";
 import evaluationService from "../services/evaluationService";
+import dataService from "../services/dataService";
+import userService from "../services/userService";
 import {
   WEEK_STATUS,
   STATUS_LABELS,
@@ -448,23 +450,35 @@ const buildInitialAcceptanceForm = ({ student, internship, applicationData }) =>
   orgName: applicationData?.companyName || internship?.company_name || "",
 });
 
-import dataService from "../services/dataService";
-import userService from "../services/userService";
+const normalizeDepartmentValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim().toLowerCase();
+  }
 
-const AvailableInternships = ({ studentId, studentDepartment, studentProfile, onApplicationSubmit }) => {
+  const rawDepartment =
+    value?.department_name ||
+    value?.departmentName ||
+    value?.name ||
+    value?.title ||
+    value?.department ||
+    value?.code ||
+    value?.department_code ||
+    value?.departmentCode ||
+    "";
+
+  return String(rawDepartment).trim().toLowerCase();
+};
+
+const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmit }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedInternship, setSelectedInternship] = useState(null);
   const [selectedPositionId, setSelectedPositionId] = useState(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
 
-  useEffect(() => {
-    loadInternships();
-  }, [studentDepartment]);
-
-  const loadInternships = async () => {
+  const loadInternships = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -483,6 +497,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
 
       const internshipsData = internshipsResult.data || [];
       const companiesData = companiesResult.data || [];
+      const studentDeptNorm = normalizeDepartmentValue(studentDepartment);
 
       console.log("Raw internships data:", internshipsData);
       console.log("Raw companies data:", companiesData);
@@ -497,7 +512,19 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
           const resolvedCompanyName = comp ? comp.name : "Unknown Company";
 
           // Normalize department field from several possible shapes
-          const dept = internship.department?.name || internship.department || "";
+          const dept =
+            internship.department?.department_name ||
+            internship.department?.departmentName ||
+            internship.department?.name ||
+            internship.department?.title ||
+            internship.department?.department ||
+            internship.department?.code ||
+            internship.department?.department_code ||
+            internship.department?.departmentCode ||
+            internship.department_name ||
+            internship.departmentName ||
+            internship.department ||
+            "";
 
           // Normalize active/status
           const isActive = Boolean(internship.is_active);
@@ -523,16 +550,15 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
             return false;
           }
 
-          if (!studentDepartment) {
+          if (!studentDeptNorm) {
             console.log(`Showing internship ID ${i.id} because student has no department set.`);
             return true;
           }
-          const internDept = String(i.department || "").trim().toLowerCase();
-          const studentDeptNorm = String(studentDepartment || "").trim().toLowerCase();
+          const internDept = normalizeDepartmentValue(i.department || i.department_name || i.departmentName);
           
           if (!internDept) {
-            console.log(`Showing internship ID ${i.id} because internship has no department specified.`);
-            return true;
+            console.log(`Filtering out internship ID ${i.id} because internship has no department specified.`);
+            return false;
           }
           
           const isMatch = internDept === studentDeptNorm;
@@ -548,15 +574,18 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentDepartment]);
+
+  useEffect(() => {
+    loadInternships();
+  }, [loadInternships]);
 
   if (loading) return <div className="py-8 text-center text-gray-500 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>Loading internships...</span></div>;
   if (error) return <div className="py-8 text-center text-red-500">Error: {error}</div>;
 
   const handleApplySubmit = async (applicationData) => {
     if (!selectedInternship) return;
-    
-    setIsApplying(true);
+
     setError(null);
 
     try {
@@ -604,7 +633,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
       console.error("Error submitting internship application:", error);
       setError(error.message || "Failed to submit application. Please try again.");
     } finally {
-      setIsApplying(false);
+      // no-op; the modal closes and the list refreshes on success
     }
   };
 
@@ -2856,7 +2885,17 @@ const StudentDashboard = () => {
       resolveDisplayName(storedStudent) ||
       "Student";
     const studentId = storedStudentId;
-    const department = user?.department || storedStudent.department || "";
+    const department =
+      user?.department ||
+      user?.department_name ||
+      user?.departmentName ||
+      user?.student?.department_name ||
+      user?.student?.departmentName ||
+      user?.student?.department ||
+      storedStudent.department ||
+      storedStudent.department_name ||
+      storedStudent.departmentName ||
+      "";
     const college = user?.college || storedStudent.college || "Addis Ababa Science and Technology University";
     const email = user?.email || storedStudent.email || "";
 
@@ -2921,6 +2960,9 @@ const StudentDashboard = () => {
       
       if (assignments.length === 0) {
         console.log("❌ No assignments found in localStorage — falling back to API");
+        setAdvisor(null);
+        setExaminer(null);
+        setExaminer2(null);
         // Try API: get assigned advisors/examiners for this department
         try {
           const advisorsRes = await userService.getAssignedAdvisors({ department });
@@ -2933,7 +2975,10 @@ const StudentDashboard = () => {
           if (examinersRes && examinersRes.success && examinersRes.data && examinersRes.data.length > 0) {
             const ex = examinersRes.data[0];
             setExaminer(ex.name || ex.user_name || ex.username || ex.email || null);
-            if (examinersRes.data.length > 1) setExaminer2(examinersRes.data[1].name || null);
+            if (examinersRes.data.length > 1) {
+              const ex2 = examinersRes.data[1];
+              setExaminer2(ex2.name || ex2.user_name || ex2.username || ex2.email || null);
+            }
           }
         } catch (apiErr) {
           console.error("API fallback for assignments failed", apiErr);

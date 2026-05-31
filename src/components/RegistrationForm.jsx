@@ -36,26 +36,6 @@ const RegistrationForm = () => {
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const getErrorMessage = (error, fallback = "Registration failed. Please try again.") => {
-    if (!error) return fallback;
-    if (typeof error === "string") return error;
-    if (Array.isArray(error)) {
-      return error.find((item) => typeof item === "string" && item.trim()) || fallback;
-    }
-    if (typeof error === "object") {
-      return (
-        error.detail ||
-        error.message ||
-        error.non_field_errors?.[0] ||
-        error.email?.[0] ||
-        error.student_id?.[0] ||
-        error.tin_number?.[0] ||
-        fallback
-      );
-    }
-    return fallback;
-  };
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -137,7 +117,7 @@ const RegistrationForm = () => {
           return;
         } else {
           console.error("❌ Registration failed:", result.error);
-          setError(getErrorMessage(result.error));
+          setError(result.error?.detail || result.error?.email?.[0] || result.error?.student_id?.[0] || "Registration failed. Please try again.");
           setIsSubmitting(false);
           return;
         }
@@ -177,7 +157,7 @@ const RegistrationForm = () => {
           return;
         } else {
           console.error("❌ Registration failed:", result.error);
-          setError(getErrorMessage(result.error));
+          setError(result.error?.detail || result.error?.email?.[0] || result.error?.tin_number?.[0] || "Registration failed. Please try again.");
           setIsSubmitting(false);
           return;
         }
@@ -211,7 +191,7 @@ const RegistrationForm = () => {
 
         if (!regResult.success) {
           console.error("❌ Staff registration failed:", regResult.error);
-          setError(getErrorMessage(regResult.error));
+          setError(regResult.error?.detail || regResult.error || "Registration failed. Please try again.");
           setIsSubmitting(false);
           return;
         }
@@ -496,7 +476,7 @@ const RegistrationForm = () => {
                       }, 1200);
                     } else {
                       console.error("❌ OTP verification failed:", result.error);
-                      setError(getErrorMessage(result.error, "Invalid OTP. Please try again."));
+                      setError(result.error?.detail || result.error || "Invalid OTP. Please try again.");
                       setIsSubmitting(false);
                     }
                   }}

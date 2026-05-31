@@ -8,17 +8,49 @@ export const userService = {
       const name = it.name || it.user_name || it.userName || it.fullName || it.username || it.user_name || "";
       const email = it.email || it.user_email || it.userEmail || it.contactEmail || it.contact_email || it.user_email || "";
       const role = it.role || it.user_role || it.userRole || "";
-      const department = it.department || it.department_name || it.departmentName || it.department_name || it.department_name || "";
+      const departmentName = it.department_name || it.departmentName || "";
+      const departmentCode = it.department_code || it.departmentCode || "";
+      const departmentId = it.department_id || it.departmentId || it.department || null;
+      const department = departmentName || departmentCode || departmentId || "";
       return {
         ...it,
         name,
         email,
         role,
         department,
+        department_id: departmentId,
+        department_code: departmentCode,
         user_name: it.user_name || name,
         user_email: it.user_email || email,
-        department_name: it.department_name || department,
+        department_name: departmentName || String(department || ""),
       };
+    });
+  },
+
+  _normalizeText(value) {
+    return String(value || "").trim().toLowerCase();
+  },
+
+  _filterByDepartment(items, department) {
+    const dept = this._normalizeText(department);
+    if (!dept) return Array.isArray(items) ? items : [];
+    const deptIsNumeric = /^\d+$/.test(String(department || "").trim());
+
+    return (Array.isArray(items) ? items : []).filter((item) => {
+      const departmentName = this._normalizeText(item?.department_name || item?.departmentName);
+      const departmentCode = this._normalizeText(item?.department_code || item?.departmentCode);
+      const departmentValue = this._normalizeText(item?.department);
+      const departmentId = this._normalizeText(item?.department_id || item?.departmentId);
+
+      if (deptIsNumeric) {
+        return departmentId === dept || departmentValue === dept;
+      }
+
+      return (
+        departmentName === dept ||
+        departmentCode === dept ||
+        departmentValue === dept
+      );
     });
   },
   /**
@@ -249,7 +281,11 @@ export const userService = {
     try {
       const response = await api.get("/staff/unassigned/", { params });
       const data = response.data && response.data.results ? response.data.results : response.data;
-      return { success: true, data: this._normalizeStaffList(data) };
+      const staff = this._normalizeStaffList(data);
+      return {
+        success: true,
+        data: this._filterByDepartment(staff, params.department),
+      };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
@@ -262,7 +298,11 @@ export const userService = {
     try {
       const response = await api.get("/staff/assigned/", { params });
       const data = response.data && response.data.results ? response.data.results : response.data;
-      return { success: true, data: this._normalizeStaffList(data) };
+      const staff = this._normalizeStaffList(data);
+      return {
+        success: true,
+        data: this._filterByDepartment(staff, params.department),
+      };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
