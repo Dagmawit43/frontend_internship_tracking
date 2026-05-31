@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Loader2, X, Upload, FileText } from "lucide-react";
+import { toast } from "../../utils/toast";
 
   import { getCurrentStudentId } from "../../utils/authHelpers";
 
@@ -22,6 +23,26 @@ import { Loader2, X, Upload, FileText } from "lucide-react";
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const allowedTypes = new Set([
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ]);
+      const allowedExtensions = [".pdf", ".doc", ".docx"];
+      const fileName = String(file.name || "").toLowerCase();
+      const hasAllowedExtension = allowedExtensions.some((extension) => fileName.endsWith(extension));
+
+      if (!allowedTypes.has(file.type) && !hasAllowedExtension) {
+        toast.error("Please upload a PDF, DOC, or DOCX file.");
+        e.target.value = "";
+        setFormData((current) => ({
+          ...current,
+          cv_file: null,
+          documentName: "",
+        }));
+        return;
+      }
+
       setFormData((current) => ({
         ...current,
         cv_file: file,
@@ -33,12 +54,12 @@ import { Loader2, X, Upload, FileText } from "lucide-react";
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.reason_for_joining.trim()) {
-      alert("Please provide a reason for choosing this opportunity");
+      toast.error("Please provide a reason for choosing this opportunity.");
       return;
     }
 
     if (!formData.cv_file) {
-      alert("Please upload your CV or resume");
+      toast.error("Please upload your CV or resume.");
       return;
     }
 

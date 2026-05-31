@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Upload, FileText } from "lucide-react";
 import userService from "../services/userService";
+import { toast } from "../utils/toast";
 
 const UploadStudentList = () => {
   const [file, setFile] = useState(null);
@@ -14,7 +15,7 @@ const UploadStudentList = () => {
         setFile(selectedFile);
         setError("");
       } else {
-        setError("Please upload a JSON file");
+        toast.error("Please upload a JSON file.");
         setFile(null);
       }
     }
@@ -33,7 +34,7 @@ const UploadStudentList = () => {
 
         // Validate that it's an array
         if (!Array.isArray(data)) {
-          setError("JSON file must contain an array of students");
+          toast.error("JSON file must contain an array of students.");
           return;
         }
 
@@ -45,7 +46,7 @@ const UploadStudentList = () => {
         }));
 
         if (!validStudents.every((student) => student.studentId && student.fullName && student.department)) {
-          setError("JSON file must include studentId, fullName, and department for each student");
+          toast.error("JSON file must include studentId, fullName, and department for each student.");
           return;
         }
 
@@ -64,10 +65,10 @@ const UploadStudentList = () => {
           setFile(null);
           setTimeout(() => setSuccess(""), 3000);
         }).catch((err) => {
-          setError(err?.message || "Failed to upload eligible students.");
+          toast.error(err?.message || "Failed to upload eligible students.");
         });
       } catch {
-        setError("Invalid JSON file. Please check the format.");
+        toast.error("Invalid JSON file. Please check the format.");
       }
     };
     reader.readAsText(file);

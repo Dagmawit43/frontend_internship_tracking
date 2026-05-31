@@ -44,6 +44,7 @@ import {
 } from "../utils/studentCompanyEvalStatus";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
+import { toast } from "../utils/toast";
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -403,7 +404,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
         </div>
 
         {/* Assignment Information Row */}
-        {/* {(advisor || examiner || examiner2) && (
+        {(advisor || examiner || examiner2) && (
           <div className="border-t border-indigo-500/30 pt-4">
             <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -430,7 +431,7 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
               )}
             </div>
           </div>
-        )} */}
+        )}
       </div>
     </div>
   );
@@ -1606,7 +1607,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const handleDocumentSubmit = async (e) => {
     e.preventDefault();
     if (!activeApp || !docFile) {
-      alert("Please choose a file to upload.");
+      toast.error("Please choose a file to upload.");
       return;
     }
     setDocSubmitting(true);
@@ -1633,7 +1634,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
       setDocUploadSuccess(true);
       window.setTimeout(() => setDocUploadSuccess(false), 4000);
     } catch (error) {
-      alert(error?.message || "Failed to upload document.");
+      toast.error(error?.message || "Failed to upload document.");
     } finally {
       setDocSubmitting(false);
     }

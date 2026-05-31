@@ -127,14 +127,13 @@ const InternshipModal = ({ isOpen, onClose, onSubmit, initialData, companySessio
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-              <input required type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Addis Ababa or Remote" />
+              <input required type="text" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Addis Ababa" />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Internship Type</label>
               <select required value={formData.internship_type} onChange={e => setFormData({ ...formData, internship_type: e.target.value })} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="Remote">Remote</option>
                 <option value="Onsite">Onsite</option>
                 <option value="Hybrid">Hybrid</option>
               </select>
