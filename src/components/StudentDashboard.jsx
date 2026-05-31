@@ -38,11 +38,10 @@ import {
 import { computeOverallEvaluation, getOverallApprovals } from "../utils/overallEvaluation";
 import {
   getStudentCompanyEvaluationSummaries,
-  studentCompanyEvalStatusPill,
+  studentCompanyEvalStatusPill
 } from "../utils/studentCompanyEvalStatus";
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
-
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -515,6 +514,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
             foundCompany: comp,
             processed: processedInternship
           });
+
           return processedInternship;
         })
         .filter((i) => {
@@ -550,9 +550,7 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
     }
   };
 
-  if (loading) {
-    return <LoadingState title="Loading opportunities" subtitle="Fetching available internships and company data." />;
-  }
+  if (loading) return <div className="py-8 text-center text-gray-500 flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>Loading internships...</span></div>;
   if (error) return <div className="py-8 text-center text-red-500">Error: {error}</div>;
 
   const handleApplySubmit = async (applicationData) => {
@@ -791,11 +789,9 @@ const AvailableInternships = ({ studentId, studentDepartment, studentProfile, on
 const AppliedInternshipsList = ({ studentId, studentName }) => {
   const [appliedInternships, setAppliedInternships] = useState([]);
   const [previewForm, setPreviewForm] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadApplied = async () => {
-      setLoading(true);
       try {
         const placementResult = await internshipService.getCurrentPlacement();
         if (placementResult.success && placementResult.data?.placement) {
@@ -837,8 +833,6 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         setAppliedInternships(
           studentApps.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt))
         );
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -958,18 +952,12 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         <p className="text-gray-600">Track and finalize your internship placements</p>
       </div>
 
-      {loading ? (
-        <LoadingState title="Loading your applications" subtitle="Fetching your submitted internship requests." />
-      ) : null}
-
-      {!loading && appliedInternships.length === 0 ? (
+      {appliedInternships.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
            <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
            <p className="text-gray-500">You haven't applied to any internships yet.</p>
         </div>
-      ) : null}
-
-      {!loading && appliedInternships.length > 0 ? (
+      ) : (
         <div className="space-y-4">
           {appliedInternships.map(app => {
             const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus, app.mentorStatus);
@@ -1031,7 +1019,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
             );
           })}
         </div>
-      ) : null}
+      )}
 
       {previewForm && (
         <div className="fixed inset-0 bg-black/60 z-[180] p-4 flex items-start justify-center overflow-y-auto">
@@ -1049,7 +1037,6 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 };
 
 const MyInternshipView = ({ studentId, studentName }) => {
-  const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState(null);
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -1069,13 +1056,9 @@ const MyInternshipView = ({ studentId, studentName }) => {
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
   const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
-  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
     const loadActive = async () => {
-      if (!hasBootstrappedRef.current) {
-        setLoading(true);
-      }
       const tryLoadLiveLogbook = async (appLike) => {
         try {
           const internshipId = String(appLike?.internshipId ?? appLike?.id ?? "").trim();
@@ -1261,18 +1244,15 @@ const MyInternshipView = ({ studentId, studentName }) => {
           setActiveApp(null);
           setWeeklyLogbook(null);
         }
-      } finally {
-        if (!hasBootstrappedRef.current) {
-          hasBootstrappedRef.current = true;
-          setLoading(false);
-        }
       }
     };
 
     loadActive();
     const onLogbookUpdated = () => loadActive();
+    window.addEventListener("storage", loadActive);
     window.addEventListener("weekly-logbook-updated", onLogbookUpdated);
     return () => {
+      window.removeEventListener("storage", loadActive);
       window.removeEventListener("weekly-logbook-updated", onLogbookUpdated);
     };
   }, [studentId, studentName]);
@@ -1357,6 +1337,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
   useEffect(() => {
     const load = () => { refreshDocuments(); };
     load();
+    window.addEventListener("storage", load);
     return () => window.removeEventListener("storage", load);
   }, [docStudentKey, activeApp?.id, activeApp?.internshipId]);
 
@@ -1419,8 +1400,10 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
     loadAdvisorEval();
     const onUpdate = () => loadAdvisorEval();
+    window.addEventListener("storage", onUpdate);
     window.addEventListener("advisor-evaluation-updated", onUpdate);
     return () => {
+      window.removeEventListener("storage", onUpdate);
       window.removeEventListener("advisor-evaluation-updated", onUpdate);
     };
   }, [studentId, activeApp?.studentId, activeApp?.id, activeApp?.internshipId]);
@@ -1514,9 +1497,11 @@ const MyInternshipView = ({ studentId, studentName }) => {
 
     loadCompanyEvalSummaries();
     const onRefresh = () => loadCompanyEvalSummaries();
+    window.addEventListener("storage", onRefresh);
     window.addEventListener("overall-evaluation-updated", onRefresh);
     return () => {
       cancelled = true;
+      window.removeEventListener("storage", onRefresh);
       window.removeEventListener("overall-evaluation-updated", onRefresh);
     };
   }, [activeApp?.id, activeApp?.internshipId, companyEvalNonce]);
@@ -1801,10 +1786,6 @@ const MyInternshipView = ({ studentId, studentName }) => {
         ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
         : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
-
-  if (loading) {
-    return <LoadingState title="Loading my internship" subtitle="Fetching your placement, logbook, and evaluation data." />;
-  }
 
   if (!activeApp) {
     return (

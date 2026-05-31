@@ -1,6 +1,7 @@
 import { computeOverallEvaluation, getOverallApprovals, setOverallApproval } from "../utils/overallEvaluation";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut, BarChart3 } from "lucide-react";
+import NotificationsDrawer from "./NotificationsDrawer";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import logoSrc from "../assets/aastu-logo.jpg";
@@ -94,6 +95,12 @@ export const getCoordinatorDepartment = () => {
   if (d != null && String(d).trim() !== "") return String(d).trim();
   return "";
 };
+
+// Notifications drawer state for coordinator
+const [coordNotificationPanelOpen, setCoordNotificationPanelOpen] = (function() {
+  // simple module-scoped placeholders — actual state will be created inside component
+  return [false, () => {}];
+})();
 
 export const getCoordinatorName = () => {
   const coord = readCoordinatorProfile();
@@ -2611,6 +2618,15 @@ const CoordinatorDashboard = () => {
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               type="button"
+              onClick={() => {
+                try {
+                  const list = JSON.parse(localStorage.getItem("notifications") || "[]");
+                  const updated = list.map((n) => ({ ...n, read: true }));
+                  localStorage.setItem("notifications", JSON.stringify(updated));
+                } catch {}
+                // open drawer by setting flag on window (simple cross-file approach)
+                window.dispatchEvent(new CustomEvent("open-notifications"));
+              }}
               className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             >
               <Bell className="h-5 w-5" />

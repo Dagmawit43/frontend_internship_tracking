@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import RegistrationForm from "./components/RegistrationForm";
 import LoginForm from "./components/LoginForm";
 import StudentDashboard from "./components/StudentDashboard";
@@ -7,11 +7,16 @@ import CoordinatorDashboard from "./components/CoordinatorDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import ExaminerDashboard from "./components/ExaminerDashboard";
 import { AssistantButton } from "./components/AssistantChat";
+import { useEffect, useState } from "react";
 import "./App.css";
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
+  const hideOn = ["/", "/login", "/register"];
+  const showAssistant = typeof window !== "undefined" && localStorage.getItem("access") && !hideOn.includes(location.pathname);
+
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<LoginForm />} />
         <Route path="/register" element={<RegistrationForm />} />
@@ -29,8 +34,15 @@ function App() {
           element={<ExaminerDashboard />}
         />
       </Routes>
-      {/* Floating AI assistant — available on all authenticated pages */}
-      <AssistantButton />
+      {showAssistant && <AssistantButton />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppRoutes />
     </Router>
   );
 }

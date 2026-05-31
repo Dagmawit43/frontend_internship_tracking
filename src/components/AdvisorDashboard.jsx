@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import NotificationsDrawer from "./NotificationsDrawer";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -232,7 +233,7 @@ const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
   );
 };
 
-const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) => {
+const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0, onNotificationClick = () => {} }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -265,6 +266,7 @@ const StaffTopNavigation = ({ displayName, roleLabel, notificationCount = 0 }) =
           <div className="relative">
             <button
               type="button"
+              onClick={onNotificationClick}
               className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
             >
               <Bell className="h-5 w-5" />
@@ -400,6 +402,11 @@ const AdvisorDashboard = () => {
   // API-fetched overall evaluation keyed by internship (application) PK
   const [apiOverallEval, setApiOverallEval] = useState(null);
 
+  // Notifications state (shared drawer)
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+
   const refreshMonthlyEvals = () => setMonthlyEvals(getAllEvaluations());
   const refreshFinalEvals = () => setFinalEvals(getAllFinalEvaluations());
 
@@ -418,6 +425,46 @@ const AdvisorDashboard = () => {
     }
     setSession(normalized);
   }, [location, navigate]);
+
+  // Load notifications from localStorage (or API via storageService) for staff
+  useEffect(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem("notifications") || "[]");
+      setNotifications(list);
+      setNotificationCount(list.filter((n) => !n.read).length);
+    } catch (e) {
+      setNotifications([]);
+      setNotificationCount(0);
+    }
+    const onStorage = () => {
+      try {
+        const list = JSON.parse(localStorage.getItem("notifications") || "[]");
+        setNotifications(list);
+        setNotificationCount(list.filter((n) => !n.read).length);
+      } catch {
+        setNotifications([]);
+        setNotificationCount(0);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const openNotifications = () => {
+    // mark all as read locally
+    try {
+      const list = JSON.parse(localStorage.getItem("notifications") || "[]");
+      const updated = list.map((n) => ({ ...n, read: true }));
+      localStorage.setItem("notifications", JSON.stringify(updated));
+      setNotifications(updated);
+      setNotificationCount(0);
+    } catch {
+      // ignore
+    }
+    setNotificationPanelOpen(true);
+  };
+
+  const closeNotifications = () => setNotificationPanelOpen(false);
 
   const advisorIdentity = useMemo(() => {
     const name = session?.fullName || session?.name || session?.username || "";
@@ -1560,7 +1607,14 @@ const AdvisorDashboard = () => {
 
   return (
     <div className="app-shell flex min-h-screen flex-col">
-      <StaffTopNavigation displayName={displayName} roleLabel="Academic Advisor" notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length + pendingOverallQueue.length} />
+      <StaffTopNavigation
+        displayName={displayName}
+        roleLabel="Academic Advisor"
+        notificationCount={pendingWeeksCount + pendingMonthlyEvals.length + pendingFinalEvals.length + pendingAdvisorDocuments.length + pendingOverallQueue.length}
+        onNotificationClick={openNotifications}
+      />
+
+      <NotificationsDrawer isOpen={notificationPanelOpen} onClose={closeNotifications} notifications={notifications} />
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <AdvisorSidebar

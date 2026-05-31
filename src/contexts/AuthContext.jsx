@@ -147,7 +147,7 @@ export const AuthProvider = ({ children }) => {
         // authService.logout already cleared localStorage keys; ensure user cleared
         try { localStorage.removeItem("user"); } catch (e) {}
         // Hard redirect to ensure we leave protected routes even outside Router
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
       }
     } catch (err) {
