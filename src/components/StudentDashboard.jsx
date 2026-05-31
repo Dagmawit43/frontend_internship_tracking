@@ -1313,7 +1313,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
         try {
           // sync raw API items into localStorage using existing mapper
           const { syncInternshipDocumentsFromApi } = await import("../utils/internshipDocuments");
-          syncInternshipDocumentsFromApi(items, { merge: true });
+          syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
         } catch (e) {
           // ignore sync failures
         }

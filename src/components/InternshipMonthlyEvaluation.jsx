@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { CheckCircle, Lock } from "lucide-react";
 import ButtonWithSpinner from "./ButtonWithSpinner";
 
@@ -117,12 +117,25 @@ const InternshipMonthlyEvaluation = ({
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAdvisorProcessing, setIsAdvisorProcessing] = useState(false);
+  const hydratedKeyRef = useRef("");
 
-  // Sync if parent passes new initialData (e.g. switching between Month 1 / Month 2)
+  const sourceKey = useMemo(() => {
+    const monthKey = String(initialData?.month ?? initialData?.month_number ?? "").trim();
+    const studentKey = String(initialData?.studentId ?? initialData?.student_id ?? "").trim();
+    const companyKey = String(initialData?.companyName ?? initialData?.company_name ?? "").trim();
+    const apiKey = String(initialData?.apiId ?? initialData?.id ?? "").trim();
+    return [apiKey, studentKey, monthKey, companyKey].join("|");
+  }, [initialData?.apiId, initialData?.companyName, initialData?.company_name, initialData?.id, initialData?.month, initialData?.month_number, initialData?.studentId, initialData?.student_id]);
+
+  // Sync only when the underlying record changes. Parent re-renders create new
+  // object identities, but typing should not be wiped unless the user switches
+  // to a different month/company/student record.
   useEffect(() => {
+    if (hydratedKeyRef.current === sourceKey) return;
+    hydratedKeyRef.current = sourceKey;
     setFormData({ ...EMPTY_FORM, ...initialData });
     setAdvisorComment(existingAdvisorComment);
-  }, [initialData, existingAdvisorComment]);
+  }, [sourceKey, initialData, existingAdvisorComment]);
 
   const handleChange = (e) => {
     if (fieldsLocked) return;

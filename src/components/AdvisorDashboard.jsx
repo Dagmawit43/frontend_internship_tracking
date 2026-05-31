@@ -119,7 +119,7 @@ const AdvisorStudentDocumentsPanel = ({ studentId, internshipId }) => {
         const res = await internshipService.advisorReviewDocument(doc.apiId, action, comment);
         if (res.success && res.data) {
           // sync the returned item into local store
-          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          syncInternshipDocumentsFromApi([res.data], { merge: true, notify: false });
           reload();
           return;
         }
@@ -580,7 +580,7 @@ const AdvisorDashboard = () => {
       const items = Array.isArray(res.data)
         ? res.data
         : res.data?.results || [];
-      syncInternshipDocumentsFromApi(items, { merge: true });
+      syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
     };
 
     syncAdvisorDocuments();

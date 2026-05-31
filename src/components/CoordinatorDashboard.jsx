@@ -1344,7 +1344,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
         const combined = [...advItems, ...exItems];
         if (!mounted) return;
         if (combined.length > 0) {
-          syncInternshipDocumentsFromApi(combined, { merge: true });
+          syncInternshipDocumentsFromApi(combined, { merge: true, notify: false });
 
           // Backfill missing assignment names from document payloads
           // (useful when approved application payload omits advisor_name).

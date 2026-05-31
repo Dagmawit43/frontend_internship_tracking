@@ -113,11 +113,11 @@ const mapApiDocumentToLocal = (doc) => ({
   submittedAt: doc.submitted_at || new Date().toISOString(),
 });
 
-export const syncInternshipDocumentsFromApi = (apiDocs, { merge = true } = {}) => {
+export const syncInternshipDocumentsFromApi = (apiDocs, { merge = true, notify = true } = {}) => {
   const mapped = Array.isArray(apiDocs) ? apiDocs.map(mapApiDocumentToLocal) : [];
   if (!merge) {
     saveAll(mapped);
-    window.dispatchEvent(new Event("storage"));
+    if (notify) window.dispatchEvent(new Event("storage"));
     return mapped;
   }
 
@@ -125,7 +125,7 @@ export const syncInternshipDocumentsFromApi = (apiDocs, { merge = true } = {}) =
   const nonApi = existing.filter((d) => !String(d.id || "").startsWith("api-doc-"));
   const merged = [...nonApi, ...mapped];
   saveAll(merged);
-  window.dispatchEvent(new Event("storage"));
+  if (notify) window.dispatchEvent(new Event("storage"));
   return merged;
 };
 

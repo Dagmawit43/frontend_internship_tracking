@@ -760,6 +760,18 @@ const InternsPage = ({ companySession }) => {
     // setFinalEvalRecord remains null (already set above).
   }, []);
 
+  const monthlyEvalPrefill = useMemo(() => {
+    if (!selectedIntern || openEvalMonth === null) return null;
+    const rec = evalRecords[openEvalMonth];
+    return rec?.evaluationData || {
+      studentName: selectedIntern.studentName || "",
+      studentId: selectedIntern.studentId || "",
+      department: selectedIntern.department || "",
+      companyName: selectedIntern.companyName || "",
+      month: openEvalMonth === 1 ? "Month 1" : "Month 2",
+    };
+  }, [selectedIntern, openEvalMonth, evalRecords]);
+
   const openInternDetail = async (intern) => {
     setSelectedIntern(intern);
     setInternDetailTab("logbook");
@@ -1152,11 +1164,10 @@ const InternsPage = ({ companySession }) => {
                       const rec = evalRecords[openEvalMonth];
                       const status = rec?.status || EVAL_STATUS.NOT_STARTED;
                       const isReadOnly = status === EVAL_STATUS.SUBMITTED || status === EVAL_STATUS.APPROVED;
-                      const prefill = rec?.evaluationData || { studentName: selectedIntern.studentName || "", studentId: selectedIntern.studentId || "", department: selectedIntern.department || "", companyName: selectedIntern.companyName || "", month: openEvalMonth === 1 ? "Month 1" : "Month 2" };
                       return (
                         <InternshipMonthlyEvaluation
                           key={`${selectedIntern.studentId}-m${openEvalMonth}-${status}`}
-                          initialData={prefill}
+                          initialData={monthlyEvalPrefill || {}}
                           readOnly={isReadOnly}
                           existingAdvisorComment={rec?.advisorComment || ""}
                           onSubmit={isReadOnly ? undefined : (data) => handleEvalSubmit(openEvalMonth, data)}

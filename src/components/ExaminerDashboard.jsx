@@ -47,7 +47,7 @@ const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdenti
         if (res.success) {
           const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
           if (items.length > 0) {
-            syncInternshipDocumentsFromApi(items, { merge: true });
+            syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
           }
         }
       } catch { /* ignore */ }
@@ -66,7 +66,7 @@ const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdenti
       try {
         const res = await internshipService.examinerReviewDocument(doc.apiId, action, comment);
         if (res.success && res.data) {
-          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          syncInternshipDocumentsFromApi([res.data], { merge: true, notify: false });
           reload();
           setProcessingByDoc((p) => ({ ...p, [docId]: false }));
           return;
@@ -178,7 +178,7 @@ const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, o
       try {
         const res = await internshipService.examinerReviewDocument(doc.apiId, action, comment);
         if (res.success && res.data) {
-          syncInternshipDocumentsFromApi([res.data], { merge: true });
+          syncInternshipDocumentsFromApi([res.data], { merge: true, notify: false });
           onDecided?.();
           setIsProcessing(false);
           return;
@@ -433,7 +433,7 @@ const ExaminerDashboard = () => {
       const res = await internshipService.getExaminerDocuments();
       if (!res.success || cancelled) return;
       const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-      syncInternshipDocumentsFromApi(items, { merge: true });
+      syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
       if (!cancelled) setApiDocuments(items);
     };
 
@@ -931,7 +931,7 @@ const ExaminerDashboard = () => {
                           const res = await internshipService.getExaminerDocuments();
                           if (res.success) {
                             const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-                            syncInternshipDocumentsFromApi(items, { merge: true });
+                            syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
                             setApiDocuments(items);
                           }
                         } catch { /* ignore */ }
