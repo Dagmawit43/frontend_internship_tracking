@@ -92,7 +92,7 @@ const normalizeRoleStatus = (value) => {
   return ROLE_DOC_STATUS.PENDING;
 };
 
-const mapApiDocumentToLocal = (doc) => ({
+export const mapApiDocumentToLocal = (doc) => ({
   id: `api-doc-${doc.id}`,
   apiId: doc.id,
   internshipId: doc.internship_id,

@@ -333,7 +333,7 @@ const markStudentNotificationsRead = (studentId, studentName) => {
 };
 
 // Welcome header (inlined)
-const WelcomeHeader = ({ studentName, department, college, internshipStatus, advisor, examiner, examiner2 }) => {
+const WelcomeHeader = ({ studentName, department, college, internshipStatus }) => {
   const getStatusConfig = (status) => {
     const statusMap = {
       "Not Applied": {
@@ -403,35 +403,6 @@ const WelcomeHeader = ({ studentName, department, college, internshipStatus, adv
           </div>
         </div>
 
-        {/* Assignment Information Row */}
-        {(advisor || examiner || examiner2) && (
-          <div className="border-t border-indigo-500/30 pt-4">
-            <h3 className="text-sm font-semibold mb-3 opacity-90">Assigned Supervisors</h3>
-            <div className="flex flex-wrap gap-4 text-sm">
-              {advisor && (
-                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-                  <User className="w-4 h-4" />
-                  <span className="opacity-90">Advisor:</span>
-                  <span className="font-semibold">{advisor}</span>
-                </div>
-              )}
-              {examiner && (
-                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-                  <User className="w-4 h-4" />
-                  <span className="opacity-90">Examiner 1:</span>
-                  <span className="font-semibold">{examiner}</span>
-                </div>
-              )}
-              {examiner2 && (
-                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg">
-                  <User className="w-4 h-4" />
-                  <span className="opacity-90">Examiner 2:</span>
-                  <span className="font-semibold">{examiner2}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -874,7 +845,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
   const handleSelectCompany = (app) => {
     const s = app.status?.toLowerCase();
     if (s !== 'accepted' && s !== 'accepted_by_company' && s !== 'active') {
-       alert("This application hasn't been accepted by the company yet.");
+      toast.error("This application hasn't been accepted by the company yet.");
        return;
     }
 
@@ -887,19 +858,32 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
       const hasActive = studentApps.some(a => a.finalInternshipStatus === "ACTIVE_INTERN" || a.status === "CONFIRMED");
 
       if (hasPending || hasActive) {
-        alert("You already selected another internship.");
+        toast.error("You already selected another internship.");
         return;
       }
 
       if (window.confirm(`Are you sure you want to select ${app.companyName} for your internship? This will be sent to the Coordinator for final approval.`)) {
-        // Update the specific application
-        const updatedApps = allApps.map(a => 
-          a.id === app.id ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() } : a
+        // Robust match: prefer unique id, otherwise match by studentId + internshipId
+        const isSameApp = (a, b) => {
+          if (a.id && b.id && a.id === b.id) return true;
+          if (a.internshipId && b.internshipId && a.studentId && b.studentId) {
+            return a.internshipId === b.internshipId && a.studentId === b.studentId;
+          }
+          return false;
+        };
+
+        const updatedApps = allApps.map((a) =>
+          isSameApp(a, app)
+            ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() }
+            : a
         );
+
         localStorage.setItem("applications", JSON.stringify(updatedApps));
-        
-        alert(`Request sent! Your selection of ${app.companyName} is now pending coordinator approval.`);
-        window.location.reload(); 
+        // Notify other tabs and update local UI without a full reload
+        window.dispatchEvent(new Event("storage"));
+        toast.success(`Request sent! Your selection of ${app.companyName} is now pending coordinator approval.`);
+        // update in-memory applied list to reflect change immediately
+        setAppliedInternships((prev) => prev.map((a) => (isSameApp(a, app) ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() } : a)));
       }
     } catch (err) {
       console.error("Selection failed:", err);
@@ -1066,7 +1050,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
   );
 };
 
-const MyInternshipView = ({ studentId, studentName }) => {
+const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   const [activeApp, setActiveApp] = useState(null);
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
@@ -1124,6 +1108,28 @@ const MyInternshipView = ({ studentId, studentName }) => {
         const placementResult = await internshipService.getCurrentPlacement();
         if (placementResult.success && placementResult.data?.placement) {
           const placement = placementResult.data.placement;
+          let matchedApplication = null;
+
+          try {
+            const applicationsResult = await internshipService.getMyApplications();
+            if (applicationsResult.success) {
+              const applicationItems = getMyApplicationsPayload(applicationsResult.data).map((application) =>
+                normalizeMyApplication(application, sid, sname)
+              );
+              matchedApplication =
+                applicationItems.find((application) => String(application.id) === String(placement.id)) ||
+                applicationItems.find((application) => String(application.id) === String(placement.application_id)) ||
+                applicationItems.find((application) => String(application.position_id) === String(placement.position_id)) ||
+                null;
+            }
+          } catch (applicationError) {
+            console.warn("Failed to resolve matching application for placement:", applicationError?.message || applicationError);
+          }
+
+          const resolvedAdvisorName = matchedApplication?.advisor_name || matchedApplication?.advisorName || placement.advisor_name || "";
+          const resolvedExaminerName = matchedApplication?.examiner_name || matchedApplication?.examinerName || placement.examiner_name || "";
+          const resolvedExaminer2Name = matchedApplication?.examiner2_name || matchedApplication?.examiner2Name || placement.examiner2_name || "";
+
           const normalizedPlacement = {
             ...placement,
             studentId: placement.student_id || sid,
@@ -1132,7 +1138,9 @@ const MyInternshipView = ({ studentId, studentName }) => {
             companyName: placement.company_name || "",
             internshipTitle: placement.position_title || "",
             appliedAt: placement.start_date || null,
-            advisorName: placement.advisor_name || "",
+            advisorName: resolvedAdvisorName,
+            examinerName: resolvedExaminerName,
+            examiner2Name: resolvedExaminer2Name,
             overallStatus:
               placement.overall_status ||
               (placement.type === "internship"
@@ -1634,7 +1642,8 @@ const MyInternshipView = ({ studentId, studentName }) => {
       setDocUploadSuccess(true);
       window.setTimeout(() => setDocUploadSuccess(false), 4000);
     } catch (error) {
-      toast.error(error?.message || "Failed to upload document.");
+      console.error("Document upload failed:", error);
+      toast.error("Upload failed. Please choose a supported document file and try again.");
     } finally {
       setDocSubmitting(false);
     }
@@ -1919,7 +1928,7 @@ const MyInternshipView = ({ studentId, studentName }) => {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                       <div>
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Academic Advisor</p>
-                        <p className="text-sm font-black text-gray-900">{activeApp.advisorName || "Awaiting Assignment"}</p>
+                        <p className="text-sm font-black text-gray-900">{activeApp.advisorName || advisorName || "Awaiting Assignment"}</p>
                       </div>
                       <div>
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-700">Internal Examiner 1</p>
@@ -3201,16 +3210,17 @@ const StudentDashboard = () => {
               department={studentData.department}
               college={studentData.college}
               internshipStatus={internshipStatus}
-              advisor={advisor}
-              examiner={examiner}
-              examiner2={examiner2}
             />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
               {/* Left Column - Main Content */}
               <div className="lg:col-span-2 space-y-6">
                 {activeTab === "my-internship" && (
-                  <MyInternshipView studentId={studentData.studentId} studentName={studentData.name} />
+                  <MyInternshipView
+                    studentId={studentData.studentId}
+                    studentName={studentData.name}
+                    advisorName={advisor}
+                  />
                 )}
 
                 {activeTab === "browse" && (

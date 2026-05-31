@@ -978,16 +978,7 @@ const InternsPage = ({ companySession }) => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Auto reminders */}
-      {reminders.length > 0 && (
-        <div className="space-y-2">
-          {reminders.map(({ intern, month }) => (
-            <div key={`${intern.studentId}-m${month}`} className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-              <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-              <span><strong>Reminder:</strong> Month {month} company monthly evaluation for <strong>{intern.studentName}</strong> is due. Please fill it in.</span>
-            </div>
-          ))}
-        </div>
-      )}
+   
 
       <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <div>

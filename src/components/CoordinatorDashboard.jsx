@@ -1618,19 +1618,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
         
       </div>
 
-      {/* Visible debug panel */}
-      <div className="mb-4">
-        {debugLogs.length > 0 && (
-          <div className="rounded-md border border-slate-200 bg-gray-50 p-3 text-xs text-slate-700">
-            <div className="font-semibold text-sm text-slate-900 mb-2">Debug log</div>
-            <ul className="max-h-40 overflow-auto">
-              {debugLogs.map((m, i) => (
-                <li key={i} className="truncate">{m}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+  
 
       {activeInterns.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-6 py-14 text-center">

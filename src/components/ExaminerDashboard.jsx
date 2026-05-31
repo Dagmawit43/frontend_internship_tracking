@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, ChevronDown, User, Building2, Briefcase,
-  CheckCircle, ClipboardList, X, FileText, LogOut, BarChart3,
+  CheckCircle, ClipboardList, X, FileText, LogOut, BarChart3, Loader2,
 } from "lucide-react";
 import logoSrc from "../assets/aastu-logo.jpg";
 import ExaminerSidebar from "./ExaminerSidebar";
@@ -20,6 +20,7 @@ import {
   getOverallApprovals,
 } from "../utils/overallEvaluation";
 import {
+  mapApiDocumentToLocal,
   getDocumentsByInternshipId,
   examinerDecideInternshipDocument,
   ROLE_DOC_STATUS,
@@ -29,34 +30,42 @@ import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm
 import LoadingState from "./LoadingState";
 import ButtonWithSpinner from "./ButtonWithSpinner";
 
-const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdentity, displayName }) => {
+const ExaminerStudentDocumentsPanel = ({
+  studentId,
+  internshipId,
+  examinerIdentity,
+  displayName,
+  apiDocuments = [],
+  loading = false,
+}) => {
   const [docs, setDocs] = useState([]);
   const [commentByDoc, setCommentByDoc] = useState({});
   const [processingByDoc, setProcessingByDoc] = useState({});
 
-  const reload = useCallback(() => {
+  useEffect(() => {
+    if (apiDocuments.length > 0) {
+      const mapped = apiDocuments
+        .map(mapApiDocumentToLocal)
+        .filter((doc) => String(doc.internshipId ?? "") === String(internshipId || studentId || ""))
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+      setDocs(mapped);
+      return;
+    }
+
+    if (loading) {
+      return;
+    }
+
     const list = getDocumentsByInternshipId(internshipId || studentId);
     setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
-  }, [internshipId, studentId]);
 
-  useEffect(() => {
-    // Also fetch from API directly so we don't depend on sync having run first
-    const fetchFromApi = async () => {
-      try {
-        const res = await internshipService.getExaminerDocuments({ internship_id: internshipId });
-        if (res.success) {
-          const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-          if (items.length > 0) {
-            syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
-          }
-        }
-      } catch { /* ignore */ }
-      reload();
+    const refreshFromStorage = () => {
+      const list = getDocumentsByInternshipId(internshipId || studentId);
+      setDocs(list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)));
     };
-    fetchFromApi();
-    window.addEventListener("storage", reload);
-    return () => window.removeEventListener("storage", reload);
-  }, [reload, internshipId]);
+    window.addEventListener("storage", refreshFromStorage);
+    return () => window.removeEventListener("storage", refreshFromStorage);
+  }, [apiDocuments, loading, internshipId, studentId]);
 
   const decide = async (docId, action) => {
     setProcessingByDoc((p) => ({ ...p, [docId]: true }));
@@ -67,7 +76,13 @@ const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdenti
         const res = await internshipService.examinerReviewDocument(doc.apiId, action, comment);
         if (res.success && res.data) {
           syncInternshipDocumentsFromApi([res.data], { merge: true, notify: false });
-          reload();
+          setDocs((prev) => {
+            const updated = [...prev];
+            const mapped = mapApiDocumentToLocal(res.data);
+            const index = updated.findIndex((item) => item.apiId === mapped.apiId);
+            if (index >= 0) updated[index] = mapped;
+            return updated.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+          });
           setProcessingByDoc((p) => ({ ...p, [docId]: false }));
           return;
         }
@@ -82,9 +97,21 @@ const ExaminerStudentDocumentsPanel = ({ studentId, internshipId, examinerIdenti
       comment,
       displayName || examinerIdentity
     );
-    reload();
+    setDocs((prev) => prev.filter((item) => item.id !== docId));
     setProcessingByDoc((p) => ({ ...p, [docId]: false }));
   };
+
+  if (loading && docs.length === 0) {
+    return (
+      <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-gray-200 bg-white/70 px-4 py-10">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
+          <p className="mt-3 text-sm font-semibold text-gray-900">Loading documents</p>
+          <p className="mt-1 text-sm text-gray-500">Fetching the latest student uploads from the API.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (docs.length === 0) {
     return (
@@ -353,6 +380,7 @@ const ExaminerDashboard = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
   const [assignedStudents, setAssignedStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [mainTab, setMainTab] = useState("students");
@@ -360,8 +388,10 @@ const ExaminerDashboard = () => {
   const [docQueueNonce, setDocQueueNonce] = useState(0);
   // API-fetched evaluations keyed by internship id
   const [apiEvals, setApiEvals] = useState({});
+  const [loadingEvals, setLoadingEvals] = useState(true);
   // API-fetched documents keyed by internship id
   const [apiDocuments, setApiDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
   const [overallNonce, setOverallNonce] = useState(0);
 
   useEffect(() => {
@@ -380,6 +410,7 @@ const ExaminerDashboard = () => {
   useEffect(() => {
     if (!session) return;
     const load = async () => {
+      setLoadingStudents(true);
       try {
         // Primary: fetch from API endpoint — auth token identifies the examiner
         const res = await api.get("/examiner/my-students/");
@@ -418,6 +449,8 @@ const ExaminerDashboard = () => {
           return e1 === examinerIdentity || e2 === examinerIdentity;
         });
         setAssignedStudents(active);
+      } finally {
+        setLoadingStudents(false);
       }
     };
     load();
@@ -430,11 +463,16 @@ const ExaminerDashboard = () => {
     let cancelled = false;
 
     const syncExaminerDocuments = async () => {
-      const res = await internshipService.getExaminerDocuments();
-      if (!res.success || cancelled) return;
-      const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-      syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
-      if (!cancelled) setApiDocuments(items);
+      setLoadingDocs(true);
+      try {
+        const res = await internshipService.getExaminerDocuments();
+        if (!res.success || cancelled) return;
+        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
+        if (!cancelled) setApiDocuments(items);
+      } finally {
+        if (!cancelled) setLoadingDocs(false);
+      }
     };
 
     syncExaminerDocuments();
@@ -466,6 +504,7 @@ const ExaminerDashboard = () => {
   useEffect(() => {
     if (!session) return;
     const fetchEvals = async () => {
+      setLoadingEvals(true);
       try {
         const res = await evaluationService.getExaminerEvaluations();
         if (res.success) {
@@ -491,6 +530,8 @@ const ExaminerDashboard = () => {
         }
       } catch (err) {
         console.warn("Failed to fetch examiner evals from API:", err.message);
+      } finally {
+        setLoadingEvals(false);
       }
     };
     fetchEvals();
@@ -602,6 +643,12 @@ const ExaminerDashboard = () => {
     };
   }, [selectedStudent, examinerOwnEval, session]);
 
+  const selectedStudentApiDocuments = useMemo(() => {
+    if (!selectedStudent) return [];
+    const selectedId = String(selectedStudent.id ?? selectedStudent?.__raw?.id ?? "");
+    return apiDocuments.filter((doc) => String(doc.internship_id ?? "") === selectedId);
+  }, [apiDocuments, selectedStudent]);
+
   if (!session) {
     return <LoadingState title="Loading examiner dashboard" subtitle="Fetching your assigned students and approval queues." />;
   }
@@ -642,7 +689,7 @@ const ExaminerDashboard = () => {
           department={department}
           roleLabel="Internal Examiner"
           subtitle="Submit examiner evaluations, approve overall reports, and clear your document queue."
-          statPrimary={assignedStudents.length}
+          statPrimary={loadingStudents ? "..." : assignedStudents.length}
         />
 
         {mainTab === "students" && (
@@ -654,7 +701,9 @@ const ExaminerDashboard = () => {
                   <p className="text-gray-600">Active placements where you are the internal examiner.</p>
                 </div>
 
-                {assignedStudents.length === 0 ? (
+                {loadingStudents ? (
+                  <LoadingState title="Loading assigned students" subtitle="Fetching your examiner assignments and workspace data." />
+                ) : assignedStudents.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
                     <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No students are assigned to you as examiner yet.</p>
@@ -729,7 +778,9 @@ const ExaminerDashboard = () => {
                 <strong className="text-gray-800">Assigned students</strong>.
               </p>
             </div>
-            {assignedStudents.length === 0 ? (
+            {loadingStudents || loadingEvals ? (
+              <LoadingState title="Loading examiner evaluations" subtitle="Fetching submitted forms and score records from the API." />
+            ) : assignedStudents.length === 0 ? (
               <div className="text-center py-8 text-gray-500">No students assigned.</div>
             ) : (
               <div className="space-y-8" key={examinerEvalNonce}>
@@ -797,7 +848,9 @@ const ExaminerDashboard = () => {
                 Advisor-approved overall reports that need your sign-off as internal examiner.
               </p>
             </div>
-            {assignedStudents.length === 0 ? (
+            {loadingStudents ? (
+              <LoadingState title="Loading overall queue" subtitle="Checking advisor approvals and examiner slots." />
+            ) : assignedStudents.length === 0 ? (
               <div className="text-center py-8 text-gray-500">No students assigned.</div>
             ) : pendingOverallQueue.length === 0 ? (
               <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -906,7 +959,9 @@ const ExaminerDashboard = () => {
                 Student uploads that need your approval (advisor approves separately).
               </p>
             </div>
-            {assignedStudents.length === 0 ? (
+            {loadingStudents || (loadingDocs && pendingExaminerDocuments.length === 0) ? (
+              <LoadingState title="Loading document queue" subtitle="Fetching the latest student uploads and review status." />
+            ) : assignedStudents.length === 0 ? (
               <div className="text-center py-8 text-gray-500">No students assigned.</div>
             ) : pendingExaminerDocuments.length === 0 ? (
               <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
@@ -1044,12 +1099,14 @@ const ExaminerDashboard = () => {
               </div>
             )}
 
-            {studentModalTab === "documents" && examinerIdentity && (
+            {studentModalTab === "documents" && (
               <ExaminerStudentDocumentsPanel
                 studentId={selectedStudent.studentId}
                 internshipId={selectedStudent.id}
                 examinerIdentity={examinerIdentity}
                 displayName={displayName}
+                apiDocuments={selectedStudentApiDocuments}
+                loading={loadingStudents || (loadingDocs && selectedStudentApiDocuments.length === 0)}
               />
             )}
 
