@@ -225,6 +225,30 @@ export const evaluationService = {
     }
   },
 
+  /** GET /students/evaluation-status/<internshipId>/ — student sees examiner progress and public evaluation status */
+  async getStudentEvaluationStatus(internshipId) {
+    try {
+      const response = await api.get(`/students/evaluation-status/${internshipId}/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        status: error.response?.status,
+        error: error.response?.data || error.message,
+      };
+    }
+  },
+
+  /** GET /students/internship-results/<internshipId>/ — student-facing overall results when published */
+  async getStudentInternshipResults(internshipId) {
+    try {
+      const response = await api.get(`/students/internship-results/${internshipId}/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
   /** GET /evaluations/examiner/for-advisor/ — advisor sees examiner evals for their students */
   async getExaminerEvaluationsForAdvisor(params = {}) {
     try {
@@ -232,6 +256,16 @@ export const evaluationService = {
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /** GET /evaluations/examiner/for-student/?internship_id=<id> — student sees examiner evals for their internship */
+  async getExaminerEvaluationsForStudent(params = {}) {
+    try {
+      const response = await api.get("/evaluations/examiner/for-student/", { params });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, status: error.response?.status, error: error.response?.data || error.message };
     }
   },
 

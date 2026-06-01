@@ -550,7 +550,9 @@ const ExaminerDashboard = () => {
           return es === "PENDING";
         })
         .map((doc) => ({
-          id: `api-doc-${doc.id}`,
+          // Use a composite key to avoid duplicate keys when API returns
+          // documents with the same `id` across contexts — include internship id.
+          id: `api-doc-${doc.id}-${doc.internship_id}`,
           apiId: doc.id,
           internshipId: doc.internship_id,
           studentId: String(doc.student_id ?? ""),
@@ -1067,6 +1069,7 @@ const ExaminerDashboard = () => {
                 <ExaminerUniversityEvaluationForm
                   key={`${selectedStudent.studentId}-${examinerOwnEval?.updatedAt || "new"}`}
                   initialData={examinerEvalFormInitial}
+                  readOnly={Boolean(examinerOwnEval?.submittedAt)}
                   onSubmit={async (formPayload) => {
                     // 1. Save to localStorage immediately for instant UI feedback
                     submitExaminerEvaluation({

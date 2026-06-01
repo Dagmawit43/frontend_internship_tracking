@@ -1199,12 +1199,15 @@ const AdvisorDashboard = () => {
         advisorApproved:
           Boolean(apiOverallEval.advisor_approved) ||
           String(apiOverallEval.status || "").toUpperCase().includes("ADVISOR"),
+        // Only treat examiner approvals as "Approved" once the advisor has explicitly approved
+        // examiner evaluations. If examiners have submitted but the advisor hasn't approved,
+        // show them as "Pending" (i.e. submitted but not approved by advisor).
         examiner1Approved:
-          Boolean(apiOverallEval.examiner_completed) ||
-          String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER"),
+          (Boolean(apiOverallEval.advisor_approved) || String(apiOverallEval.status || "").toUpperCase().includes("ADVISOR")) &&
+          (Boolean(apiOverallEval.examiner_completed) || String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER")),
         examiner2Approved:
-          Boolean(apiOverallEval.examiner_completed) ||
-          String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER"),
+          (Boolean(apiOverallEval.advisor_approved) || String(apiOverallEval.status || "").toUpperCase().includes("ADVISOR")) &&
+          (Boolean(apiOverallEval.examiner_completed) || String(apiOverallEval.status || "").toUpperCase().includes("EXAMINER")),
         coordinatorApproved:
           Boolean(apiOverallEval.coordinator_approved) ||
           String(apiOverallEval.status || "").toUpperCase().includes("COORDINATOR") ||

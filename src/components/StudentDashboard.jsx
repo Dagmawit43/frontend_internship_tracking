@@ -471,7 +471,7 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
       const companiesData = companiesResult.data || [];
       const studentDeptNorm = normalizeDepartmentValue(studentDepartment);
 
-      console.log("Raw internships data:", internshipsData);
+      console.log("Raw int  ernships data:", internshipsData);
       console.log("Raw companies data:", companiesData);
       console.log("Student department for filtering:", studentDepartment);
 
@@ -1066,6 +1066,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   const docFileInputRef = useRef(null);
   const [advisorOwnEval, setAdvisorOwnEval] = useState(null);
   const [apiCompanyEvalSummaries, setApiCompanyEvalSummaries] = useState(null);
+  const [apiStudentEvaluationStatus, setApiStudentEvaluationStatus] = useState(null);
+  const [studentEvaluationStatusLoading, setStudentEvaluationStatusLoading] = useState(false);
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
@@ -1302,30 +1304,36 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       const params = activeApp?.id || activeApp?.internshipId
         ? { internship_id: activeApp?.id || activeApp?.internshipId }
         : {};
-      const res = await internshipService.getMyDocuments(params);
-      if (res.success) {
-        const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-        const mapped = items.map((d) => ({
-          id: d.id,
-          title: d.title || "Internship document",
-          description: d.description || "",
-          fileName: d.file_name || "document",
-          fileData: d.file_url || "",
-          submittedAt: d.submitted_at || d.submission_date || new Date().toISOString(),
-          advisorStatus: d.advisor_status || ROLE_DOC_STATUS.PENDING,
-          examinerStatus: d.examiner_status || ROLE_DOC_STATUS.PENDING,
-          advisorComment: d.advisor_comment || "",
-          examinerComment: d.examiner_comment || "",
-        }));
-        setDocuments(mapped);
-        // ensure staff dashboards see these API-backed documents
+      // Fetch student's own uploaded documents and any examiner-related documents
+      const [myRes, examinerRes] = await Promise.allSettled([
+        internshipService.getMyDocuments(params),
+        internshipService.getExaminerDocuments(params),
+      ]);
+
+      let apiItems = [];
+
+      if (myRes.status === "fulfilled" && myRes.value && myRes.value.success) {
+        const items = Array.isArray(myRes.value.data) ? myRes.value.data : (myRes.value.data?.results || []);
+        apiItems = apiItems.concat(items);
+      }
+
+      if (examinerRes.status === "fulfilled" && examinerRes.value && examinerRes.value.success) {
+        const items = Array.isArray(examinerRes.value.data) ? examinerRes.value.data : (examinerRes.value.data?.results || []);
+        apiItems = apiItems.concat(items);
+      }
+
+      if (apiItems.length > 0) {
+        // Map API docs to the local shape via existing mapper
+        const { mapApiDocumentToLocal, syncInternshipDocumentsFromApi } = await import("../utils/internshipDocuments");
         try {
-          // sync raw API items into localStorage using existing mapper
-          const { syncInternshipDocumentsFromApi } = await import("../utils/internshipDocuments");
-          syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
+          // Sync raw API items into localStorage so other dashboards see updates
+          syncInternshipDocumentsFromApi(apiItems, { merge: true, notify: false });
         } catch (e) {
           // ignore sync failures
         }
+
+        const mapped = apiItems.map((d) => mapApiDocumentToLocal(d));
+        setDocuments(mapped.filter((m) => String(m.studentId) === String(docStudentKey)));
         return;
       }
     } catch {
@@ -1446,8 +1454,107 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     };
   }, [studentId, activeApp?.studentId, activeApp?.id, activeApp?.internshipId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const internshipId = activeApp?.id;
+    if (!internshipId) {
+      setApiStudentEvaluationStatus(null);
+      setStudentEvaluationStatusLoading(false);
+      return;
+    }
+
+    const loadStudentEvaluationStatus = async () => {
+      setStudentEvaluationStatusLoading(true);
+      try {
+        const res = await evaluationService.getStudentEvaluationStatus(internshipId);
+        console.debug("StudentEvaluationStatus API response:", res);
+        if (!cancelled && res.success && res.data) {
+          // Accept the student status payload, then try to fetch full
+          // examiner evaluation rows directly from the ExaminerEvaluation table
+          // (these contain `form_data`, scores, and comments).
+          const apiStatus = res.data;
+          try {
+            const evRes = await evaluationService.getExaminerEvaluationsForStudent({ internship_id: internshipId });
+            if (evRes.success && Array.isArray(evRes.data)) {
+              apiStatus.examiner_progress = apiStatus.examiner_progress || {};
+              apiStatus.examiner_progress.evaluations = evRes.data;
+            }
+          } catch (e) {
+            // ignore and continue with the original status payload
+          }
+          setApiStudentEvaluationStatus(apiStatus);
+          return;
+        }
+        if (!cancelled && res.status === 404) {
+          setApiStudentEvaluationStatus({ examiner_progress: { evaluations: [] } });
+        if (!cancelled) {
+          // Try to fetch raw examiner evaluations even if the status endpoint
+          // 404s (maybe the student record is present but status view is not ready).
+          try {
+            const evRes = await evaluationService.getExaminerEvaluationsForStudent({ internship_id: internshipId });
+            if (evRes.success && Array.isArray(evRes.data)) {
+              setApiStudentEvaluationStatus({ examiner_progress: { evaluations: evRes.data } });
+              return;
+            }
+          } catch (e) {
+            // fall through to empty
+          }
+          setApiStudentEvaluationStatus({ examiner_progress: { evaluations: [] } });
+        }
+          return;
+        }
+      } catch {
+        // fall back to local cache below
+      } finally {
+        if (!cancelled) setStudentEvaluationStatusLoading(false);
+      }
+      if (!cancelled) setApiStudentEvaluationStatus(null);
+    };
+
+    loadStudentEvaluationStatus();
+    const onRefresh = () => loadStudentEvaluationStatus();
+    window.addEventListener("storage", onRefresh);
+    window.addEventListener("examiner-evaluation-updated", onRefresh);
+    window.addEventListener("overall-evaluation-updated", onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", onRefresh);
+      window.removeEventListener("examiner-evaluation-updated", onRefresh);
+      window.removeEventListener("overall-evaluation-updated", onRefresh);
+    };
+  }, [activeApp?.id, activeApp?.internshipId, examinerEvalNonce, overallEvalNonce]);
+
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
+
+    const hasApiExaminerProgress = Boolean(apiStudentEvaluationStatus?.examiner_progress);
+    const apiEvaluations = apiStudentEvaluationStatus?.examiner_progress?.evaluations;
+    if (hasApiExaminerProgress) {
+      if (!Array.isArray(apiEvaluations) || apiEvaluations.length === 0) {
+        return [];
+      }
+      return apiEvaluations
+        .map((rec, index) => ({
+          id: rec.id ?? `api-examiner-${index}`,
+          examinerName:
+            rec.examiner_name ||
+            (index === 0 ? activeApp.examinerName : activeApp.examiner2Name) ||
+            "Examiner",
+          submittedAt: rec.submitted_at,
+          formData: rec.form_data || {},
+          comments: rec.comments || "",
+          technical_skills_score: rec.technical_skills_score,
+          communication_score: rec.communication_score,
+          professionalism_score: rec.professionalism_score,
+          report_quality_score: rec.report_quality_score,
+          presentation_score: rec.presentation_score,
+          total_score: rec.total_score,
+          weighted_score: rec.weighted_score,
+        }))
+        .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    }
+
     const sid = String(activeApp.studentId ?? studentId ?? "").trim();
     const all = getExaminerEvaluationsForStudent(sid);
     const picked = [];
@@ -1462,12 +1569,25 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     pushSlot(activeApp.examinerName);
     pushSlot(activeApp.examiner2Name);
     return picked.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
-  }, [activeApp, studentId, examinerEvalNonce]);
+  }, [activeApp, studentId, examinerEvalNonce, apiStudentEvaluationStatus]);
 
   /** Match coordinator/advisor/examiner flows: approvals are keyed by application `studentId`, not necessarily login id */
   const approvalStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
 
-  const overallApprovals = useMemo(() => getOverallApprovals(approvalStudentKey), [approvalStudentKey, overallEvalNonce]);
+  const overallApprovals = useMemo(() => {
+    const local = getOverallApprovals(approvalStudentKey);
+    // If we have API examiner progress data, avoid showing examiner approvals
+    // as "Approved" unless the advisor has explicitly approved locally.
+    const hasApiExaminerProgress = Boolean(apiStudentEvaluationStatus?.examiner_progress);
+    if (hasApiExaminerProgress) {
+      return {
+        ...local,
+        examiner1Approved: Boolean(local.advisorApproved) && Boolean(local.examiner1Approved),
+        examiner2Approved: Boolean(local.advisorApproved) && Boolean(local.examiner2Approved),
+      };
+    }
+    return local;
+  }, [approvalStudentKey, overallEvalNonce, apiStudentEvaluationStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1887,13 +2007,13 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
         {internshipSubTab == null && (
           <div className="border-t border-slate-100 bg-white p-6 sm:p-8">
             <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-12">
-              <div className="space-y-5">
+              <div className="space-y-5 min-w-0">
                 <div className="flex w-fit items-center gap-3 border-b-2 border-indigo-400 pb-2">
                   <Building2 className="h-5 w-5 text-indigo-600" />
                   <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Partner Organization</h4>
                 </div>
                 <div className="space-y-4">
-                  <p className="text-2xl font-bold text-gray-900">{activeApp.companyName}</p>
+                  <p className="text-2xl font-bold text-gray-900 truncate">{activeApp.companyName}</p>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 font-medium text-gray-600">
                     <MapPin className="h-4 w-4 shrink-0 text-indigo-600" />
                     <span>{activeApp.companyFull?.location || "Location provided by system"}</span>
@@ -1904,13 +2024,13 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                 </div>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-5 min-w-0">
                 <div className="flex w-fit items-center gap-3 border-b-2 border-indigo-300/60 pb-2">
                   <Briefcase className="h-5 w-5 text-indigo-700" />
                   <h4 className="text-sm font-black uppercase tracking-widest text-gray-900">Internship Role</h4>
                 </div>
                 <div className="space-y-4">
-                  <p className="text-xl font-bold text-gray-900">{activeApp.internshipTitle}</p>
+                  <p className="text-xl font-bold text-gray-900 truncate">{activeApp.internshipTitle}</p>
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div className="rounded-xl border border-indigo-100 bg-indigo-50/80 p-3 sm:p-4">
                       <p className="mb-1 text-[10px] font-black uppercase text-indigo-800">Timeframe</p>
@@ -1926,17 +2046,17 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                   <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                     <p className="mb-3 text-[10px] font-black uppercase text-gray-400">Academic Supervision</p>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-                      <div>
+                      <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Academic Advisor</p>
-                        <p className="text-sm font-black text-gray-900">{activeApp.advisorName || advisorName || "Awaiting Assignment"}</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{activeApp.advisorName || advisorName || "Awaiting Assignment"}</p>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-700">Internal Examiner 1</p>
-                        <p className="text-sm font-black text-gray-900">{activeApp.examinerName || "Awaiting Assignment"}</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{activeApp.examinerName || "Awaiting Assignment"}</p>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Internal Examiner 2</p>
-                        <p className="text-sm font-black text-gray-900">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{activeApp.examiner2Name || "Awaiting Assignment"}</p>
                       </div>
                     </div>
                   </div>
@@ -1955,6 +2075,23 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => selectInternshipTab("overall-eval")}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                  overallPublished || overallComputed?.complete
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
+                }`}
+              >
+                View Overall Evaluation
+              </button>
+              {!overallPublished && !overallComputed?.complete && (
+                <p className="text-sm text-gray-500">Overall evaluation is not ready yet — click to view status.</p>
+              )}
             </div>
           </div>
         )}
@@ -2275,7 +2412,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                 Your internal examiner(s) submit this form. It appears here after submission.
               </p>
             </div>
-            {examinerEvalsVisible.length === 0 ? (
+            {studentEvaluationStatusLoading ? (
+              <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions from the API." />
+            ) : examinerEvalsVisible.length === 0 ? (
               <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
                 No examiner evaluation has been submitted yet.
               </div>

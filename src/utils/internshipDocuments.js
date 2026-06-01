@@ -93,7 +93,9 @@ const normalizeRoleStatus = (value) => {
 };
 
 export const mapApiDocumentToLocal = (doc) => ({
-  id: `api-doc-${doc.id}`,
+  // include internship id to ensure uniqueness when same API doc appears
+  // across multiple API endpoints (my documents + examiner documents)
+  id: `api-doc-${doc.id}-${doc.internship_id}`,
   apiId: doc.id,
   internshipId: doc.internship_id,
   studentId: String(doc.student_id ?? ""),
