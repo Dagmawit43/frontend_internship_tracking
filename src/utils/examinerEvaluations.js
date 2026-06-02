@@ -30,11 +30,25 @@ const readAll = () => {
 
 const writeAll = (list) => localStorage.setItem(KEY, JSON.stringify(list));
 
-/** One record per (studentId, examiner identity). */
-export const getExaminerEvaluation = (studentId, examinerKey) => {
+/** One record per (internshipId, examiner identity, slot). Fallback to studentId for legacy logs. */
+export const getExaminerEvaluation = (studentId, examinerKey, internshipId, slot) => {
   const sid = String(studentId ?? "");
+  const iid = String(internshipId ?? "");
   const ek = norm(examinerKey);
-  return readAll().find((e) => String(e.studentId) === sid && norm(e.examinerKey) === ek) || null;
+  const sl = slot ? String(slot) : "";
+  const all = readAll();
+
+  if (iid) {
+    const byInternship = all.find((e) => {
+      const iidMatch = String(e.internshipId || e.internship) === iid;
+      const ekMatch = norm(e.examinerKey) === ek;
+      const slotMatch = !sl || !e.slot || String(e.slot) === sl;
+      return iidMatch && ekMatch && slotMatch;
+    });
+    if (byInternship) return byInternship;
+  }
+
+  return all.find((e) => String(e.studentId) === sid && norm(e.examinerKey) === ek) || null;
 };
 
 export const getExaminerEvaluationsForStudent = (studentId) => {
@@ -57,16 +71,35 @@ export const submitExaminerEvaluation = ({
   examinerName,
   advisorName,
   formData,
+  internshipId,
+  slot,
 }) => {
-  const all = readAll();
+  const sid = String(studentId);
+  const iid = String(internshipId ?? "");
   const ek = norm(examinerKey);
-  const idx = all.findIndex(
-    (e) => String(e.studentId) === String(studentId) && norm(e.examinerKey) === ek
-  );
+  const sl = slot ? String(slot) : "";
+  const all = readAll();
+
+  const idx = all.findIndex((e) => {
+    const sameExaminer = norm(e.examinerKey) === ek;
+    if (!sameExaminer) return false;
+
+    // Most specific: internship + slot
+    if (iid && sl && (e.internshipId || e.internship) && e.slot) {
+      return String(e.internshipId || e.internship) === iid && String(e.slot) === sl;
+    }
+
+    if (iid && (e.internshipId || e.internship)) {
+      return String(e.internshipId || e.internship) === iid;
+    }
+    return String(e.studentId) === sid;
+  });
   const record = {
     id: idx >= 0 ? all[idx].id : Date.now(),
     studentId: String(studentId),
     studentName: studentName || "",
+    internshipId: iid,
+    slot: sl,
     examinerKey: ek,
     examinerName: examinerName || "",
     formData: { ...formData },
@@ -77,8 +110,6 @@ export const submitExaminerEvaluation = ({
   if (idx >= 0) all[idx] = record;
   else all.push(record);
   writeAll(all);
-
-  const sid = String(studentId);
   try {
     const notifications = JSON.parse(localStorage.getItem("notifications") || "[]");
     const examinerLabel = examinerName || examinerKey || "Internal examiner";

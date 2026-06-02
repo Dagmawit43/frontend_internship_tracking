@@ -693,7 +693,7 @@ const ExaminerDashboard = () => {
     const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
     // Prefer API data; fall back to localStorage
     if (internshipId && apiEvals[internshipId]) return apiEvals[internshipId];
-    return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity);
+    return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity, internshipId, examinerSlot);
   }, [selectedStudent, examinerIdentity, examinerEvalNonce, apiEvals]);
 
   const overall = useMemo(() => {
@@ -1184,6 +1184,8 @@ const ExaminerDashboard = () => {
                       examinerName: displayName,
                       advisorName: selectedStudent.advisorName || "",
                       formData: formPayload,
+                      internshipId: selectedStudent.id || selectedStudent.__raw?.id,
+                      slot: examinerSlot,
                     });
                     setExaminerEvalNonce((n) => n + 1);
 

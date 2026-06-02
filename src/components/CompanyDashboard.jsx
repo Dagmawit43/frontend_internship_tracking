@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Bell, ChevronDown, Plus, Edit2, Trash2, ChevronUp, MapPin,
   Building2, Briefcase, GraduationCap, Clock, Layers, User, Mail,
-  XCircle, FileText, Users, ClipboardList, AlertCircle, LogOut,
+  XCircle, FileText, Users, ClipboardList, AlertCircle, LogOut, CheckCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -81,7 +81,7 @@ const InternshipModal = ({ isOpen, onClose, onSubmit, initialData, companySessio
     } else {
       setFormData(empty);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
@@ -331,21 +331,21 @@ const AppliedStudentsPage = ({ companySession }) => {
   }, [cName, companyId]);
 
   const loadApplications = useCallback(async () => {
-      try {
-        if (!selectedInternshipId) {
-          setApplications([]);
-          return;
-        }
-        const result = await internshipService.getCompanyApplicants(companyId, {
-          position_id: selectedInternshipId,
-        });
-        const payload = result.success ? result.data : [];
-        const items = Array.isArray(payload) ? payload : payload?.results || [];
-        setApplications(items.map(mapApplication).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
-      } catch (err) {
-        console.error("Failed to load applications:", err);
+    try {
+      if (!selectedInternshipId) {
         setApplications([]);
+        return;
       }
+      const result = await internshipService.getCompanyApplicants(companyId, {
+        position_id: selectedInternshipId,
+      });
+      const payload = result.success ? result.data : [];
+      const items = Array.isArray(payload) ? payload : payload?.results || [];
+      setApplications(items.map(mapApplication).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt)));
+    } catch (err) {
+      console.error("Failed to load applications:", err);
+      setApplications([]);
+    }
   }, [companyId, mapApplication, selectedInternshipId]);
 
   useEffect(() => {
@@ -428,9 +428,34 @@ const AppliedStudentsPage = ({ companySession }) => {
                 <div className="flex flex-col items-end gap-3 self-center sm:self-start">
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${app.status === "accepted" ? "bg-green-100 text-green-700 border-green-200" : app.status === "rejected" ? "bg-red-100 text-red-700 border-red-200" : "bg-yellow-100 text-yellow-700 border-yellow-200"}`}>{app.status}</span>
                   {(app.status === "Pending" || app.status === "applied") ? (
-                    <button onClick={() => setSelectedApplication(app)} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">
-                      <FileText className="w-4 h-4" /> Open Acceptance Form
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to ACCEPT ${app.studentName}?`)) {
+                            handleUpdateStatus(app.id, { ...app.acceptanceForm, accepted: true, rejected: false });
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                      >
+                        <CheckCircle className="w-4 h-4" /> Accept
+                      </button>
+                      <button
+                        onClick={() => {
+                          const reason = window.prompt(`Reason for rejecting ${app.studentName}:`);
+                          if (reason !== null && reason.trim() !== "") {
+                            handleUpdateStatus(app.id, { ...app.acceptanceForm, accepted: false, rejected: true, reason });
+                          } else if (reason !== null) {
+                            window.alert("Rejection reason is required.");
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" /> Reject
+                      </button>
+                      <button onClick={() => setSelectedApplication(app)} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 shadow-sm transition-colors">
+                        <FileText className="w-4 h-4" /> View Form
+                      </button>
+                    </div>
                   ) : (
                     <p className="text-[10px] text-gray-400 font-medium">Decision recorded</p>
                   )}
@@ -665,7 +690,7 @@ const InternsPage = ({ companySession }) => {
     };
 
     fetchLogbook();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIntern?.id]);
 
   // Auto-reminders: which interns have evaluations not yet submitted
@@ -699,7 +724,7 @@ const InternsPage = ({ companySession }) => {
             studentId: intern.studentId,
             month: m,
             status: item.status === "ADVISOR_APPROVED" ? "APPROVED" :
-                    item.status === "REJECTED" ? "REJECTED" : "SUBMITTED",
+              item.status === "REJECTED" ? "REJECTED" : "SUBMITTED",
             evaluationData: item.form_data || {},
             apiId: item.id,
             total: item.total_score,
@@ -740,7 +765,7 @@ const InternsPage = ({ companySession }) => {
             studentName: intern.studentName,
             companyName: intern.companyName,
             status: item.status === "ADVISOR_APPROVED" ? "APPROVED_BY_ADVISOR" :
-                    item.status === "REJECTED" ? "REJECTED" : "PENDING_ADVISOR_APPROVAL",
+              item.status === "REJECTED" ? "REJECTED" : "PENDING_ADVISOR_APPROVAL",
             formData: item.form_data || {},
             apiId: item.id,
             total: item.total_mark,
@@ -962,10 +987,10 @@ const InternsPage = ({ companySession }) => {
 
   const evalStatusBadge = (status) => ({
     [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-    [EVAL_STATUS.PENDING]:     "bg-yellow-100 text-yellow-700 border-yellow-200",
-    [EVAL_STATUS.SUBMITTED]:   "bg-indigo-100 text-indigo-700 border-indigo-200",
-    [EVAL_STATUS.APPROVED]:    "bg-green-100 text-green-700 border-green-200",
-    [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
+    [EVAL_STATUS.PENDING]: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    [EVAL_STATUS.SUBMITTED]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    [EVAL_STATUS.APPROVED]: "bg-green-100 text-green-700 border-green-200",
+    [EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
   }[status] || "bg-gray-100 text-gray-600 border-gray-200");
 
   const groupedInterns = interns.reduce((acc, intern) => {
@@ -978,7 +1003,7 @@ const InternsPage = ({ companySession }) => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Auto reminders */}
-   
+
 
       <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <div>
@@ -1074,45 +1099,45 @@ const InternsPage = ({ companySession }) => {
                   <p className="text-gray-500">No logbook weeks submitted yet.</p>
                 </div>
               ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).map(week => {
-                  // Company can act when status is SUBMITTED (mapped to PENDING_COMPANY) or PENDING_COMPANY
-                  const canAct = week.status === WEEK_STATUS.PENDING_COMPANY ||
-                    week.apiStatus === "SUBMITTED";
-                  return (
-                  <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 space-y-3">
-                    <div className="flex justify-between items-center gap-3">
-                      <p className="font-black text-gray-900">Week {week.weekNumber}</p>
-                      <span className="px-2.5 py-1 rounded-full border text-[10px] font-black uppercase bg-gray-100 text-gray-700 border-gray-200">{STATUS_LABELS[week.status]}</span>
-                    </div>
-                    <InternshipLogbookForm
-                      key={`${selectedIntern.studentId}-w${week.weekNumber}-${week.status}`}
-                      role="company"
-                      readOnly={!canAct}
-                      title={`Week ${week.weekNumber}`}
-                      initialData={{ studentName: selectedRecord.meta?.studentName || selectedIntern.studentName || "", companyName: selectedRecord.meta?.companyName || selectedIntern.companyName || "", supervisorName: selectedRecord.meta?.supervisorName || "", safetyBrief: selectedRecord.meta?.safetyBrief || "", weeks: [week] }}
-                      onValuesChange={persistCompanySupervisorFields}
-                    />
-                    {week.companyComment && (
-                      <p className="text-[11px] text-gray-500 italic">Company note: {week.companyComment}</p>
-                    )}
-                    {canAct ? (
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "approve")} className="flex-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold">Approve</button>
-                        <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "reject")} className="flex-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold">Reject</button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedRecord.weeks.filter(w => w.status !== WEEK_STATUS.NOT_SUBMITTED).map(week => {
+                    // Company can act when status is SUBMITTED (mapped to PENDING_COMPANY) or PENDING_COMPANY
+                    const canAct = week.status === WEEK_STATUS.PENDING_COMPANY ||
+                      week.apiStatus === "SUBMITTED";
+                    return (
+                      <div key={week.weekNumber} className="border border-gray-200 rounded-xl p-4 space-y-3">
+                        <div className="flex justify-between items-center gap-3">
+                          <p className="font-black text-gray-900">Week {week.weekNumber}</p>
+                          <span className="px-2.5 py-1 rounded-full border text-[10px] font-black uppercase bg-gray-100 text-gray-700 border-gray-200">{STATUS_LABELS[week.status]}</span>
+                        </div>
+                        <InternshipLogbookForm
+                          key={`${selectedIntern.studentId}-w${week.weekNumber}-${week.status}`}
+                          role="company"
+                          readOnly={!canAct}
+                          title={`Week ${week.weekNumber}`}
+                          initialData={{ studentName: selectedRecord.meta?.studentName || selectedIntern.studentName || "", companyName: selectedRecord.meta?.companyName || selectedIntern.companyName || "", supervisorName: selectedRecord.meta?.supervisorName || "", safetyBrief: selectedRecord.meta?.safetyBrief || "", weeks: [week] }}
+                          onValuesChange={persistCompanySupervisorFields}
+                        />
+                        {week.companyComment && (
+                          <p className="text-[11px] text-gray-500 italic">Company note: {week.companyComment}</p>
+                        )}
+                        {canAct ? (
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "approve")} className="flex-1 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold">Approve</button>
+                            <button type="button" onClick={() => updateCompanyDecision(week.weekNumber, "reject")} className="flex-1 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold">Reject</button>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-400 font-semibold">
+                            {week.status === WEEK_STATUS.APPROVED ? "✓ Approved by advisor" :
+                              week.status === WEEK_STATUS.PENDING_ADVISOR ? "Awaiting advisor review" :
+                                week.status === WEEK_STATUS.REJECTED_COMPANY ? "Returned — awaiting student revision" :
+                                  "No company action available for this status."}
+                          </p>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[11px] text-gray-400 font-semibold">
-                        {week.status === WEEK_STATUS.APPROVED ? "✓ Approved by advisor" :
-                         week.status === WEEK_STATUS.PENDING_ADVISOR ? "Awaiting advisor review" :
-                         week.status === WEEK_STATUS.REJECTED_COMPANY ? "Returned — awaiting student revision" :
-                         "No company action available for this status."}
-                      </p>
-                    )}
-                  </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
               )
             )}
 
@@ -1196,11 +1221,11 @@ const InternsPage = ({ companySession }) => {
 
               const finalBadgeClass =
                 finalStatus === FINAL_EVAL_STATUS.NOT_STARTED ? "bg-gray-100 text-gray-600 border-gray-200" :
-                finalStatus === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                finalStatus === FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR ? "bg-green-100 text-green-700 border-green-200" :
-                finalStatus === FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL ? "bg-yellow-100 text-yellow-700 border-yellow-200" :
-                finalStatus === FINAL_EVAL_STATUS.FINAL_APPROVED ? "bg-green-100 text-green-700 border-green-200" :
-                "bg-red-100 text-red-700 border-red-200";
+                  finalStatus === FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                    finalStatus === FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR ? "bg-green-100 text-green-700 border-green-200" :
+                      finalStatus === FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL ? "bg-yellow-100 text-yellow-700 border-yellow-200" :
+                        finalStatus === FINAL_EVAL_STATUS.FINAL_APPROVED ? "bg-green-100 text-green-700 border-green-200" :
+                          "bg-red-100 text-red-700 border-red-200";
 
               return (
                 <div>
@@ -1295,8 +1320,8 @@ const CompanyDashboard = () => {
     return <LoadingState title="Loading company dashboard" subtitle="Fetching your company profile and internship data." />;
   }
 
-  const cName   = session.companyName || session.company_name || "Company";
-  const email   = session.contactEmail || session.representative_email || session.email || "N/A";
+  const cName = session.companyName || session.company_name || "Company";
+  const email = session.contactEmail || session.representative_email || session.email || "N/A";
   const repName = session.representative_name || session.fullName || "Representative";
 
   return (

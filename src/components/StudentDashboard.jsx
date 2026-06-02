@@ -46,6 +46,18 @@ import {
 import AdvisorStudentEvaluationForm from "./AdvisorStudentEvaluationForm";
 import ExaminerUniversityEvaluationForm from "./ExaminerUniversityEvaluationForm";
 import { toast } from "../utils/toast";
+// JSON parsing helper to prevent unexpected end of JSON input
+const safeJsonParse = (key, fallback = []) => {
+  try {
+    const val = localStorage.getItem(key);
+    if (!val) return fallback;
+    return JSON.parse(val);
+  } catch (err) {
+    console.warn(`JSON parse error for key "${key}":`, err);
+    return fallback;
+  }
+};
+
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -171,6 +183,8 @@ const toLegacyApplicationStatus = (application) => {
       return "Active";
     case "OFFER_RECEIVED":
       return "accepted_by_company";
+    case "AWAITING_COORDINATOR":
+      return "waiting_coordinator";
     case "AWAITING_MENTOR":
       return "Pending";
     case "PENDING":
@@ -230,7 +244,7 @@ const normalizeMyApplication = (application, studentId, studentName) => {
     },
     finalInternshipStatus:
       workflowStatus === "ACCEPTED"
-        ? "ACTIVE_INTERN"
+        ? (application.internship_status === "COMPLETED" ? "COMPLETED" : "ACTIVE_INTERN")
         : workflowStatus === "OFFER_RECEIVED"
           ? "ACCEPTED_BY_COMPANY"
           : workflowStatus,
@@ -254,8 +268,11 @@ const getDashboardApplicationStatus = (applications) => {
   if (ordered.some((application) => application.overallStatus === "OFFER_RECEIVED")) {
     return "Company Accepted";
   }
+  if (ordered.some((application) => application.overallStatus === "AWAITING_COORDINATOR")) {
+    return "Waiting for Coordinator";
+  }
   if (ordered.some((application) => application.overallStatus === "AWAITING_MENTOR")) {
-    return "Pending Mentor Approval";
+    return "Waiting for Mentor";
   }
   if (ordered.some((application) => application.overallStatus === "PENDING")) {
     return "Applied";
@@ -269,7 +286,7 @@ const getDashboardApplicationStatus = (applications) => {
 
 const pickActiveApplication = (applications) =>
   sortApplicationsByDate(applications).find(
-    (application) => ["ACCEPTED", "OFFER_RECEIVED"].includes(application.overallStatus)
+    (application) => application.overallStatus === "ACCEPTED" && application.finalInternshipStatus !== "COMPLETED"
   ) || null;
 
 const buildStudentNotifications = (studentId, studentName) => {
@@ -646,10 +663,22 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
                   setSelectedInternship(internship);
                   setSelectedPositionId(internship.id || internship.position_id || internship.internship_id || internship.pk || null);
                 }}
-                className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+                className={`w-full flex justify-center items-center gap-2 px-4 py-2 rounded-md transition ${internship.is_applied
+                  ? "bg-green-100 text-green-700 border border-green-200 cursor-default"
+                  : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
               >
-                <Eye className="w-4 h-4" />
-                View Details
+                {internship.is_applied ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    Applied
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    View Details
+                  </>
+                )}
               </button>
             </div>
           ))}
@@ -755,15 +784,20 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
                 <button
                   type="button"
                   onClick={() => {
+                    if (selectedInternship?.is_applied) return;
                     if (!selectedPositionId && !selectedInternship?.id) {
                       alert("This opportunity is missing an application id.");
                       return;
                     }
                     setIsApplyModalOpen(true);
                   }}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                  className={`px-6 py-2 rounded-lg font-medium ${selectedInternship?.is_applied
+                    ? "bg-green-100 text-green-700 border border-green-200 cursor-not-allowed"
+                    : "bg-indigo-600 text-white hover:bg-indigo-700"
+                    }`}
+                  disabled={selectedInternship?.is_applied}
                 >
-                  Apply Now
+                  {selectedInternship?.is_applied ? "Already Applied" : "Apply Now"}
                 </button>
               </div>
             </div>
@@ -796,39 +830,53 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     const loadApplied = async () => {
       try {
         const placementResult = await internshipService.getCurrentPlacement();
-        if (placementResult.success && placementResult.data?.placement) {
-          const placement = placementResult.data.placement;
-          setAppliedInternships([
-            normalizeMyApplication(
-              {
-                ...placement,
-                overall_status: placement.overall_status || placement.status,
-                company_name: placement.company_name,
-                position_title: placement.position_title,
-                applied_at: placement.start_date,
-                student_decision: placement.student_decision || (placement.type === "internship" ? "ACCEPTED" : "PENDING"),
-              },
-              studentId,
-              studentName
-            ),
-          ]);
-          return;
+        const applicationsResult = await internshipService.getMyApplications();
+        if (!applicationsResult.success) {
+          throw new Error(applicationsResult.error?.detail || applicationsResult.error || "Failed to load applications");
         }
 
-        const result = await internshipService.getMyApplications();
-        if (!result.success) {
-          throw new Error(result.error?.detail || result.error || "Failed to load applications");
-        }
-
-        const studentApps = sortApplicationsByDate(
-          getMyApplicationsPayload(result.data).map((application) =>
-            normalizeMyApplication(application, studentId, studentName)
-          )
+        let allApps = getMyApplicationsPayload(applicationsResult.data).map((application) =>
+          normalizeMyApplication(application, studentId, studentName)
         );
 
-        setAppliedInternships(studentApps);
+        if (placementResult.success && placementResult.data?.placement) {
+          const placement = placementResult.data.placement;
+          const normalizedPlacement = normalizeMyApplication(
+            {
+              ...placement,
+              overall_status: placement.overall_status || placement.status,
+              company_name: placement.company_name,
+              position_title: placement.position_title,
+              applied_at: placement.start_date,
+              student_decision: placement.student_decision || (placement.type === "internship" ? "ACCEPTED" : "PENDING"),
+            },
+            studentId,
+            studentName
+          );
+
+          // Merge: Replace the matching application with the placement data for richer display
+          // or add it if not found in my-applications list
+          const existingIdx = allApps.findIndex(a => String(a.id) === String(normalizedPlacement.id));
+          if (existingIdx !== -1) {
+            const original = allApps[existingIdx];
+            allApps[existingIdx] = {
+              ...original,
+              ...normalizedPlacement,
+              // Restore specific fields if they were lost/nullified or default in the placement
+              appliedAt: normalizedPlacement.appliedAt || original.appliedAt,
+              coordinatorApprovalStatus: (normalizedPlacement.coordinatorApprovalStatus === "PENDING" && original.coordinatorApprovalStatus !== "PENDING")
+                ? original.coordinatorApprovalStatus
+                : normalizedPlacement.coordinatorApprovalStatus,
+              mentorStatus: normalizedPlacement.mentorStatus || original.mentorStatus,
+            };
+          } else {
+            allApps.push(normalizedPlacement);
+          }
+        }
+
+        setAppliedInternships(sortApplicationsByDate(allApps));
       } catch (error) {
-        const allApps = JSON.parse(localStorage.getItem("applications")) || [];
+        const allApps = safeJsonParse("applications", []);
         const studentApps = allApps.filter(
           (app) => app.studentId === studentId || app.studentName === studentName
         );
@@ -843,51 +891,37 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     return () => window.removeEventListener("storage", loadApplied);
   }, [studentId, studentName]);
 
-  const handleSelectCompany = (app) => {
+  const hasActivePlacement = appliedInternships.some(app => app.overallStatus === "ACCEPTED" && app.finalInternshipStatus !== "COMPLETED");
+
+  const handleSelectCompany = async (app) => {
     const s = app.status?.toLowerCase();
-    if (s !== 'accepted' && s !== 'accepted_by_company' && s !== 'active') {
-      toast.error("This application hasn't been accepted by the company yet.");
+    const workflowStatus = app.overallStatus;
+
+    if (workflowStatus !== 'OFFER_RECEIVED') {
+      toast.error("This application hasn't been approved by the coordinator yet.");
       return;
     }
 
     try {
-      // 1. Check if student already has a PENDING approval or an ACTIVE internship
-      const allApps = JSON.parse(localStorage.getItem("applications")) || [];
-      const studentApps = allApps.filter(a => a.studentId === studentId || a.studentName === studentName);
-
-      const hasPending = studentApps.some(a => a.coordinatorApprovalStatus === "PENDING");
-      const hasActive = studentApps.some(a => a.finalInternshipStatus === "ACTIVE_INTERN" || a.status === "CONFIRMED");
-
-      if (hasPending || hasActive) {
-        toast.error("You already selected another internship.");
+      if (hasActivePlacement) {
+        toast.error("You already have an active internship.");
         return;
       }
 
-      if (window.confirm(`Are you sure you want to select ${app.companyName} for your internship? This will be sent to the Coordinator for final approval.`)) {
-        // Robust match: prefer unique id, otherwise match by studentId + internshipId
-        const isSameApp = (a, b) => {
-          if (a.id && b.id && a.id === b.id) return true;
-          if (a.internshipId && b.internshipId && a.studentId && b.studentId) {
-            return a.internshipId === b.internshipId && a.studentId === b.studentId;
-          }
-          return false;
-        };
-
-        const updatedApps = allApps.map((a) =>
-          isSameApp(a, app)
-            ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() }
-            : a
-        );
-
-        localStorage.setItem("applications", JSON.stringify(updatedApps));
-        // Notify other tabs and update local UI without a full reload
-        window.dispatchEvent(new Event("storage"));
-        toast.success(`Request sent! Your selection of ${app.companyName} is now pending coordinator approval.`);
-        // update in-memory applied list to reflect change immediately
-        setAppliedInternships((prev) => prev.map((a) => (isSameApp(a, app) ? { ...a, coordinatorApprovalStatus: "PENDING", applicationStatus: "SUBMITTED_TO_COORDINATOR", selectedAt: new Date().toISOString() } : a)));
+      if (window.confirm(`Are you sure you want to select ${app.companyName} for your internship? This will finalize your placement.`)) {
+        const result = await internshipService.acceptOffer(app.id);
+        if (result.success) {
+          toast.success(`Success! You have accepted the offer from ${app.companyName}.`);
+          // Notify other tabs and update local UI
+          window.dispatchEvent(new Event("storage"));
+          // Also manually trigger a reload of applications if needed, or rely on storage event
+        } else {
+          toast.error(result.error?.detail || result.error || "Failed to accept offer.");
+        }
       }
     } catch (err) {
       console.error("Selection failed:", err);
+      toast.error("An error occurred while accepting the offer.");
     }
   };
 
@@ -897,28 +931,31 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     return "Pending";
   };
 
-  const getStatusDisplay = (status, coordStatus, mentorStatus) => {
+  const getStatusDisplay = (status, coordStatus, mentorStatus, overallStatus, isAnyActive, finalStatus) => {
     const s = status?.toLowerCase();
     const cs = coordStatus;
 
-    if (cs === "APPROVED") {
-      return { text: 'Finalized', classes: 'bg-green-600 text-white border-green-700', canSelect: false };
-    }
-    if (cs === "PENDING") {
-      return { text: 'Pending Approval', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
-    }
-    if (cs === "REJECTED") {
-      return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
+    if (finalStatus === "COMPLETED" || finalStatus === "Completed") {
+      return { text: 'Closed', classes: 'bg-slate-600 text-white border-slate-700', canSelect: false };
     }
 
-    // If company/mentor has already acted, surface that to the student
-    if ((mentorStatus || "").toString().toUpperCase() === "ACCEPTED") {
+    if (overallStatus === "ACCEPTED") {
+      return { text: 'Finalized', classes: 'bg-green-600 text-white border-green-700', canSelect: false };
+    }
+
+    if (overallStatus === "OFFER_RECEIVED") {
       return {
-        text: 'Accepted by Company',
-        classes: 'bg-green-100 text-green-700 border-green-200',
-        canSelect: true,
+        text: 'Offer Received',
+        classes: 'bg-green-100 text-green-700 border-green-200 animate-pulse',
+        canSelect: !isAnyActive,
       };
     }
+
+    if (overallStatus === "AWAITING_COORDINATOR") {
+      return { text: 'Pending Coordinator', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
+    }
+
+    // Fallback logic for mentor statuses
     if ((mentorStatus || "").toString().toUpperCase() === "REJECTED") {
       return {
         text: 'Rejected by Company',
@@ -927,20 +964,6 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
       };
     }
 
-    if (s === 'accepted' || s === 'accepted_by_company' || s === 'active') {
-      return {
-        text: 'Accepted',
-        classes: 'bg-green-100 text-green-700 border-green-200',
-        canSelect: true
-      };
-    }
-    if (s === 'rejected') {
-      return {
-        text: 'Rejected',
-        classes: 'bg-red-100 text-red-700 border-red-200',
-        canSelect: false
-      };
-    }
     return {
       text: 'Waiting Response',
       classes: 'bg-yellow-100 text-yellow-700 border-yellow-200',
@@ -975,7 +998,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
       ) : (
         <div className="space-y-4">
           {appliedInternships.map(app => {
-            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus, app.mentorStatus);
+            const statusConfig = getStatusDisplay(app.status, app.coordinatorApprovalStatus, app.mentorStatus, app.overallStatus, hasActivePlacement, app.finalInternshipStatus);
             const companyStatus = getReviewStatusLabel(app.mentorStatus, "Pending");
             const coordinatorStatus = getReviewStatusLabel(app.coordinatorApprovalStatus, "Pending");
             return (
@@ -1074,10 +1097,12 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
   const [apiOverallResults, setApiOverallResults] = useState(null);
   const [overallResultsLoading, setOverallResultsLoading] = useState(false);
+  const [activeLoading, setActiveLoading] = useState(true);
   const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
 
   useEffect(() => {
     const loadActive = async () => {
+      setActiveLoading(true);
       const tryLoadLiveLogbook = async (appLike) => {
         try {
           const internshipId = String(appLike?.internshipId ?? appLike?.id ?? "").trim();
@@ -1114,8 +1139,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
 
       const sid = String(studentId ?? "").trim();
       const sname = String(studentName ?? "").trim();
-      const companies = JSON.parse(localStorage.getItem("companies")) || [];
-      const internships = JSON.parse(localStorage.getItem("allInternships")) || [];
+      const companies = safeJsonParse("companies", []);
+      const internships = safeJsonParse("allInternships", []);
 
       try {
         const placementResult = await internshipService.getCurrentPlacement();
@@ -1301,6 +1326,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
           setActiveApp(null);
           setWeeklyLogbook(null);
         }
+      } finally {
+        setActiveLoading(false);
       }
     };
 
@@ -1577,6 +1604,30 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     return () => { cancelled = true; };
   }, [activeApp?.id, activeApp?.internshipId, overallEvalNonce]);
 
+  // Sync logbook statuses from the evaluation-status endpoint
+  useEffect(() => {
+    const apiLogbooks = apiStudentEvaluationStatus?.documents?.weekly_logbooks;
+    if (!apiLogbooks || !Array.isArray(apiLogbooks) || apiLogbooks.length === 0) return;
+
+    setWeeklyLogbook((prev) => {
+      if (!prev || !prev.weeks) return prev;
+      const updatedWeeks = prev.weeks.map((week) => {
+        const apiWeek = apiLogbooks.find((w) => Number(w.week_number) === Number(week.weekNumber));
+        if (apiWeek) {
+          return {
+            ...week,
+            status: apiWeek.status,
+            submittedAt: apiWeek.submitted_at || week.submittedAt,
+            verifiedAt: apiWeek.verified_at || week.verifiedAt,
+            reviewedAt: apiWeek.reviewed_at || week.reviewedAt,
+          };
+        }
+        return week;
+      });
+      return { ...prev, weeks: updatedWeeks };
+    });
+  }, [apiStudentEvaluationStatus]);
+
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
 
@@ -1628,18 +1679,21 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
 
   const overallApprovals = useMemo(() => {
     const local = getOverallApprovals(approvalStudentKey);
-    // If we have API examiner progress data, avoid showing examiner approvals
-    // as "Approved" unless the advisor has explicitly approved locally.
-    const hasApiExaminerProgress = Boolean(apiStudentEvaluationStatus?.examiner_progress);
-    if (hasApiExaminerProgress) {
+    // Merge API status if available
+    if (apiStudentEvaluationStatus) {
+      const examinerProg = apiStudentEvaluationStatus.examiner_progress || {};
+
       return {
         ...local,
-        examiner1Approved: Boolean(local.advisorApproved) && Boolean(local.examiner1Approved),
-        examiner2Approved: Boolean(local.advisorApproved) && Boolean(local.examiner2Approved),
+        coordinatorApproved: apiStudentEvaluationStatus.coordinator_approved || local.coordinatorApproved,
+        coordinatorApprovedAt: apiStudentEvaluationStatus.coordinator_approved_at || local.coordinatorApprovedAt,
+        // If examiner_progress is marked as completed
+        examiner1Approved: examinerProg.submitted_count >= 1 || local.examiner1Approved,
+        examiner2Approved: examinerProg.submitted_count >= 2 || local.examiner2Approved,
       };
     }
     return local;
-  }, [approvalStudentKey, overallEvalNonce, apiStudentEvaluationStatus]);
+  }, [approvalStudentKey, apiStudentEvaluationStatus, overallEvalNonce]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1716,6 +1770,11 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     };
   }, [activeApp?.id, activeApp?.internshipId, companyEvalNonce]);
 
+  const overallComputed = useMemo(() => {
+    if (!activeApp) return null;
+    return computeOverallEvaluation({ ...activeApp, studentId: approvalStudentKey });
+  }, [activeApp, approvalStudentKey, examinerEvalNonce, advisorOwnEval, overallEvalNonce, companyEvalNonce]);
+
   const companyEvalSummaries = useMemo(
     () => apiCompanyEvalSummaries || getStudentCompanyEvaluationSummaries(approvalStudentKey),
     [apiCompanyEvalSummaries, approvalStudentKey, companyEvalNonce]
@@ -1734,14 +1793,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     };
   }, []);
 
-  const overallComputed = useMemo(() => {
-    if (!activeApp) return null;
-    return computeOverallEvaluation({ ...activeApp, studentId: approvalStudentKey });
-  }, [activeApp, approvalStudentKey, examinerEvalNonce, advisorOwnEval, overallEvalNonce, companyEvalNonce]);
-
   const overallPublished = useMemo(() => {
     if (!activeApp || !overallComputed) return null;
-    const approvals = getOverallApprovals(approvalStudentKey);
+    const approvals = overallApprovals;
     if (
       !approvals.advisorApproved ||
       !approvals.examiner1Approved ||
@@ -1751,7 +1805,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       return null;
     }
     return overallComputed;
-  }, [activeApp, overallComputed, approvalStudentKey, overallEvalNonce]);
+  }, [activeApp, overallComputed, overallApprovals, overallEvalNonce]);
 
   useEffect(() => {
     const bump = () => setExaminerEvalNonce((n) => n + 1);
@@ -2000,6 +2054,10 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
 
+  if (activeLoading) {
+    return <LoadingState title="Loading internship details" subtitle="Fetching your active placement and logbook data." />;
+  }
+
   if (!activeApp) {
     return (
       <div className="app-card p-16 text-center">
@@ -2102,7 +2160,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                       <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-600">Academic Advisor</p>
-                        <p className="text-sm font-black text-gray-900 truncate">{activeApp.advisorName || advisorName || "Awaiting Assignment"}</p>
+                        <p className="text-sm font-black text-gray-900 truncate">{activeApp.advisorName || "Awaiting Assignment"}</p>
                       </div>
                       <div className="min-w-0">
                         <p className="mb-1 text-[10px] font-black uppercase text-indigo-700">Internal Examiner 1</p>
@@ -2469,16 +2527,36 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                           ? "Your overall report is not published yet. Each role below must approve the overall evaluation."
                           : "Not all component evaluations are complete yet."}
                       </p>
-                      {overallComputed?.missing && !overallComputed.complete && (
-                        <ul className="list-disc list-inside text-sm text-amber-900/90 space-y-1">
-                          {overallComputed.missing.advisor && <li>Academic advisor evaluation</li>}
-                          {overallComputed.missing.examiner1 && <li>Internal examiner 1 evaluation</li>}
-                          {overallComputed.missing.examiner2 && <li>Internal examiner 2 evaluation</li>}
-                          {overallComputed.missing.month1 && <li>Company month 1 evaluation</li>}
-                          {overallComputed.missing.month2 && <li>Company month 2 evaluation</li>}
-                          {overallComputed.missing.finalCompany && <li>Company final evaluation</li>}
-                        </ul>
-                      )}
+                      {(() => {
+                        const missing = [];
+                        if (apiStudentEvaluationStatus) {
+                          const doc = apiStudentEvaluationStatus.documents || {};
+                          const mEvals = apiStudentEvaluationStatus.monthly_evaluations || [];
+                          const fEval = apiStudentEvaluationStatus.final_evaluation || {};
+                          const exProg = apiStudentEvaluationStatus.examiner_progress || {};
+
+                          if (!mEvals.find(m => m.month_number === 1 && m.status === "ADVISOR_APPROVED")) missing.push("Company month 1 evaluation (Approved)");
+                          if (!mEvals.find(m => m.month_number === 2 && m.status === "ADVISOR_APPROVED")) missing.push("Company month 2 evaluation (Approved)");
+                          if (!fEval || fEval.status !== "ADVISOR_APPROVED") missing.push("Company final evaluation (Approved)");
+                          if (exProg.submitted_count < exProg.required_count) missing.push(`Internal examiner evaluations (${exProg.submitted_count}/${exProg.required_count})`);
+                          if (!doc.final_report || doc.final_report.status !== "APPROVED") missing.push("Final internship report (Approved)");
+                        } else if (overallComputed?.missing) {
+                          if (overallComputed.missing.advisor) missing.push("Academic advisor evaluation");
+                          if (overallComputed.missing.examiner1) missing.push("Internal examiner 1 evaluation");
+                          if (overallComputed.missing.examiner2) missing.push("Internal examiner 2 evaluation");
+                          if (overallComputed.missing.month1) missing.push("Company month 1 evaluation");
+                          if (overallComputed.missing.month2) missing.push("Company month 2 evaluation");
+                          if (overallComputed.missing.finalCompany) missing.push("Company final evaluation");
+                        }
+
+                        if (missing.length === 0) return null;
+
+                        return (
+                          <ul className="list-disc list-inside text-sm text-amber-900/90 space-y-1">
+                            {missing.map((item, idx) => <li key={idx}>{item}</li>)}
+                          </ul>
+                        );
+                      })()}
                       <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
                         <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
                           Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
@@ -3196,8 +3274,8 @@ const StudentDashboard = () => {
 
   const loadAssignment = async (studentId, studentName, studentEmail, department) => {
     try {
-      const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
-      const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
+      const assignments = safeJsonParse("studentAssignments", []);
+      const otherUsers = safeJsonParse("otherUsers", []);
 
       console.log("🔍 Loading assignment for:", { studentId, studentName, studentEmail, department });
       console.log("📋 Available assignments:", assignments);
@@ -3300,7 +3378,7 @@ const StudentDashboard = () => {
         setExaminer2(null);
       }
 
-      const apps = JSON.parse(localStorage.getItem("applications")) || [];
+      const apps = safeJsonParse("applications", []);
       const activeIntern = apps.find(
         (a) =>
           (a.studentId === studentId || a.studentName === studentName) &&
@@ -3321,7 +3399,7 @@ const StudentDashboard = () => {
 
   const loadApplications = (studentId, studentName) => {
     const loadFromLocalStorage = () => {
-      const apps = JSON.parse(localStorage.getItem("applications")) || [];
+      const apps = safeJsonParse("applications", []);
       const studentApps = apps.filter(
         (app) => app.studentId === studentId || app.studentName === studentName
       );

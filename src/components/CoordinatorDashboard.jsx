@@ -2919,7 +2919,9 @@ const CoordinatorDashboard = () => {
                         ← Back
                       </button>
                     </div>
-                    {coordinatorActiveInterns.length === 0 ? (
+                    {loadingOverallQueue ? (
+                      <LoadingState title="Loading overall queue" subtitle="Fetching evaluations awaiting your approval." />
+                    ) : coordinatorActiveInterns.length === 0 ? (
                       <p className="text-center py-8 text-gray-500">No active interns in your department.</p>
                     ) : pendingOverallQueue.length === 0 ? (
                       <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
