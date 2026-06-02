@@ -114,7 +114,14 @@ export const computeOverallEvaluation = (studentApp) => {
   const ex1Weighted = hasEx1 ? (ex1Mark / 25) * 30 : 0;
   const ex2Weighted = hasEx2 ? (ex2Mark / 25) * 30 : 0;
 
-  const academicOverall100 = advisorWeighted + ex1Weighted + ex2Weighted;
+  const raw = studentApp?.__raw || {};
+  const apiOverallMark = raw.overall_mark_100 != null ? Number(raw.overall_mark_100) : null;
+  const apiCompanyMonAvg = raw.company_monthly_avg != null ? Number(raw.company_monthly_avg) : null;
+  const apiCompanyFinalMark = raw.company_final_score != null ? Number(raw.company_final_score) : null;
+  const apiCompanyTotal = raw.company_score != null ? Number(raw.company_score) : null;
+  const apiAcademicTotal = raw.academic_overall_100 != null ? Number(raw.academic_overall_100) : null;
+
+  const academicOverall100 = apiAcademicTotal ?? (advisorWeighted + ex1Weighted + ex2Weighted);
 
   const m1 = studentId ? getEvaluation(studentId, 1) : null;
   const m2 = studentId ? getEvaluation(studentId, 2) : null;
@@ -129,17 +136,18 @@ export const computeOverallEvaluation = (studentApp) => {
   const finalCompany20 = Number(finalEval?.finalMark ?? NaN);
   const hasFinalCompany = Number.isFinite(finalCompany20);
 
-  const companyMonthly20 = Number.isFinite(monthlyAvg20) ? Number(monthlyAvg20.toFixed(2)) : null;
-  const companyFinal20 = hasFinalCompany ? finalCompany20 : null;
-  const companyTotal40 =
+  const companyMonthly20 = apiCompanyMonAvg ?? (Number.isFinite(monthlyAvg20) ? Number(monthlyAvg20.toFixed(2)) : null);
+  const companyFinal20 = apiCompanyFinalMark ?? (hasFinalCompany ? finalCompany20 : null);
+  const companyTotal40 = apiCompanyTotal ?? (
     companyMonthly20 != null && companyFinal20 != null
       ? Number((companyMonthly20 + companyFinal20).toFixed(2))
-      : null;
+      : null
+  );
 
   const companyComplete = companyTotal40 != null;
   const academicComplete = hasAdvisor && hasEx1 && hasEx2;
 
-  const overallMark100 = Number(((academicOverall100 * 0.6) + (companyTotal40 ?? 0)).toFixed(2));
+  const overallMark100 = apiOverallMark ?? Number(((academicOverall100 * 0.6) + (companyTotal40 ?? 0)).toFixed(2));
 
   return {
     advisorRec,
@@ -148,12 +156,10 @@ export const computeOverallEvaluation = (studentApp) => {
     month1Rec: m1,
     month2Rec: m2,
     finalCompanyRec: finalEval,
-    advisorMark: hasAdvisor ? advisorMark : null,
-    ex1Mark: hasEx1 ? ex1Mark : null,
     ex2Mark: hasEx2 ? ex2Mark : null,
     academicOverall100: Number(academicOverall100.toFixed(2)),
-    companyMonthly20,
-    companyFinal20,
+    companyMonAvg: companyMonthly20,
+    companyFinalMark: companyFinal20,
     companyTotal40,
     overallMark100,
     complete: academicComplete && companyComplete,

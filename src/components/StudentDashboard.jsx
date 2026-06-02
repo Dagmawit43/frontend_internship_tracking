@@ -59,65 +59,65 @@ const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick
   return (
     <nav className="app-nav shrink-0 border-b border-slate-200/80">
       <div className="flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
-              <p className="text-xs text-slate-500">AASTU</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <img src={logoSrc} alt="AASTU Logo" className="h-10 w-10 rounded-full object-cover" />
+          <div>
+            <h1 className="text-lg font-bold text-slate-900">Internship Tracking System</h1>
+            <p className="text-xs text-slate-500">AASTU</p>
           </div>
+        </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={onNotificationClick}
-                className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
-                aria-label="Open notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {notificationCount > 0 && (
-                  <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
-                    {notificationCount > 9 ? "9+" : notificationCount}
-                  </span>
-                )}
-              </button>
-            </div>
-
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative">
             <button
               type="button"
-              onClick={handleLogout}
-              aria-label="Log out"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
+              onClick={onNotificationClick}
+              className="relative rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30"
+              aria-label="Open notifications"
             >
-              <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
-              <span className="hidden sm:inline">Logout</span>
+              <Bell className="w-5 h-5" />
+              {notificationCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Log out"
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 sm:px-4"
+          >
+            <LogOut className="h-4 w-4 sm:hidden" aria-hidden />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                {studentName || "Student"}
+              </span>
+              <ChevronDown className="w-4 h-4 text-gray-500" />
             </button>
 
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                  {studentName || "Student"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-gray-500" />
-              </button>
-
-              {showProfileDropdown && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowProfileDropdown(false)}></div>
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
-                    <div className="px-4 py-1 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">{studentName || "Student"}</p>
-                      <p className="text-xs text-gray-500">Student Account</p>
-                    </div>
+            {showProfileDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowProfileDropdown(false)}></div>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                  <div className="px-4 py-1 border-b border-gray-200">
+                    <p className="text-sm font-medium text-gray-900">{studentName || "Student"}</p>
+                    <p className="text-xs text-gray-500">Student Account</p>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
+        </div>
       </div>
     </nav>
   );
@@ -154,10 +154,10 @@ const getMyApplicationsPayload = (payload) => {
 const getApplicationWorkflowStatus = (application) =>
   String(
     application?.overallStatus ||
-      application?.overall_status ||
-      application?.student_decision ||
-      application?.dept_status ||
-      ""
+    application?.overall_status ||
+    application?.student_decision ||
+    application?.dept_status ||
+    ""
   )
     .trim()
     .toUpperCase();
@@ -295,8 +295,8 @@ const buildStudentNotifications = (studentId, studentName) => {
         app.status === "accepted"
           ? `${app.companyName} accepted your application`
           : app.status === "rejected"
-          ? `${app.companyName} rejected your application`
-          : `Update on your application to ${app.companyName}`,
+            ? `${app.companyName} rejected your application`
+            : `Update on your application to ${app.companyName}`,
       message: app.statusMessage || "",
       date: app.updatedAt || app.appliedAt,
       studentId,
@@ -507,7 +507,7 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
             department: dept,
             isActive,
           };
-          
+
           console.log(`Processing internship ID ${internship.id}:`, {
             original: internship,
             foundCompany: comp,
@@ -527,12 +527,12 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
             return true;
           }
           const internDept = normalizeDepartmentValue(i.department || i.department_name || i.departmentName);
-          
+
           if (!internDept) {
             console.log(`Filtering out internship ID ${i.id} because internship has no department specified.`);
             return false;
           }
-          
+
           const isMatch = internDept === studentDeptNorm;
           console.log(`Filtering internship ID ${i.id} by department: internship_dept='${internDept}', student_dept='${studentDeptNorm}', match=${isMatch}`);
           return isMatch;
@@ -582,12 +582,12 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
 
       if (result.success) {
         alert(`Successfully applied to ${selectedInternship.title}!`);
-        
+
         // Optionally, refresh data or notify other components
         if (onApplicationSubmit) {
           onApplicationSubmit(result.data);
         }
-        
+
         setIsApplyModalOpen(false);
         setSelectedInternship(null);
         loadInternships(); // Refresh the list of internships
@@ -668,7 +668,7 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
                   </p>
                   <p className="text-indigo-600 font-medium">{selectedInternship.start_date} to {selectedInternship.end_date}</p>
                 </div>
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setSelectedInternship(null);
@@ -682,34 +682,34 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
 
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                   <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><Layers className="w-4 h-4 text-indigo-600" /></div>
-                      <div>
-                         <p className="text-[10px] uppercase font-bold text-indigo-600">Department</p>
-                         <p className="text-sm font-bold text-gray-900">{selectedInternship.department}</p>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><MapPin className="w-4 h-4 text-indigo-600" /></div>
-                      <div>
-                         <p className="text-[10px] uppercase font-bold text-indigo-600">Location</p>
-                         <p className="text-sm font-bold text-gray-900">{selectedInternship.location} ({selectedInternship.internship_type})</p>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><CheckCircle className="w-4 h-4 text-indigo-600" /></div>
-                      <div>
-                         <p className="text-[10px] uppercase font-bold text-indigo-600">Status</p>
-                         <p className="text-sm font-bold text-gray-900">{selectedInternship.status || "ACTIVE"}</p>
-                      </div>
-                   </div>
-                   <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-lg border border-indigo-200"><Clock className="w-4 h-4 text-indigo-600" /></div>
-                      <div>
-                         <p className="text-[10px] uppercase font-bold text-indigo-600">Schedule</p>
-                         <p className="text-sm font-bold text-gray-900">{selectedInternship.days_in_week || selectedInternship.Days_in_week} days/week</p>
-                      </div>
-                   </div>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-lg border border-indigo-200"><Layers className="w-4 h-4 text-indigo-600" /></div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">Department</p>
+                      <p className="text-sm font-bold text-gray-900">{selectedInternship.department}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-lg border border-indigo-200"><MapPin className="w-4 h-4 text-indigo-600" /></div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">Location</p>
+                      <p className="text-sm font-bold text-gray-900">{selectedInternship.location} ({selectedInternship.internship_type})</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-lg border border-indigo-200"><CheckCircle className="w-4 h-4 text-indigo-600" /></div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">Status</p>
+                      <p className="text-sm font-bold text-gray-900">{selectedInternship.status || "ACTIVE"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white p-2 rounded-lg border border-indigo-200"><Clock className="w-4 h-4 text-indigo-600" /></div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-indigo-600">Schedule</p>
+                      <p className="text-sm font-bold text-gray-900">{selectedInternship.days_in_week || selectedInternship.Days_in_week} days/week</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -741,7 +741,7 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
               </div>
 
               <div className="mt-8 flex gap-3 justify-end pt-4 border-t">
-                <button 
+                <button
                   type="button"
                   onClick={() => {
                     setSelectedInternship(null);
@@ -772,10 +772,10 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
 
       {isApplyModalOpen && selectedInternship && (
         <ApplicationModal
-          company={{ 
-            ...selectedInternship, 
+          company={{
+            ...selectedInternship,
             id: selectedPositionId || selectedInternship.company_id || selectedInternship.id,
-            companyName: selectedInternship.companyName || selectedInternship.company_name 
+            companyName: selectedInternship.companyName || selectedInternship.company_name
           }}
           studentId={studentId}
           isOpen={isApplyModalOpen}
@@ -846,14 +846,14 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     const s = app.status?.toLowerCase();
     if (s !== 'accepted' && s !== 'accepted_by_company' && s !== 'active') {
       toast.error("This application hasn't been accepted by the company yet.");
-       return;
+      return;
     }
 
     try {
       // 1. Check if student already has a PENDING approval or an ACTIVE internship
       const allApps = JSON.parse(localStorage.getItem("applications")) || [];
       const studentApps = allApps.filter(a => a.studentId === studentId || a.studentName === studentName);
-      
+
       const hasPending = studentApps.some(a => a.coordinatorApprovalStatus === "PENDING");
       const hasActive = studentApps.some(a => a.finalInternshipStatus === "ACTIVE_INTERN" || a.status === "CONFIRMED");
 
@@ -901,13 +901,13 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     const cs = coordStatus;
 
     if (cs === "APPROVED") {
-       return { text: 'Finalized', classes: 'bg-green-600 text-white border-green-700', canSelect: false };
+      return { text: 'Finalized', classes: 'bg-green-600 text-white border-green-700', canSelect: false };
     }
     if (cs === "PENDING") {
-       return { text: 'Pending Approval', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
+      return { text: 'Pending Approval', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
     }
     if (cs === "REJECTED") {
-       return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
+      return { text: 'Coord. Rejected', classes: 'bg-gray-100 text-gray-400 border-gray-200', canSelect: true };
     }
 
     // If company/mentor has already acted, surface that to the student
@@ -927,23 +927,23 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
     }
 
     if (s === 'accepted' || s === 'accepted_by_company' || s === 'active') {
-      return { 
-        text: 'Accepted', 
+      return {
+        text: 'Accepted',
         classes: 'bg-green-100 text-green-700 border-green-200',
-        canSelect: true 
+        canSelect: true
       };
     }
     if (s === 'rejected') {
-      return { 
-        text: 'Rejected', 
+      return {
+        text: 'Rejected',
         classes: 'bg-red-100 text-red-700 border-red-200',
-        canSelect: false 
+        canSelect: false
       };
     }
-    return { 
-      text: 'Waiting Response', 
+    return {
+      text: 'Waiting Response',
       classes: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      canSelect: false 
+      canSelect: false
     };
   };
 
@@ -968,8 +968,8 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 
       {appliedInternships.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-           <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-           <p className="text-gray-500">You haven't applied to any internships yet.</p>
+          <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">You haven't applied to any internships yet.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -1009,25 +1009,25 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-                   <button
-                     onClick={() => setPreviewForm(app)}
-                     className="px-4 py-1.5 border border-gray-300 text-gray-700 text-xs font-black uppercase rounded-full hover:bg-gray-100 transition-all w-full sm:w-auto whitespace-nowrap"
-                   >
-                     View Form
-                   </button>
-                   <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border text-center w-full sm:w-auto ${statusConfig.classes}`}>
-                     {statusConfig.text}
-                   </span>
-                   {statusConfig.canSelect && (
-                     <button 
-                       onClick={() => handleSelectCompany(app)}
-                       className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-black uppercase rounded-full hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 w-full sm:w-auto whitespace-nowrap"
-                     >
-                       Select This Company
-                     </button>
-                   )}
+                  <button
+                    onClick={() => setPreviewForm(app)}
+                    className="px-4 py-1.5 border border-gray-300 text-gray-700 text-xs font-black uppercase rounded-full hover:bg-gray-100 transition-all w-full sm:w-auto whitespace-nowrap"
+                  >
+                    View Form
+                  </button>
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase border text-center w-full sm:w-auto ${statusConfig.classes}`}>
+                    {statusConfig.text}
+                  </span>
+                  {statusConfig.canSelect && (
+                    <button
+                      onClick={() => handleSelectCompany(app)}
+                      className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-black uppercase rounded-full hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 w-full sm:w-auto whitespace-nowrap"
+                    >
+                      Select This Company
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -1071,6 +1071,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   const [examinerEvalNonce, setExaminerEvalNonce] = useState(0);
   const [overallEvalNonce, setOverallEvalNonce] = useState(0);
   const [companyEvalNonce, setCompanyEvalNonce] = useState(0);
+  const [apiOverallResults, setApiOverallResults] = useState(null);
+  const [overallResultsLoading, setOverallResultsLoading] = useState(false);
   const [logbookSubmitSuccess, setLogbookSubmitSuccess] = useState(false);
 
   useEffect(() => {
@@ -1137,6 +1139,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             studentId: placement.student_id || sid,
             studentName: placement.student_name || sname,
             internshipId: placement.internship_id || placement.id,
+            applicationId: placement.application_id || placement.id,
+            placementId: placement.id,
             companyName: placement.company_name || "",
             internshipTitle: placement.position_title || "",
             appliedAt: placement.start_date || null,
@@ -1180,6 +1184,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
 
           setActiveApp({
             ...normalizedPlacement,
+            id: normalizedPlacement.applicationId || normalizedPlacement.id,
             studentId: canonicalStudentId || normalizedPlacement.studentId || studentId,
             companyFull: company || null,
             internshipFull: internship || null,
@@ -1234,6 +1239,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
 
         setActiveApp({
           ...activeApplication,
+          id: activeApplication.applicationId || activeApplication.id,
           studentId: canonicalStudentId || activeApplication.studentId || studentId,
           companyFull: company || null,
           internshipFull: internship || null,
@@ -1270,6 +1276,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
           const canonicalStudentId = String(found.studentId ?? studentId ?? "").trim();
           setActiveApp({
             ...found,
+            id: found.applicationId || found.id,
+            internshipId: found.internshipId || found.id,
             studentId: canonicalStudentId || found.studentId || studentId,
             companyFull: company,
             internshipFull: internship
@@ -1488,20 +1496,20 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
         }
         if (!cancelled && res.status === 404) {
           setApiStudentEvaluationStatus({ examiner_progress: { evaluations: [] } });
-        if (!cancelled) {
-          // Try to fetch raw examiner evaluations even if the status endpoint
-          // 404s (maybe the student record is present but status view is not ready).
-          try {
-            const evRes = await evaluationService.getExaminerEvaluationsForStudent({ internship_id: internshipId });
-            if (evRes.success && Array.isArray(evRes.data)) {
-              setApiStudentEvaluationStatus({ examiner_progress: { evaluations: evRes.data } });
-              return;
+          if (!cancelled) {
+            // Try to fetch raw examiner evaluations even if the status endpoint
+            // 404s (maybe the student record is present but status view is not ready).
+            try {
+              const evRes = await evaluationService.getExaminerEvaluationsForStudent({ internship_id: internshipId });
+              if (evRes.success && Array.isArray(evRes.data)) {
+                setApiStudentEvaluationStatus({ examiner_progress: { evaluations: evRes.data } });
+                return;
+              }
+            } catch (e) {
+              // fall through to empty
             }
-          } catch (e) {
-            // fall through to empty
+            setApiStudentEvaluationStatus({ examiner_progress: { evaluations: [] } });
           }
-          setApiStudentEvaluationStatus({ examiner_progress: { evaluations: [] } });
-        }
           return;
         }
       } catch {
@@ -1524,6 +1532,27 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       window.removeEventListener("overall-evaluation-updated", onRefresh);
     };
   }, [activeApp?.id, activeApp?.internshipId, examinerEvalNonce, overallEvalNonce]);
+
+  // Fetch real overall results from the backend whenever the overall-eval tab is opened
+  useEffect(() => {
+    const internshipId = activeApp?.id || activeApp?.internshipId;
+    if (!internshipId) {
+      setApiOverallResults(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchResults = async () => {
+      setOverallResultsLoading(true);
+      const result = await evaluationService.getStudentInternshipResults(internshipId);
+      if (!cancelled) {
+        if (result.success) setApiOverallResults(result.data);
+        else setApiOverallResults(null);
+        setOverallResultsLoading(false);
+      }
+    };
+    fetchResults();
+    return () => { cancelled = true; };
+  }, [activeApp?.id, activeApp?.internshipId, overallEvalNonce]);
 
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
@@ -1940,17 +1969,16 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   };
 
   const internshipTabClass = (tabId) =>
-    `inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-3.5 sm:py-2.5 sm:text-sm ${
-      internshipSubTab === tabId
-        ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
-        : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
+    `inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors sm:gap-2 sm:px-3.5 sm:py-2.5 sm:text-sm ${internshipSubTab === tabId
+      ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+      : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
     }`;
 
   if (!activeApp) {
     return (
       <div className="app-card p-16 text-center">
         <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-           <Briefcase className="w-10 h-10 text-gray-300" />
+          <Briefcase className="w-10 h-10 text-gray-300" />
         </div>
         <h3 className="text-xl font-bold text-gray-900 mb-2">No Active Internship Yet</h3>
         <p className="text-gray-500 max-w-sm mx-auto">
@@ -1964,8 +1992,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     <div className="space-y-6">
       <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
         <div className="bg-gradient-to-r from-indigo-700 to-slate-900 px-6 py-5 text-white relative sm:px-8">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-             <Building2 className="w-32 h-32" />
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <Building2 className="w-32 h-32" />
           </div>
           <div className="relative z-10">
             <p className="text-indigo-100 font-bold uppercase tracking-widest text-xs mb-2">My Internship</p>
@@ -1976,7 +2004,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             </div>
           </div>
         </div>
-        
+
         <div className="border-b border-slate-100 bg-slate-50/50 px-3 py-3 sm:px-5">
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
             {internshipTabs.map(({ id, label, shortLabel, icon: Icon }) => (
@@ -1984,7 +2012,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                 key={id}
                 type="button"
                 onClick={() => selectInternshipTab(id)}
-                className={internshipTabClass(id)}
+                className={`${internshipTabClass(id)} relative z-20`}
                 title={label}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden />
@@ -2081,11 +2109,10 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
               <button
                 type="button"
                 onClick={() => selectInternshipTab("overall-eval")}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
-                  overallPublished || overallComputed?.complete
-                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                    : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
-                }`}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${overallPublished || overallComputed?.complete
+                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                  : "bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50"
+                  }`}
               >
                 View Overall Evaluation
               </button>
@@ -2098,396 +2125,438 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
 
         {internshipSubTab != null && (
           <div className="border-t border-slate-100 px-4 py-6 sm:px-6">
-        {internshipSubTab === "logbook" && (
-          <>
-            {logbookSubmitSuccess && (
-              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
-                Week submitted — sent to your company for review. After company approval it goes to your advisor.
+            {internshipSubTab === "logbook" && (
+              <>
+                {logbookSubmitSuccess && (
+                  <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                    Week submitted — sent to your company for review. After company approval it goes to your advisor.
+                  </div>
+                )}
+                <div className="mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
+                  <p className="text-sm text-gray-600">
+                    Click any week to view details, update work log (if editable), and submit.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {(weeklyLogbook?.weeks || []).map((week) => (
+                    <button
+                      key={week.weekNumber}
+                      type="button"
+                      onClick={() => openWeek(week)}
+                      className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50 transition"
+                    >
+                      <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
+                      <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
+                        {STATUS_LABELS[week.status]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {internshipSubTab === "documents" && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">Internship documents</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload reports or evidence for your advisor and internal examiner. They are notified and each must approve your submission.
+                  </p>
+                  {docUploadSuccess && (
+                    <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+                      Submitted — your file was sent to your assigned advisor and examiner for review.
+                    </div>
+                  )}
+                  <form onSubmit={handleDocumentSubmit} className="space-y-4 max-w-xl border border-gray-100 rounded-xl p-5 bg-gray-50/50">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Document title</label>
+                      <input
+                        type="text"
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                        placeholder="e.g. Mid-internship report"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (optional)</label>
+                      <textarea
+                        value={docDescription}
+                        onChange={(e) => setDocDescription(e.target.value)}
+                        rows={2}
+                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                        placeholder="Short description for your reviewers"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">File</label>
+                      <input
+                        ref={docFileInputRef}
+                        type="file"
+                        onChange={handleDocFile}
+                        className="w-full text-sm"
+                      />
+                      {docFileName && <p className="text-xs text-gray-500 mt-1">Selected: {docFileName}</p>}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={docSubmitting || !docFile}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {docSubmitting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : docUploadSuccess ? (
+                        <CheckCircle className="w-4 h-4" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {docSubmitting ? "Submitting…" : docUploadSuccess ? "Submitted" : "Submit to advisor & examiner"}
+                    </button>
+                  </form>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">Your submissions</h4>
+                  {documents.length === 0 ? (
+                    <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
+                      No documents uploaded yet.
+                    </p>
+                  ) : (
+                    <ul className="space-y-4">
+                      {documents.map((d) => {
+                        const summary = getStudentDocumentSummary(d);
+                        const tone =
+                          summary.tone === "green"
+                            ? "border-green-200 bg-green-50/40"
+                            : summary.tone === "red"
+                              ? "border-red-200 bg-red-50/30"
+                              : summary.tone === "amber"
+                                ? "border-amber-200 bg-amber-50/30"
+                                : "border-gray-200 bg-white";
+                        return (
+                          <li key={d.id} className={`rounded-xl border p-4 ${tone}`}>
+                            <div className="flex flex-wrap justify-between gap-2 items-start">
+                              <div>
+                                <p className="font-bold text-gray-900">{d.title}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Submitted {new Date(d.submittedAt).toLocaleString()}
+                                </p>
+                                {d.description && (
+                                  <p className="text-sm text-gray-600 mt-2">{d.description}</p>
+                                )}
+                              </div>
+                              <a
+                                href={d.fileData}
+                                download={d.fileName}
+                                className="text-xs font-bold text-indigo-600 hover:underline shrink-0"
+                              >
+                                Download
+                              </a>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.advisorStatus)}`}>
+                                Advisor: {d.advisorStatus}
+                              </span>
+                              <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.examinerStatus)}`}>
+                                Examiner: {d.examinerStatus}
+                              </span>
+                            </div>
+                            {(d.advisorComment || d.examinerComment) && (
+                              <div className="mt-3 text-xs text-gray-600 space-y-1">
+                                {d.advisorComment && <p><span className="font-bold">Advisor:</span> {d.advisorComment}</p>}
+                                {d.examinerComment && <p><span className="font-bold">Examiner:</span> {d.examinerComment}</p>}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
-            <div className="mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Weekly Logbook (8 Weeks)</h3>
-              <p className="text-sm text-gray-600">
-                Click any week to view details, update work log (if editable), and submit.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              {(weeklyLogbook?.weeks || []).map((week) => (
-                <button
-                  key={week.weekNumber}
-                  type="button"
-                  onClick={() => openWeek(week)}
-                  className="text-left p-4 rounded-xl border border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50 transition"
-                >
-                  <p className="font-black text-gray-900 text-sm uppercase">Week {week.weekNumber}</p>
-                  <span className={`mt-3 inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(week.status)}`}>
-                    {STATUS_LABELS[week.status]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
 
-        {internshipSubTab === "documents" && (
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Internship documents</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Upload reports or evidence for your advisor and internal examiner. They are notified and each must approve your submission.
-              </p>
-              {docUploadSuccess && (
-                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
-                  Submitted — your file was sent to your assigned advisor and examiner for review.
-                </div>
-              )}
-              <form onSubmit={handleDocumentSubmit} className="space-y-4 max-w-xl border border-gray-100 rounded-xl p-5 bg-gray-50/50">
+            {internshipSubTab === "company-evals" && (
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Document title</label>
-                  <input
-                    type="text"
-                    value={docTitle}
-                    onChange={(e) => setDocTitle(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
-                    placeholder="e.g. Mid-internship report"
-                  />
+                  <h3 className="text-xl font-bold text-gray-900">Company evaluations</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your host company submits these forms. You can track submission and advisor approval status only — form contents, scores, and comments are not visible to students.
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notes (optional)</label>
-                  <textarea
-                    value={docDescription}
-                    onChange={(e) => setDocDescription(e.target.value)}
-                    rows={2}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
-                    placeholder="Short description for your reviewers"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">File</label>
-                  <input
-                    ref={docFileInputRef}
-                    type="file"
-                    onChange={handleDocFile}
-                    className="w-full text-sm"
-                  />
-                  {docFileName && <p className="text-xs text-gray-500 mt-1">Selected: {docFileName}</p>}
-                </div>
-                <button
-                  type="submit"
-                  disabled={docSubmitting || !docFile}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {docSubmitting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : docUploadSuccess ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  {docSubmitting ? "Submitting…" : docUploadSuccess ? "Submitted" : "Submit to advisor & examiner"}
-                </button>
-              </form>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-3">Your submissions</h4>
-              {documents.length === 0 ? (
-                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
-                  No documents uploaded yet.
-                </p>
-              ) : (
                 <ul className="space-y-4">
-                  {documents.map((d) => {
-                    const summary = getStudentDocumentSummary(d);
-                    const tone =
-                      summary.tone === "green"
-                        ? "border-green-200 bg-green-50/40"
-                        : summary.tone === "red"
-                          ? "border-red-200 bg-red-50/30"
-                          : summary.tone === "amber"
-                            ? "border-amber-200 bg-amber-50/30"
-                            : "border-gray-200 bg-white";
-                    return (
-                      <li key={d.id} className={`rounded-xl border p-4 ${tone}`}>
-                        <div className="flex flex-wrap justify-between gap-2 items-start">
-                          <div>
-                            <p className="font-bold text-gray-900">{d.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Submitted {new Date(d.submittedAt).toLocaleString()}
+                  {companyEvalSummaries.map((item) => (
+                    <li
+                      key={item.key}
+                      className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <p className="font-bold text-gray-900">{item.title}</p>
+                        <span
+                          className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shrink-0 ${studentCompanyEvalStatusPill(item.label)}`}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+                      <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
+                          <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                            Submitted to advisor
+                          </dt>
+                          <dd className="mt-1 font-semibold text-gray-800">
+                            {item.submittedAt
+                              ? new Date(item.submittedAt).toLocaleString()
+                              : "—"}
+                          </dd>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
+                          <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                            Approved by advisor
+                          </dt>
+                          <dd className="mt-1 font-semibold text-gray-800">
+                            {item.approvedAt
+                              ? new Date(item.approvedAt).toLocaleString()
+                              : "—"}
+                          </dd>
+                        </div>
+                      </dl>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {internshipSubTab === "overall-eval" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Overall evaluation</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your final overall mark out of 100 appears here after your advisor, both internal examiners, and the internship coordinator have approved the overall evaluation.
+                  </p>
+                </div>
+
+                {!activeApp ? (
+                  <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
+                    No active internship record found.
+                  </p>
+                ) : overallResultsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-6">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading evaluation results…
+                  </div>
+                ) : apiOverallResults?.coordinator_approved ? (
+                  /* ── API: coordinator has published the final result ── */
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-green-200 bg-green-50/40 p-5">
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
+                        <CheckCircle className="w-6 h-6 text-green-600 shrink-0" />
+                        <div>
+                          <p className="text-xs font-black uppercase text-green-700 tracking-wider">Overall result published</p>
+                          {apiOverallResults.coordinator_approved_at && (
+                            <p className="text-xs text-gray-500">
+                              Approved {new Date(apiOverallResults.coordinator_approved_at).toLocaleString()}
                             </p>
-                            {d.description && (
-                              <p className="text-sm text-gray-600 mt-2">{d.description}</p>
-                            )}
-                          </div>
-                          <a
-                            href={d.fileData}
-                            download={d.fileName}
-                            className="text-xs font-bold text-indigo-600 hover:underline shrink-0"
-                          >
-                            Download
-                          </a>
+                          )}
                         </div>
-                        <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.advisorStatus)}`}>
-                            Advisor: {d.advisorStatus}
-                          </span>
-                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${rolePill(d.examinerStatus)}`}>
-                            Examiner: {d.examinerStatus}
-                          </span>
+                      </div>
+                      <div className="flex flex-wrap items-start gap-6">
+                        <div>
+                          <p className="text-xs font-black uppercase text-gray-500">Total score</p>
+                          <p className="text-3xl font-black text-green-700">
+                            {apiOverallResults.final_total_score ?? "—"} <span className="text-base font-semibold text-gray-500">/ 100</span>
+                          </p>
                         </div>
-                        {(d.advisorComment || d.examinerComment) && (
-                          <div className="mt-3 text-xs text-gray-600 space-y-1">
-                            {d.advisorComment && <p><span className="font-bold">Advisor:</span> {d.advisorComment}</p>}
-                            {d.examinerComment && <p><span className="font-bold">Examiner:</span> {d.examinerComment}</p>}
+                        {apiOverallResults.final_grade && (
+                          <div>
+                            <p className="text-xs font-black uppercase text-gray-500">Grade</p>
+                            <p className="text-3xl font-black text-indigo-700">{apiOverallResults.final_grade}</p>
                           </div>
                         )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
+                      </div>
+                    </div>
 
-        {internshipSubTab === "company-evals" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Company evaluations</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Your host company submits these forms. You can track submission and advisor approval status only — form contents, scores, and comments are not visible to students.
-              </p>
-            </div>
-            <ul className="space-y-4">
-              {companyEvalSummaries.map((item) => (
-                <li
-                  key={item.key}
-                  className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <p className="font-bold text-gray-900">{item.title}</p>
-                    <span
-                      className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shrink-0 ${studentCompanyEvalStatusPill(item.label)}`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
-                  <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
-                      <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
-                        Submitted to advisor
-                      </dt>
-                      <dd className="mt-1 font-semibold text-gray-800">
-                        {item.submittedAt
-                          ? new Date(item.submittedAt).toLocaleString()
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
-                      <dt className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
-                        Approved by advisor
-                      </dt>
-                      <dd className="mt-1 font-semibold text-gray-800">
-                        {item.approvedAt
-                          ? new Date(item.approvedAt).toLocaleString()
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {internshipSubTab === "overall-eval" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Overall evaluation</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Your final overall mark out of 100 appears here after your advisor, both internal examiners, and the internship coordinator have approved the overall evaluation.
-              </p>
-            </div>
-            {!activeApp ? (
-              <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-xl p-8 text-center">
-                No active internship record found.
-              </p>
-            ) : overallPublished ? (
-              <div className="border border-gray-200 rounded-xl p-5 bg-white">
-                <h4 className="text-sm font-black text-gray-500 uppercase tracking-wider mb-2">
-                  Overall report
-                </h4>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
-                    <p className="text-2xl font-black text-green-700">
-                      {overallPublished.overallMark100} / 100
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Company: {overallPublished.companyTotal40 ?? "—"} / 40 · Academic: {overallPublished.academicOverall100} / 100
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-gray-700">
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Advisor: {overallPublished.advisorMark != null ? `${overallPublished.advisorMark} / 35` : "—"}
-                    </div>
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Examiner 1: {overallPublished.ex1Mark != null ? `${overallPublished.ex1Mark} / 25` : "—"}
-                    </div>
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Examiner 2: {overallPublished.ex2Mark != null ? `${overallPublished.ex2Mark} / 25` : "—"}
-                    </div>
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                      Company: {overallPublished.companyTotal40 != null ? `${overallPublished.companyTotal40} / 40` : "—"}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {apiOverallResults.advisor_evaluation && (
+                        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                          <p className="text-[10px] font-black uppercase text-indigo-600 mb-1">Advisor evaluation</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {apiOverallResults.advisor_evaluation.final_weighted_mark ?? apiOverallResults.advisor_evaluation.total_score ?? "—"}
+                            <span className="text-xs font-semibold text-gray-500 ml-1">/ 35</span>
+                          </p>
+                        </div>
+                      )}
+                      {(apiOverallResults.examiner_evaluations || []).map((ev, idx) => (
+                        <div key={ev.id ?? idx} className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                          <p className="text-[10px] font-black uppercase text-indigo-700 mb-1">Examiner {idx + 1}</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {(() => {
+                              const examEval = ev;
+                              const fMark = examEval?.form_data?.finalMark;
+                              if (fMark != null) return fMark;
+                              return examEval?.weighted_score ?? examEval?.total_score ?? "—";
+                            })()}
+                            <span className="text-xs font-semibold text-gray-500 ml-1">/ 25</span>
+                          </p>
+                        </div>
+                      ))}
+                      {apiOverallResults.company_evaluation && (
+                        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                          <p className="text-[10px] font-black uppercase text-amber-700 mb-1">Company evaluation</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {apiOverallResults.company_evaluation.overall_student_performance ?? apiOverallResults.company_evaluation.total_mark ?? "—"}
+                            <span className="text-xs font-semibold text-gray-500 ml-1">/ 20</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {overallComputed?.complete && (
-                  <div className="rounded-xl border border-gray-200 bg-white p-5">
-                    <p className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">
-                      Calculated overall (pending approval)
-                    </p>
-                    <p className="mb-3 text-2xl font-black text-indigo-700">{overallComputed.overallMark100} / 100</p>
-                    <div className="grid grid-cols-1 gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        Advisor: {overallComputed.advisorMark != null ? `${overallComputed.advisorMark} / 35` : "—"}
+                ) : (
+                  /* ── Not yet published: show approval progress ── */
+                  <div className="space-y-4">
+                    {overallComputed?.complete && (
+                      <div className="rounded-xl border border-gray-200 bg-white p-5">
+                        <p className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">
+                          Calculated overall (pending approval)
+                        </p>
+                        <p className="mb-3 text-2xl font-black text-indigo-700">{overallComputed.overallMark100} / 100</p>
+                        <div className="grid grid-cols-1 gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                            Advisor: {overallComputed.advisorMark != null ? `${overallComputed.advisorMark} / 35` : "—"}
+                          </div>
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                            Examiner 1: {overallComputed.ex1Mark != null ? `${overallComputed.ex1Mark} / 25` : "—"}
+                          </div>
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                            Examiner 2: {overallComputed.ex2Mark != null ? `${overallComputed.ex2Mark} / 25` : "—"}
+                          </div>
+                          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                            Company: {overallComputed.companyTotal40 != null ? `${overallComputed.companyTotal40} / 40` : "—"}
+                          </div>
+                        </div>
                       </div>
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        Examiner 1: {overallComputed.ex1Mark != null ? `${overallComputed.ex1Mark} / 25` : "—"}
-                      </div>
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        Examiner 2: {overallComputed.ex2Mark != null ? `${overallComputed.ex2Mark} / 25` : "—"}
-                      </div>
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        Company: {overallComputed.companyTotal40 != null ? `${overallComputed.companyTotal40} / 40` : "—"}
+                    )}
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 space-y-4">
+                      <p className="text-sm font-semibold text-amber-900">
+                        {overallComputed?.complete
+                          ? "Your overall report is not published yet. Each role below must approve the overall evaluation."
+                          : "Not all component evaluations are complete yet."}
+                      </p>
+                      {overallComputed?.missing && !overallComputed.complete && (
+                        <ul className="list-disc list-inside text-sm text-amber-900/90 space-y-1">
+                          {overallComputed.missing.advisor && <li>Academic advisor evaluation</li>}
+                          {overallComputed.missing.examiner1 && <li>Internal examiner 1 evaluation</li>}
+                          {overallComputed.missing.examiner2 && <li>Internal examiner 2 evaluation</li>}
+                          {overallComputed.missing.month1 && <li>Company month 1 evaluation</li>}
+                          {overallComputed.missing.month2 && <li>Company month 2 evaluation</li>}
+                          {overallComputed.missing.finalCompany && <li>Company final evaluation</li>}
+                        </ul>
+                      )}
+                      <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
+                        <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                          Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                          Examiner 1 {overallApprovals.examiner1Approved ? "✓" : "…"}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                          Examiner 2 {overallApprovals.examiner2Approved ? "✓" : "…"}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
+                          Coordinator {overallApprovals.coordinatorApproved ? "✓" : "…"}
+                        </span>
                       </div>
                     </div>
                   </div>
                 )}
-                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-5 space-y-4">
-                  <p className="text-sm font-semibold text-amber-900">
-                    {overallComputed?.complete
-                      ? "Your overall report is not published yet. Each role below must approve the overall evaluation."
-                      : "Not all component evaluations are complete yet."}
+              </div>
+            )}
+
+            {internshipSubTab === "examiner-eval" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Examiner evaluation</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your internal examiner(s) submit this form. It appears here after submission.
                   </p>
-                  {overallComputed?.missing && !overallComputed.complete && (
-                    <ul className="list-disc list-inside text-sm text-amber-900/90 space-y-1">
-                      {overallComputed.missing.advisor && <li>Academic advisor evaluation</li>}
-                      {overallComputed.missing.examiner1 && <li>Internal examiner 1 evaluation</li>}
-                      {overallComputed.missing.examiner2 && <li>Internal examiner 2 evaluation</li>}
-                      {overallComputed.missing.month1 && <li>Company month 1 evaluation</li>}
-                      {overallComputed.missing.month2 && <li>Company month 2 evaluation</li>}
-                      {overallComputed.missing.finalCompany && <li>Company final evaluation</li>}
-                    </ul>
-                  )}
-                  <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase">
-                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.advisorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                      Advisor {overallApprovals.advisorApproved ? "✓" : "…"}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner1Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                      Examiner 1 {overallApprovals.examiner1Approved ? "✓" : "…"}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.examiner2Approved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                      Examiner 2 {overallApprovals.examiner2Approved ? "✓" : "…"}
-                    </span>
-                    <span className={`px-2 py-1 rounded-full border ${overallApprovals.coordinatorApproved ? "bg-green-100 text-green-800 border-green-200" : "bg-white text-gray-600 border-gray-200"}`}>
-                      Coordinator {overallApprovals.coordinatorApproved ? "✓" : "…"}
-                    </span>
+                </div>
+                {studentEvaluationStatusLoading ? (
+                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions from the API." />
+                ) : examinerEvalsVisible.length === 0 ? (
+                  <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
+                    No examiner evaluation has been submitted yet.
                   </div>
-                </div>
+                ) : (
+                  examinerEvalsVisible.map((rec) => (
+                    <div key={rec.id} className="space-y-2">
+                      <p className="text-sm text-gray-500">
+                        Examiner: <span className="font-semibold text-gray-800">{rec.examinerName || "Examiner"}</span>
+                        <span className="block mt-0.5">
+                          Submitted {new Date(rec.submittedAt).toLocaleString()}
+                        </span>
+                      </p>
+                      <ExaminerUniversityEvaluationForm
+                        readOnly
+                        initialData={{
+                          ...(rec.formData || {}),
+                          studentName: activeApp.studentName || studentName,
+                          idNo: activeApp.studentId || studentId,
+                          department: activeApp.department || "",
+                          organization: activeApp.companyName || "",
+                          examinerName: rec.examinerName || rec.formData?.examinerName || "",
+                        }}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {internshipSubTab === "examiner-eval" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Examiner evaluation</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Your internal examiner(s) submit this form. It appears here after submission.
-              </p>
-            </div>
-            {studentEvaluationStatusLoading ? (
-              <LoadingState title="Loading examiner evaluations" subtitle="Fetching examiner submissions from the API." />
-            ) : examinerEvalsVisible.length === 0 ? (
-              <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
-                No examiner evaluation has been submitted yet.
-              </div>
-            ) : (
-              examinerEvalsVisible.map((rec) => (
-                <div key={rec.id} className="space-y-2">
-                  <p className="text-sm text-gray-500">
-                    Examiner: <span className="font-semibold text-gray-800">{rec.examinerName || "Examiner"}</span>
-                    <span className="block mt-0.5">
-                      Submitted {new Date(rec.submittedAt).toLocaleString()}
-                    </span>
+            {internshipSubTab === "advisor-eval" && (
+              <div className="space-y-4">
+                <div className="mb-2">
+                  <h3 className="text-xl font-bold text-gray-900">Advisor evaluation</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Your academic advisor&apos;s assessment of your internship. It appears here once they submit it.
                   </p>
-                  <ExaminerUniversityEvaluationForm
-                    readOnly
-                    initialData={{
-                      ...(rec.formData || {}),
-                      studentName: activeApp.studentName || studentName,
-                      idNo: activeApp.studentId || studentId,
-                      department: activeApp.department || "",
-                      organization: activeApp.companyName || "",
-                      examinerName: rec.examinerName || rec.formData?.examinerName || "",
-                    }}
-                  />
                 </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {internshipSubTab === "advisor-eval" && (
-          <div className="space-y-4">
-            <div className="mb-2">
-              <h3 className="text-xl font-bold text-gray-900">Advisor evaluation</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Your academic advisor&apos;s assessment of your internship. It appears here once they submit it.
-              </p>
-            </div>
-            {!advisorOwnEval ? (
-              <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
-                Your advisor has not submitted their evaluation yet. You will be notified when it is ready.
+                {!advisorOwnEval ? (
+                  <div className="border border-dashed border-gray-200 rounded-xl p-10 text-center text-gray-500 text-sm">
+                    Your advisor has not submitted their evaluation yet. You will be notified when it is ready.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      Submitted {new Date(advisorOwnEval.submittedAt).toLocaleString()}
+                      {advisorOwnEval.advisorName && (
+                        <span className="block mt-1 font-semibold text-gray-800">
+                          Advisor: {advisorOwnEval.advisorName}
+                        </span>
+                      )}
+                    </p>
+                    <AdvisorStudentEvaluationForm
+                      readOnly
+                      initialData={{
+                        ...(advisorOwnEval.formData || {}),
+                        studentName: activeApp.studentName || studentName,
+                        studentId: activeApp.studentId || studentId,
+                        idNo: activeApp.studentId || studentId,
+                        department: activeApp.department || "",
+                        companyName: activeApp.companyName || "",
+                        organization: activeApp.companyName || "",
+                        internshipTitle: activeApp.internshipTitle || "",
+                        supervisorName:
+                          advisorOwnEval.formData?.supervisorName ||
+                          advisorOwnEval.advisorName ||
+                          advisorOwnEval.formData?.advisorName ||
+                          "",
+                      }}
+                    />
+                  </>
+                )}
               </div>
-            ) : (
-              <>
-                <p className="text-sm text-gray-500">
-                  Submitted {new Date(advisorOwnEval.submittedAt).toLocaleString()}
-                  {advisorOwnEval.advisorName && (
-                    <span className="block mt-1 font-semibold text-gray-800">
-                      Advisor: {advisorOwnEval.advisorName}
-                    </span>
-                  )}
-                </p>
-                <AdvisorStudentEvaluationForm
-                  readOnly
-                  initialData={{
-                    ...(advisorOwnEval.formData || {}),
-                    studentName: activeApp.studentName || studentName,
-                    studentId: activeApp.studentId || studentId,
-                    idNo: activeApp.studentId || studentId,
-                    department: activeApp.department || "",
-                    companyName: activeApp.companyName || "",
-                    organization: activeApp.companyName || "",
-                    internshipTitle: activeApp.internshipTitle || "",
-                    supervisorName:
-                      advisorOwnEval.formData?.supervisorName ||
-                      advisorOwnEval.advisorName ||
-                      advisorOwnEval.formData?.advisorName ||
-                      "",
-                  }}
-                />
-              </>
             )}
-          </div>
-        )}
           </div>
         )}
       </div>
@@ -2990,7 +3059,7 @@ const StudentDashboard = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { studentName, userName } = location.state || {};
-  
+
   const [studentData, setStudentData] = useState(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [internshipStatus, setInternshipStatus] = useState("Not Applied");
@@ -3082,7 +3151,7 @@ const StudentDashboard = () => {
     };
 
     window.addEventListener("storage", handleStorageChange);
-    
+
     // Also listen for custom storage events (for same-tab updates)
     const handleCustomStorageChange = () => {
       if (studentData) {
@@ -3103,10 +3172,10 @@ const StudentDashboard = () => {
     try {
       const assignments = JSON.parse(localStorage.getItem("studentAssignments")) || [];
       const otherUsers = JSON.parse(localStorage.getItem("otherUsers")) || [];
-      
+
       console.log("🔍 Loading assignment for:", { studentId, studentName, studentEmail, department });
       console.log("📋 Available assignments:", assignments);
-      
+
       if (assignments.length === 0) {
         console.log("❌ No assignments found in localStorage — falling back to API");
         setAdvisor(null);
@@ -3135,14 +3204,14 @@ const StudentDashboard = () => {
 
         return;
       }
-      
+
       // Try multiple matching strategies - be more flexible with matching
       // First try with department match, then without
       let assignment = assignments.find((a) => {
-        const sidMatch = studentId && a.studentId && 
+        const sidMatch = studentId && a.studentId &&
           a.studentId.toString().toLowerCase().trim() === studentId.toString().toLowerCase().trim();
-          
-        const emailMatch = studentEmail && a.email && 
+
+        const emailMatch = studentEmail && a.email &&
           a.email.toLowerCase().trim() === studentEmail.toLowerCase().trim();
 
         const sName = (studentName || "").toLowerCase().trim();
@@ -3151,7 +3220,7 @@ const StudentDashboard = () => {
 
         // If ID matches, we don't care about department mismatch
         if (sidMatch) return true;
-        
+
         // If email matches, it's definitively them
         if (emailMatch) return true;
 
@@ -3160,7 +3229,7 @@ const StudentDashboard = () => {
           const sDept = (department || "").toLowerCase().trim();
           return department ? aDept === sDept : true;
         }
-        
+
         return false;
       });
 
@@ -3168,19 +3237,19 @@ const StudentDashboard = () => {
 
       if (assignment) {
         console.log("✅ Found assignment:", assignment);
-        
+
         // Get full names from otherUsers
         let advisorName = assignment.advisor;
         let examinerName = assignment.examiner;
         let examiner2Name = assignment.examiner2;
-        
+
         if (assignment.advisor) {
           const advisorUser = otherUsers.find(u => u.username === assignment.advisor && String(u.role || "").toLowerCase() === "advisor");
           if (advisorUser) {
             advisorName = advisorUser.fullName || advisorUser.name || advisorUser.username;
           }
         }
-        
+
         if (assignment.examiner) {
           const examinerUser = otherUsers.find(u => u.username === assignment.examiner && String(u.role || "").toLowerCase() === "examiner");
           if (examinerUser) {
@@ -3194,7 +3263,7 @@ const StudentDashboard = () => {
             examiner2Name = examiner2User.fullName || examiner2User.name || examiner2User.username;
           }
         }
-        
+
         setAdvisor(advisorName || null);
         setExaminer(examinerName || null);
         setExaminer2(examiner2Name || null);
@@ -3270,7 +3339,7 @@ const StudentDashboard = () => {
             normalizeMyApplication(application, studentId, studentName)
           )
         );
-      setApplications(studentApps);
+        setApplications(studentApps);
 
         setInternshipStatus(getDashboardApplicationStatus(studentApps));
       } catch (error) {

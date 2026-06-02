@@ -312,6 +312,28 @@ export const evaluationService = {
     }
   },
 
+  /** PATCH /evaluations/examiner/<internshipId>/overall-approval/ — examiner approves overall report */
+  async approveExaminerOverallEvaluation(internshipId, slot) {
+    try {
+      const response = await api.patch(`/evaluations/examiner/${internshipId}/overall-approval/`, {
+        slot,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
+  /** GET /evaluations/examiner/overall-queue/ — overall evaluations waiting for examiner sign-off */
+  async getExaminerOverallQueue() {
+    try {
+      const response = await api.get(`/evaluations/examiner/overall-queue/`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
+
   /**
    * POST /evaluations/examiner/ — submit or update an examiner evaluation.
    * @param {number} internshipId  - InternshipApplication PK

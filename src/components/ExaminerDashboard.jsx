@@ -389,6 +389,8 @@ const ExaminerDashboard = () => {
   // API-fetched evaluations keyed by internship id
   const [apiEvals, setApiEvals] = useState({});
   const [loadingEvals, setLoadingEvals] = useState(true);
+  const [apiOverallQueue, setApiOverallQueue] = useState([]);
+  const [loadingOverallQueue, setLoadingOverallQueue] = useState(true);
   // API-fetched documents keyed by internship id
   const [apiDocuments, setApiDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -537,6 +539,36 @@ const ExaminerDashboard = () => {
     fetchEvals();
   }, [session, examinerEvalNonce]);
 
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    const fetchOverallQueue = async () => {
+      setLoadingOverallQueue(true);
+      try {
+        const res = await evaluationService.getExaminerOverallQueue();
+        console.log("Overall queue API response:", res);
+        if (!res.success || cancelled) return;
+        // API returns { count, queue: [...] }
+        const items = Array.isArray(res.data) ? res.data : (res.data?.queue || []);
+        console.log("Extracted items:", items);
+        if (!cancelled) setApiOverallQueue(items);
+      } catch (err) {
+        console.warn("Failed to fetch examiner overall queue from API:", err.message);
+      } finally {
+        if (!cancelled) setLoadingOverallQueue(false);
+      }
+    };
+
+    fetchOverallQueue();
+    const interval = setInterval(fetchOverallQueue, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [session, overallNonce, examinerEvalNonce]);
+
   const pendingExaminerDocuments = useMemo(() => {
     // Prefer API data — filter to docs where examiner hasn't approved/rejected yet
     if (apiDocuments.length > 0) {
@@ -590,7 +622,55 @@ const ExaminerDashboard = () => {
   };
 
   const pendingOverallQueue = useMemo(() => {
-    if (!examinerIdentity) return [];
+    // The backend /evaluations/examiner/overall-queue/ already pre-filters to only
+    // return items that need THIS examiner's approval — trust it and map to display shape.
+    if (apiOverallQueue.length > 0) {
+      return apiOverallQueue.map((apiItem) => {
+        const internshipKey = String(apiItem.internship || apiItem.internship_id || apiItem.id || "");
+        const app = assignedStudents.find(
+          (student) => String(student.id || student.__raw?.id || "") === internshipKey
+        ) || {
+          id: internshipKey,
+          studentName: apiItem.student_full_name || "",
+          studentId: internshipKey,
+          companyName: "",
+        };
+
+        const examinerState = apiItem.examiner_approval_state || {};
+
+        // Determine examiner slot: prefer actual assignment lookup, otherwise
+        // pick the first unapproved slot (backend guarantees at least one is unapproved).
+        let slot = app.__raw ? (getExaminerSlotForApp(app) || null) : null;
+        if (!slot) {
+          const firstUnapproved = ["1", "2"].find((s) => !examinerState[s]?.approved);
+          slot = firstUnapproved ? Number(firstUnapproved) : 1;
+        }
+
+        const approvals = {
+          advisorApproved: Boolean(apiItem.advisor_approved),
+          examiner1Approved: Boolean(examinerState["1"]?.approved),
+          examiner2Approved: Boolean(examinerState["2"]?.approved),
+          coordinatorApproved: Boolean(apiItem.coordinator_approved),
+          advisorApprovedAt: apiItem.advisor_approved_at || null,
+          examiner1ApprovedAt: examinerState["1"]?.approved_at || null,
+          examiner2ApprovedAt: examinerState["2"]?.approved_at || null,
+          coordinatorApprovedAt: apiItem.coordinator_approved_at || null,
+        };
+
+        const overall = {
+          advisorMark: apiItem.advisor_score != null ? Number(apiItem.advisor_score) : null,
+          ex1Mark: apiItem.examiner_one_score != null ? Number(apiItem.examiner_one_score) : null,
+          ex2Mark: apiItem.examiner_two_score != null ? Number(apiItem.examiner_two_score) : null,
+          companyTotal40: apiItem.company_score != null ? Number(apiItem.company_score) : null,
+          overallMark100: apiItem.final_total_score != null ? Number(apiItem.final_total_score) : null,
+          finalGrade: apiItem.final_grade || null,
+          complete: true,
+        };
+
+        return { app, slot, overall, approvals, apiItem };
+      });
+    }
+
     return assignedStudents
       .map((app) => {
         const slot = getExaminerSlotForApp(app);
@@ -606,7 +686,7 @@ const ExaminerDashboard = () => {
         return { app, slot, overall, approvals };
       })
       .filter(Boolean);
-  }, [assignedStudents, examinerIdentity, examinerEvalNonce, overallNonce, docQueueNonce]);
+  }, [assignedStudents, examinerIdentity, examinerEvalNonce, overallNonce, docQueueNonce, apiOverallQueue]);
 
   const examinerOwnEval = useMemo(() => {
     if (!selectedStudent) return null;
@@ -623,8 +703,23 @@ const ExaminerDashboard = () => {
 
   const overallApprovals = useMemo(() => {
     if (!selectedStudent) return null;
+    const internshipId = String(selectedStudent.id || selectedStudent.__raw?.id || "");
+    const apiOverall = apiOverallQueue.find((item) => String(item.internship || item.internship_id || "") === internshipId);
+    if (apiOverall) {
+      const examinerState = apiOverall.examiner_approval_state || {};
+      return {
+        advisorApproved: Boolean(apiOverall.advisor_approved),
+        examiner1Approved: Boolean(examinerState["1"]?.approved),
+        examiner2Approved: Boolean(examinerState["2"]?.approved),
+        coordinatorApproved: Boolean(apiOverall.coordinator_approved),
+        advisorApprovedAt: apiOverall.advisor_approved_at || null,
+        examiner1ApprovedAt: examinerState["1"]?.approved_at || null,
+        examiner2ApprovedAt: examinerState["2"]?.approved_at || null,
+        coordinatorApprovedAt: apiOverall.coordinator_approved_at || null,
+      };
+    }
     return getOverallApprovals(selectedStudent.studentId);
-  }, [selectedStudent, examinerEvalNonce, docQueueNonce]);
+  }, [selectedStudent, examinerEvalNonce, docQueueNonce, apiOverallQueue]);
 
   const examinerSlot = useMemo(() => {
     if (!selectedStudent) return null;
@@ -663,9 +758,16 @@ const ExaminerDashboard = () => {
     setStudentModalTab(tab);
   };
 
-  const handleApproveOverall = (studentId, slot) => {
-    approveOverallAsExaminerSlot(studentId, slot);
-    setOverallNonce((n) => n + 1);
+  const handleApproveOverall = async (studentId, slot, internshipId) => {
+    const response = await evaluationService.approveExaminerOverallEvaluation(internshipId, slot);
+    if (response.success) {
+      approveOverallAsExaminerSlot(studentId, slot);
+      setOverallNonce((n) => n + 1);
+      return;
+    }
+
+    const detail = response.error?.detail || response.error?.error || response.error;
+    alert(`Approval failed: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
   };
 
   return (
@@ -686,320 +788,324 @@ const ExaminerDashboard = () => {
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <WelcomeHeader
-          name={displayName}
-          department={department}
-          roleLabel="Internal Examiner"
-          subtitle="Submit examiner evaluations, approve overall reports, and clear your document queue."
-          statPrimary={loadingStudents ? "..." : assignedStudents.length}
-        />
+            <WelcomeHeader
+              name={displayName}
+              department={department}
+              roleLabel="Internal Examiner"
+              subtitle="Submit examiner evaluations, approve overall reports, and clear your document queue."
+              statPrimary={loadingStudents ? "..." : assignedStudents.length}
+            />
 
-        {mainTab === "students" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <div className="app-card p-6">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
-                  <p className="text-gray-600">Active placements where you are the internal examiner.</p>
+            {mainTab === "students" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <div className="app-card p-6">
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900 mb-1">Assigned internship students</h2>
+                      <p className="text-gray-600">Active placements where you are the internal examiner.</p>
+                    </div>
+
+                    {loadingStudents ? (
+                      <LoadingState title="Loading assigned students" subtitle="Fetching your examiner assignments and workspace data." />
+                    ) : assignedStudents.length === 0 ? (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                        <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No students are assigned to you as examiner yet.</p>
+                        <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                          When a coordinator assigns you on an active internship application, students will appear here.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {assignedStudents.map((app) => (
+                          <button
+                            key={app.id}
+                            type="button"
+                            onClick={() => openStudentWorkspace(app, "eval")}
+                            className="rounded-xl border border-slate-200/90 bg-indigo-50/50 p-5 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
+                          >
+                            <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
+                            <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
+                              <Briefcase className="w-4 h-4" />
+                              <span>{app.internshipTitle || "Internship"}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Building2 className="w-4 h-4" />
+                              <span>{app.companyName}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-3 font-medium">Click for evaluation &amp; documents</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {loadingStudents ? (
-                  <LoadingState title="Loading assigned students" subtitle="Fetching your examiner assignments and workspace data." />
+                <div className="space-y-6">
+                  <div className="app-card p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Assigned students</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {loadingStudents ? (
+                          <Loader2 className="inline-block h-5 w-5 animate-spin text-indigo-600" />
+                        ) : (
+                          assignedStudents.length
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-sm text-gray-600">Pending documents</span>
+                      <span className="text-lg font-bold text-amber-600">{pendingExaminerDocuments.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-3">
+                      <span className="text-sm text-gray-600">Overall queue</span>
+                      <span className="text-lg font-bold text-indigo-600">{pendingOverallQueue.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="app-card p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-indigo-600" />
+                      Your role
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      Use <strong className="text-gray-800">My evaluations</strong> for your examiner forms,{" "}
+                      <strong className="text-gray-800">Overall evaluation queue</strong> after the advisor approves, and{" "}
+                      <strong className="text-gray-800">Document queue</strong> for student uploads.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mainTab === "my-evaluations" && (
+              <div className="app-card p-6 max-w-5xl">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
+                  <p className="text-gray-600">
+                    Your university examiner evaluation for each assigned student. Submit or update from here or from{" "}
+                    <strong className="text-gray-800">Assigned students</strong>.
+                  </p>
+                </div>
+                {loadingStudents || loadingEvals ? (
+                  <LoadingState title="Loading examiner evaluations" subtitle="Fetching submitted forms and score records from the API." />
                 ) : assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : (
+                  <div className="space-y-8" key={examinerEvalNonce}>
+                    {assignedStudents.map((app) => {
+                      const internshipId = app?.id || app?.__raw?.id;
+                      // Prefer API data; fall back to localStorage
+                      const ev = (internshipId && apiEvals[internshipId])
+                        ? apiEvals[internshipId]
+                        : getExaminerEvaluation(app.studentId, examinerIdentity);
+                      const submitted = Boolean(ev?.submittedAt);
+                      const slot = getExaminerSlotForApp(app);
+                      return (
+                        <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/30 space-y-3">
+                          <div className="flex flex-wrap justify-between items-start gap-3">
+                            <div>
+                              <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                              <p className="text-sm text-gray-500">
+                                {app.companyName} · {app.internshipTitle || "Internship"}
+                                {slot ? ` · You are Examiner ${slot}` : ""}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openStudentWorkspace(app, "eval")}
+                              className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                            >
+                              {submitted ? "Edit in workspace" : "Open to submit"}
+                            </button>
+                          </div>
+                          {submitted ? (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                Submitted {new Date(ev.submittedAt).toLocaleString()}
+                              </p>
+                              <ExaminerUniversityEvaluationForm
+                                readOnly
+                                initialData={{
+                                  ...(ev.formData || {}),
+                                  studentName: app.studentName || "",
+                                  idNo: app.studentId || "",
+                                  department: app.department || "",
+                                  organization: app.companyName || "",
+                                  examinerName: ev.examinerName || ev.formData?.examinerName || displayName,
+                                }}
+                              />
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                              You have not submitted your evaluation for this student yet.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {mainTab === "overall-queue" && (
+              <div className="app-card p-6 max-w-5xl">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
+                  <p className="text-gray-600">
+                    Advisor-approved overall reports that need your sign-off as internal examiner.
+                  </p>
+                </div>
+                {loadingStudents || loadingEvals || loadingOverallQueue ? (
+                  <LoadingState title="Loading overall queue" subtitle="Checking advisor approvals and examiner slots." />
+                ) : apiOverallQueue.length === 0 && assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : pendingOverallQueue.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                    <User className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No students are assigned to you as examiner yet.</p>
+                    <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No overall evaluations waiting for your approval.</p>
                     <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                      When a coordinator assigns you on an active internship application, students will appear here.
+                      Items appear here after the advisor approves the overall report and all component evaluations are complete.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {assignedStudents.map((app) => (
-                      <button
-                        key={app.id}
-                        type="button"
-                        onClick={() => openStudentWorkspace(app, "eval")}
-                        className="rounded-xl border border-slate-200/90 bg-indigo-50/50 p-5 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
-                      >
-                        <h3 className="font-bold text-lg text-gray-900 mb-1">{app.studentName}</h3>
-                        <div className="flex items-center gap-2 mb-2 text-sm text-indigo-700 font-medium">
-                          <Briefcase className="w-4 h-4" />
-                          <span>{app.internshipTitle || "Internship"}</span>
+                  <div className="space-y-6" key={overallNonce}>
+                    {pendingOverallQueue.map(({ app, slot, overall, approvals }) => (
+                      <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
+                        <div className="flex flex-wrap justify-between items-start gap-3">
+                          <div>
+                            <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                            <p className="text-sm text-gray-500">
+                              {app.companyName} · Examiner {slot}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                            <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Building2 className="w-4 h-4" />
-                          <span>{app.companyName}</span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
+                            </p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+                            <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
+                            <p className="text-base font-bold text-gray-900 mt-1">
+                              {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-3 font-medium">Click for evaluation &amp; documents</p>
-                      </button>
+
+                        <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                          <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                            Advisor: Approved
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full border ${approvals.examiner1Approved
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}
+                          >
+                            Examiner 1: {approvals.examiner1Approved ? "Approved" : "Pending"}
+                          </span>
+                          <span
+                            className={`px-3 py-1 rounded-full border ${approvals.examiner2Approved
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                              }`}
+                          >
+                            Examiner 2: {approvals.examiner2Approved ? "Approved" : "Pending"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleApproveOverall(app.studentId, slot, app.id || app.__raw?.id)}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                          >
+                            Approve overall (Examiner {slot})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openStudentWorkspace(app, "overall")}
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border-2 border-indigo-200 text-indigo-800 text-sm font-bold hover:bg-indigo-50"
+                          >
+                            Open full report
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className="app-card p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Quick stats</h3>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Assigned students</span>
-                  <span className="text-lg font-bold text-gray-900">{assignedStudents.length}</span>
-                </div>
-                <div className="flex justify-between items-center mt-3">
-                  <span className="text-sm text-gray-600">Pending documents</span>
-                  <span className="text-lg font-bold text-amber-600">{pendingExaminerDocuments.length}</span>
-                </div>
-                <div className="flex justify-between items-center mt-3">
-                  <span className="text-sm text-gray-600">Overall queue</span>
-                  <span className="text-lg font-bold text-indigo-600">{pendingOverallQueue.length}</span>
-                </div>
-              </div>
-
-              <div className="app-card p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-indigo-600" />
-                  Your role
-                </h3>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Use <strong className="text-gray-800">My evaluations</strong> for your examiner forms,{" "}
-                  <strong className="text-gray-800">Overall evaluation queue</strong> after the advisor approves, and{" "}
-                  <strong className="text-gray-800">Document queue</strong> for student uploads.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {mainTab === "my-evaluations" && (
-          <div className="app-card p-6 max-w-5xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">My evaluations</h2>
-              <p className="text-gray-600">
-                Your university examiner evaluation for each assigned student. Submit or update from here or from{" "}
-                <strong className="text-gray-800">Assigned students</strong>.
-              </p>
-            </div>
-            {loadingStudents || loadingEvals ? (
-              <LoadingState title="Loading examiner evaluations" subtitle="Fetching submitted forms and score records from the API." />
-            ) : assignedStudents.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No students assigned.</div>
-            ) : (
-              <div className="space-y-8" key={examinerEvalNonce}>
-                {assignedStudents.map((app) => {
-                  const internshipId = app?.id || app?.__raw?.id;
-                  // Prefer API data; fall back to localStorage
-                  const ev = (internshipId && apiEvals[internshipId])
-                    ? apiEvals[internshipId]
-                    : getExaminerEvaluation(app.studentId, examinerIdentity);
-                  const submitted = Boolean(ev?.submittedAt);
-                  const slot = getExaminerSlotForApp(app);
-                  return (
-                    <div key={app.id} className="border border-gray-200 rounded-xl p-4 sm:p-5 bg-gray-50/30 space-y-3">
-                      <div className="flex flex-wrap justify-between items-start gap-3">
-                        <div>
-                          <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
-                          <p className="text-sm text-gray-500">
-                            {app.companyName} · {app.internshipTitle || "Internship"}
-                            {slot ? ` · You are Examiner ${slot}` : ""}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openStudentWorkspace(app, "eval")}
-                          className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
-                        >
-                          {submitted ? "Edit in workspace" : "Open to submit"}
-                        </button>
-                      </div>
-                      {submitted ? (
-                        <>
-                          <p className="text-xs text-gray-500">
-                            Submitted {new Date(ev.submittedAt).toLocaleString()}
-                          </p>
-                          <ExaminerUniversityEvaluationForm
-                            readOnly
-                            initialData={{
-                              ...(ev.formData || {}),
-                              studentName: app.studentName || "",
-                              idNo: app.studentId || "",
-                              department: app.department || "",
-                              organization: app.companyName || "",
-                              examinerName: ev.examinerName || ev.formData?.examinerName || displayName,
-                            }}
-                          />
-                        </>
-                      ) : (
-                        <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
-                          You have not submitted your evaluation for this student yet.
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             )}
-          </div>
-        )}
 
-        {mainTab === "overall-queue" && (
-          <div className="app-card p-6 max-w-5xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
-              <p className="text-gray-600">
-                Advisor-approved overall reports that need your sign-off as internal examiner.
-              </p>
-            </div>
-            {loadingStudents ? (
-              <LoadingState title="Loading overall queue" subtitle="Checking advisor approvals and examiner slots." />
-            ) : assignedStudents.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No students assigned.</div>
-            ) : pendingOverallQueue.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No overall evaluations waiting for your approval.</p>
-                <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                  Items appear here after the advisor approves the overall report and all component evaluations are complete.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-6" key={overallNonce}>
-                {pendingOverallQueue.map(({ app, slot, overall, approvals }) => (
-                  <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
-                    <div className="flex flex-wrap justify-between items-start gap-3">
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
-                        <p className="text-sm text-gray-500">
-                          {app.companyName} · Examiner {slot}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
-                        <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                        <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">
-                          {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
-                        </p>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                        <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">
-                          {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
-                        </p>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                        <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">
-                          {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
-                        </p>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-3 bg-white">
-                        <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
-                        <p className="text-base font-bold text-gray-900 mt-1">
-                          {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
-                      <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
-                        Advisor: Approved
-                      </span>
-                      <span
-                        className={`px-3 py-1 rounded-full border ${
-                          approvals.examiner1Approved
-                            ? "bg-green-100 text-green-800 border-green-200"
-                            : "bg-amber-50 text-amber-800 border-amber-200"
-                        }`}
-                      >
-                        Examiner 1: {approvals.examiner1Approved ? "Approved" : "Pending"}
-                      </span>
-                      <span
-                        className={`px-3 py-1 rounded-full border ${
-                          approvals.examiner2Approved
-                            ? "bg-green-100 text-green-800 border-green-200"
-                            : "bg-amber-50 text-amber-800 border-amber-200"
-                        }`}
-                      >
-                        Examiner 2: {approvals.examiner2Approved ? "Approved" : "Pending"}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleApproveOverall(app.studentId, slot)}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
-                      >
-                        Approve overall (Examiner {slot})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openStudentWorkspace(app, "overall")}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg border-2 border-indigo-200 text-indigo-800 text-sm font-bold hover:bg-indigo-50"
-                      >
-                        Open full report
-                      </button>
-                    </div>
+            {mainTab === "doc-queue" && (
+              <div className="app-card p-6 max-w-4xl">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
+                  <p className="text-gray-600">
+                    Student uploads that need your approval (advisor approves separately).
+                  </p>
+                </div>
+                {loadingStudents || loadingDocs ? (
+                  <LoadingState title="Loading document queue" subtitle="Fetching the latest student uploads and review status." />
+                ) : assignedStudents.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No students assigned.</div>
+                ) : pendingExaminerDocuments.length === 0 ? (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No documents waiting for your review.</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-4">
+                    {pendingExaminerDocuments.map((doc) => {
+                      const studentApp = assignedStudents.find((a) => String(a.studentId) === String(doc.studentId));
+                      return (
+                        <ExaminerDocQueueRow
+                          key={doc.id}
+                          doc={doc}
+                          studentApp={studentApp}
+                          examinerIdentity={examinerIdentity}
+                          displayName={displayName}
+                          onDecided={async () => {
+                            setDocQueueNonce((n) => n + 1);
+                            // Refresh API documents so queue updates immediately
+                            try {
+                              const res = await internshipService.getExaminerDocuments();
+                              if (res.success) {
+                                const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+                                syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
+                                setApiDocuments(items);
+                              }
+                            } catch { /* ignore */ }
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-
-        {mainTab === "doc-queue" && (
-          <div className="app-card p-6 max-w-4xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Document queue</h2>
-              <p className="text-gray-600">
-                Student uploads that need your approval (advisor approves separately).
-              </p>
-            </div>
-            {loadingStudents || (loadingDocs && pendingExaminerDocuments.length === 0) ? (
-              <LoadingState title="Loading document queue" subtitle="Fetching the latest student uploads and review status." />
-            ) : assignedStudents.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No students assigned.</div>
-            ) : pendingExaminerDocuments.length === 0 ? (
-              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No documents waiting for your review.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingExaminerDocuments.map((doc) => {
-                  const studentApp = assignedStudents.find((a) => String(a.studentId) === String(doc.studentId));
-                  return (
-                    <ExaminerDocQueueRow
-                      key={doc.id}
-                      doc={doc}
-                      studentApp={studentApp}
-                      examinerIdentity={examinerIdentity}
-                      displayName={displayName}
-                      onDecided={async () => {
-                        setDocQueueNonce((n) => n + 1);
-                        // Refresh API documents so queue updates immediately
-                        try {
-                          const res = await internshipService.getExaminerDocuments();
-                          if (res.success) {
-                            const items = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-                            syncInternshipDocumentsFromApi(items, { merge: true, notify: false });
-                            setApiDocuments(items);
-                          }
-                        } catch { /* ignore */ }
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
           </div>
         </div>
       </div>
@@ -1028,9 +1134,8 @@ const ExaminerDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentModalTab("eval")}
-                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
-                  studentModalTab === "eval" ? "app-tab-active" : "app-tab-inactive"
-                }`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentModalTab === "eval" ? "app-tab-active" : "app-tab-inactive"
+                  }`}
               >
                 <ClipboardList className="w-4 h-4" />
                 Examiner evaluation
@@ -1038,9 +1143,8 @@ const ExaminerDashboard = () => {
               <button
                 type="button"
                 onClick={() => setStudentModalTab("documents")}
-                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
-                  studentModalTab === "documents" ? "app-tab-active" : "app-tab-inactive"
-                }`}
+                className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentModalTab === "documents" ? "app-tab-active" : "app-tab-inactive"
+                  }`}
               >
                 <FileText className="w-4 h-4" />
                 Documents
@@ -1049,9 +1153,8 @@ const ExaminerDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setStudentModalTab("overall")}
-                  className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${
-                    studentModalTab === "overall" ? "app-tab-active" : "app-tab-inactive"
-                  }`}
+                  className={`flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-bold transition-all ${studentModalTab === "overall" ? "app-tab-active" : "app-tab-inactive"
+                    }`}
                 >
                   <ClipboardList className="w-4 h-4" />
                   Overall report
@@ -1059,7 +1162,9 @@ const ExaminerDashboard = () => {
               )}
             </div>
 
-            {studentModalTab === "eval" && (
+            {studentModalTab === "eval" && (loadingStudents || loadingEvals) ? (
+              <LoadingState title="Loading evaluation" subtitle="Fetching your submitted evaluation and form data." />
+            ) : studentModalTab === "eval" && (
               <div>
                 {examinerOwnEval?.submittedAt && (
                   <p className="text-sm text-gray-500 mb-4">
@@ -1113,7 +1218,9 @@ const ExaminerDashboard = () => {
               />
             )}
 
-            {studentModalTab === "overall" && overallApprovals?.advisorApproved && (
+            {studentModalTab === "overall" && overallApprovals?.advisorApproved && (loadingStudents || loadingEvals) ? (
+              <LoadingState title="Loading overall evaluation" subtitle="Fetching overall report and approvals." />
+            ) : studentModalTab === "overall" && overallApprovals?.advisorApproved && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -1156,7 +1263,7 @@ const ExaminerDashboard = () => {
                     <button
                       type="button"
                       disabled={!overall?.complete}
-                      onClick={() => handleApproveOverall(selectedStudent.studentId, 1)}
+                      onClick={() => handleApproveOverall(selectedStudent.studentId, 1, selectedStudent.id || selectedStudent.__raw?.id)}
                       className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 1)
@@ -1166,7 +1273,7 @@ const ExaminerDashboard = () => {
                     <button
                       type="button"
                       disabled={!overall?.complete}
-                      onClick={() => handleApproveOverall(selectedStudent.studentId, 2)}
+                      onClick={() => handleApproveOverall(selectedStudent.studentId, 2, selectedStudent.id || selectedStudent.__raw?.id)}
                       className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Approve overall (Examiner 2)

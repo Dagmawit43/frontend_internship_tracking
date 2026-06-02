@@ -10,6 +10,7 @@ import internshipService from "../services/internshipService";
 import userService from "../services/userService";
 import logbookService from "../services/logbookService";
 import evaluationService from "../services/evaluationService";
+import api from "../api";
 import InternshipAcceptanceForm, { ACCEPTANCE_FORM_DEFAULTS } from "./InternshipAcceptanceForm";
 import InternshipLogbookForm from "./InternshipLogbookForm";
 import InternshipMonthlyEvaluation from "./InternshipMonthlyEvaluation";
@@ -126,9 +127,9 @@ const matchesDepartment = (entity, department) => {
 };
 
 // Notifications drawer state for coordinator
-const [coordNotificationPanelOpen, setCoordNotificationPanelOpen] = (function() {
+const [coordNotificationPanelOpen, setCoordNotificationPanelOpen] = (function () {
   // simple module-scoped placeholders — actual state will be created inside component
-  return [false, () => {}];
+  return [false, () => { }];
 })();
 
 export const getCoordinatorName = () => {
@@ -248,57 +249,57 @@ const StudentManagementView = ({ coordinatorDept, onBack }) => {
       ) : null}
 
       {!loading ? (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-green-50/60 px-4 py-3">
-            <h3 className="font-semibold text-green-900">Active (Signed Up)</h3>
-            <span className="rounded-full bg-green-200/90 px-2.5 py-0.5 text-xs font-bold text-green-900">{activeStudents.length}</span>
-          </div>
-          {activeStudents.length === 0 ? (
-            <p className="px-4 py-8 text-sm text-slate-500">No students are actively registered yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {activeStudents.map((s) => (
-                <li
-                  key={s.studentId || s.email}
-                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium text-slate-900">{s.fullName}</div>
-                    <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
-                  </div>
-                  <span className="shrink-0 self-start rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 sm:self-center">Active</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-green-50/60 px-4 py-3">
+              <h3 className="font-semibold text-green-900">Active (Signed Up)</h3>
+              <span className="rounded-full bg-green-200/90 px-2.5 py-0.5 text-xs font-bold text-green-900">{activeStudents.length}</span>
+            </div>
+            {activeStudents.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-slate-500">No students are actively registered yet.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {activeStudents.map((s) => (
+                  <li
+                    key={s.studentId || s.email}
+                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-slate-900">{s.fullName}</div>
+                      <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
+                    </div>
+                    <span className="shrink-0 self-start rounded-md bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 sm:self-center">Active</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-amber-50/60 px-4 py-3">
-            <h3 className="font-semibold text-amber-900">Eligible (Not Signed Up)</h3>
-            <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 text-xs font-bold text-amber-900">{pendingStudents.length}</span>
-          </div>
-          {pendingStudents.length === 0 ? (
-            <p className="px-4 py-8 text-sm text-slate-500">All eligible students have registered.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100">
-              {pendingStudents.map((s) => (
-                <li
-                  key={s.studentId || s.email}
-                  className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium text-slate-900">{s.fullName}</div>
-                    <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
-                  </div>
-                  <span className="shrink-0 self-start rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 sm:self-center">Pending</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-amber-50/60 px-4 py-3">
+              <h3 className="font-semibold text-amber-900">Eligible (Not Signed Up)</h3>
+              <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 text-xs font-bold text-amber-900">{pendingStudents.length}</span>
+            </div>
+            {pendingStudents.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-slate-500">All eligible students have registered.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {pendingStudents.map((s) => (
+                  <li
+                    key={s.studentId || s.email}
+                    className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:bg-slate-50/80"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-slate-900">{s.fullName}</div>
+                      <div className="truncate text-xs text-slate-500">{s.studentId} · {s.email}</div>
+                    </div>
+                    <span className="shrink-0 self-start rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 sm:self-center">Pending</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       ) : null}
     </div>
   );
@@ -410,19 +411,19 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
 
   const handleAction = async (app, action) => {
     if (action === "REJECT" && !window.confirm("Are you sure you want to REJECT this internship placement?")) return;
-    
+
     try {
       const result = app.isSelfPlacement
         ? await internshipService.reviewSelfPlacementRequest(
-            app.id,
-            action === "APPROVE" ? "approve" : "reject",
-            "",
-          )
+          app.id,
+          action === "APPROVE" ? "approve" : "reject",
+          "",
+        )
         : await internshipService.coordinatorReviewApplication(
-            app.id,
-            action === "APPROVE" ? "approve" : "reject",
-            getCoordinatorName(),
-          );
+          app.id,
+          action === "APPROVE" ? "approve" : "reject",
+          getCoordinatorName(),
+        );
 
       if (!result.success) {
         throw new Error(
@@ -516,157 +517,157 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
       {selectedApp && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-             {/* Header */}
-             <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
-                <div>
-                   <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Placement Forensic Review</h3>
-                   <p className="text-xs text-gray-500 font-bold">Reviewing Application ID: {selectedApp.id}</p>
-                </div>
-                <button onClick={() => setSelectedApp(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-                   <XCircle className="w-6 h-6 text-gray-400" />
-                </button>
-             </div>
+            {/* Header */}
+            <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Placement Forensic Review</h3>
+                <p className="text-xs text-gray-500 font-bold">Reviewing Application ID: {selectedApp.id}</p>
+              </div>
+              <button onClick={() => setSelectedApp(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                <XCircle className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
 
-             {/* Content */}
-             <div className="flex-1 overflow-y-auto p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                   
-                   {/* Student Information */}
-                   <div className="space-y-6">
-                      <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-600 w-fit">
-                         <User className="w-5 h-5 text-indigo-600" />
-                         <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Student Profile</h4>
-                      </div>
-                      <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                         <div>
-                            <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Full Name</p>
-                            <p className="font-bold text-gray-900 text-lg">{selectedApp.studentName}</p>
-                         </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                               <p className="text-[10px] font-black text-gray-400 uppercase">Student ID</p>
-                               <p className="text-sm font-bold">{selectedApp.studentId}</p>
-                            </div>
-                            <div>
-                               <p className="text-[10px] font-black text-gray-400 uppercase">Department</p>
-                               <p className="text-sm font-bold">{selectedApp.studentFull?.department || "N/A"}</p>
-                            </div>
-                         </div>
-                         <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase">Email Address</p>
-                            <p className="text-sm font-bold text-indigo-600">{selectedApp.studentFull?.email || "N/A"}</p>
-                         </div>
-                      </div>
-                      
-                      {selectedApp.additionalDocument && (
-                         <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                               <div className="bg-white p-2 rounded-lg"><FileText className="w-5 h-5 text-indigo-600" /></div>
-                               <div>
-                                  <p className="text-xs font-bold text-gray-900">CV / Resume Uploaded</p>
-                                  <p className="text-[10px] text-gray-500">{selectedApp.documentName || "Student_CV.pdf"}</p>
-                               </div>
-                            </div>
-                            <a 
-                              href={selectedApp.additionalDocument} 
-                              download={selectedApp.documentName || "CV.pdf"}
-                              className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
-                            >
-                               View CV
-                            </a>
-                         </div>
-                      )}
-                   </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-                   {/* Internship & Company Details */}
-                   <div className="space-y-8">
-                      {/* Internship Details */}
-                      <div>
-                        <div className="flex items-center gap-3 pb-2 border-b-2 border-purple-600 w-fit mb-6">
-                           <Briefcase className="w-5 h-5 text-purple-600" />
-                           <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Details</h4>
-                        </div>
-                        <div className="space-y-4">
-                           <h5 className="text-2xl font-black text-gray-900 leading-tight">{selectedApp.internshipTitle}</h5>
-                           <p className="text-sm text-gray-600 leading-relaxed bg-purple-50/50 p-4 rounded-xl border border-purple-100">
-                              {selectedApp.internshipFull?.description || "No description available."}
-                           </p>
-                           <div className="grid grid-cols-2 gap-4">
-                              <div className="p-3 border border-gray-100 rounded-lg">
-                                 <p className="text-[10px] font-black text-gray-400 uppercase">Duration</p>
-                                 <p className="text-xs font-bold">{selectedApp.internshipFull?.start_date} to {selectedApp.internshipFull?.end_date}</p>
-                              </div>
-                              <div className="p-3 border border-gray-100 rounded-lg">
-                                 <p className="text-[10px] font-black text-gray-400 uppercase">Commitment</p>
-                                 <p className="text-xs font-bold">{selectedApp.internshipFull?.total_hours || selectedApp.internshipFull?.Total_hours} Hrs / {selectedApp.internshipFull?.days_in_week || selectedApp.internshipFull?.Days_in_week} Days</p>
-                              </div>
-                           </div>
-                        </div>
-                      </div>
-
-                      {/* Company Profile */}
-                      <div className="pt-4 border-t border-gray-100">
-                        <div className="flex items-center gap-3 pb-2 border-b-2 border-green-600 w-fit mb-6">
-                           <Building2 className="w-5 h-5 text-green-600" />
-                           <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Company Profile</h4>
-                        </div>
-                        <div className="space-y-3">
-                           <p className="text-xl font-bold text-gray-900">{selectedApp.companyName}</p>
-                           <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <MapPin className="w-4 h-4 text-gray-400" />
-                              <span>{selectedApp.companyFull?.location || "Location not specified"}</span>
-                           </div>
-                           <p className="text-xs text-gray-500 italic">"{selectedApp.companyFull?.description || "Company has not provided a detailed description."}"</p>
-                        </div>
-                      </div>
-                   </div>
-
-                </div>
-
-                {/* Statement of Interest */}
-                <div className="mt-10 p-6 bg-yellow-50 border border-yellow-100 rounded-2xl">
-                   <h4 className="text-[10px] font-black uppercase tracking-widest text-yellow-700 mb-2">Student's Statement of Interest</h4>
-                   <p className="text-gray-800 leading-relaxed italic">"{selectedApp.reason || "No statement provided."}"</p>
-                </div>
-
-                <div className="mt-8">
-                  <div className="mb-4 flex flex-wrap gap-2 text-[11px] font-black uppercase">
-                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.deptStatus === "APPROVED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.deptStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                      Coordinator: {selectedApp.deptStatus || "PENDING"}
-                    </span>
-                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.mentorStatus === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.mentorStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                      Company: {selectedApp.mentorStatus || "PENDING"}
-                    </span>
-                    <span className={`rounded-full border px-2.5 py-1 ${selectedApp.studentDecision === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.studentDecision === "DECLINED" ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
-                      Student: {selectedApp.studentDecision || "PENDING"}
-                    </span>
+                {/* Student Information */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 pb-2 border-b-2 border-indigo-600 w-fit">
+                    <User className="w-5 h-5 text-indigo-600" />
+                    <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Student Profile</h4>
                   </div>
-                  <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mb-3">
-                    Completed Internship Hosting Company Acceptance Form
-                  </h4>
-                  <InternshipAcceptanceForm
-                    initialData={selectedApp.acceptanceForm}
-                    readOnly
-                    showActions
-                  />
-                </div>
-             </div>
+                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black text-indigo-600 uppercase mb-1">Full Name</p>
+                      <p className="font-bold text-gray-900 text-lg">{selectedApp.studentName}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase">Student ID</p>
+                        <p className="text-sm font-bold">{selectedApp.studentId}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-gray-400 uppercase">Department</p>
+                        <p className="text-sm font-bold">{selectedApp.studentFull?.department || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase">Email Address</p>
+                      <p className="text-sm font-bold text-indigo-600">{selectedApp.studentFull?.email || "N/A"}</p>
+                    </div>
+                  </div>
 
-             {/* Footer Actions */}
-             <div className="p-6 border-t bg-gray-50 flex gap-4">
-                <button 
-                   onClick={() => handleAction(selectedApp, "REJECT")}
-                   className="flex-1 py-4 border-2 border-red-200 text-red-600 font-black uppercase tracking-widest text-xs rounded-xl hover:bg-red-50 transition-all"
-                >
-                   Decline Placement
-                </button>
-                <button 
-                   onClick={() => handleAction(selectedApp, "APPROVE")}
-                   className="flex-[2] py-4 bg-green-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-green-700 transition-all shadow-xl shadow-green-100"
-                >
-                   Final Approval & Activate Internship
-                </button>
-             </div>
+                  {selectedApp.additionalDocument && (
+                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-lg"><FileText className="w-5 h-5 text-indigo-600" /></div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">CV / Resume Uploaded</p>
+                          <p className="text-[10px] text-gray-500">{selectedApp.documentName || "Student_CV.pdf"}</p>
+                        </div>
+                      </div>
+                      <a
+                        href={selectedApp.additionalDocument}
+                        download={selectedApp.documentName || "CV.pdf"}
+                        className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
+                      >
+                        View CV
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Internship & Company Details */}
+                <div className="space-y-8">
+                  {/* Internship Details */}
+                  <div>
+                    <div className="flex items-center gap-3 pb-2 border-b-2 border-purple-600 w-fit mb-6">
+                      <Briefcase className="w-5 h-5 text-purple-600" />
+                      <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Internship Details</h4>
+                    </div>
+                    <div className="space-y-4">
+                      <h5 className="text-2xl font-black text-gray-900 leading-tight">{selectedApp.internshipTitle}</h5>
+                      <p className="text-sm text-gray-600 leading-relaxed bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+                        {selectedApp.internshipFull?.description || "No description available."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 border border-gray-100 rounded-lg">
+                          <p className="text-[10px] font-black text-gray-400 uppercase">Duration</p>
+                          <p className="text-xs font-bold">{selectedApp.internshipFull?.start_date} to {selectedApp.internshipFull?.end_date}</p>
+                        </div>
+                        <div className="p-3 border border-gray-100 rounded-lg">
+                          <p className="text-[10px] font-black text-gray-400 uppercase">Commitment</p>
+                          <p className="text-xs font-bold">{selectedApp.internshipFull?.total_hours || selectedApp.internshipFull?.Total_hours} Hrs / {selectedApp.internshipFull?.days_in_week || selectedApp.internshipFull?.Days_in_week} Days</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Company Profile */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <div className="flex items-center gap-3 pb-2 border-b-2 border-green-600 w-fit mb-6">
+                      <Building2 className="w-5 h-5 text-green-600" />
+                      <h4 className="font-black text-sm uppercase tracking-widest text-gray-900">Company Profile</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xl font-bold text-gray-900">{selectedApp.companyName}</p>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MapPin className="w-4 h-4 text-gray-400" />
+                        <span>{selectedApp.companyFull?.location || "Location not specified"}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 italic">"{selectedApp.companyFull?.description || "Company has not provided a detailed description."}"</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Statement of Interest */}
+              <div className="mt-10 p-6 bg-yellow-50 border border-yellow-100 rounded-2xl">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-yellow-700 mb-2">Student's Statement of Interest</h4>
+                <p className="text-gray-800 leading-relaxed italic">"{selectedApp.reason || "No statement provided."}"</p>
+              </div>
+
+              <div className="mt-8">
+                <div className="mb-4 flex flex-wrap gap-2 text-[11px] font-black uppercase">
+                  <span className={`rounded-full border px-2.5 py-1 ${selectedApp.deptStatus === "APPROVED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.deptStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    Coordinator: {selectedApp.deptStatus || "PENDING"}
+                  </span>
+                  <span className={`rounded-full border px-2.5 py-1 ${selectedApp.mentorStatus === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.mentorStatus === "REJECTED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                    Company: {selectedApp.mentorStatus || "PENDING"}
+                  </span>
+                  <span className={`rounded-full border px-2.5 py-1 ${selectedApp.studentDecision === "ACCEPTED" ? "border-green-200 bg-green-50 text-green-700" : selectedApp.studentDecision === "DECLINED" ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                    Student: {selectedApp.studentDecision || "PENDING"}
+                  </span>
+                </div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-gray-800 mb-3">
+                  Completed Internship Hosting Company Acceptance Form
+                </h4>
+                <InternshipAcceptanceForm
+                  initialData={selectedApp.acceptanceForm}
+                  readOnly
+                  showActions
+                />
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-6 border-t bg-gray-50 flex gap-4">
+              <button
+                onClick={() => handleAction(selectedApp, "REJECT")}
+                className="flex-1 py-4 border-2 border-red-200 text-red-600 font-black uppercase tracking-widest text-xs rounded-xl hover:bg-red-50 transition-all"
+              >
+                Decline Placement
+              </button>
+              <button
+                onClick={() => handleAction(selectedApp, "APPROVE")}
+                className="flex-[2] py-4 bg-green-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-green-700 transition-all shadow-xl shadow-green-100"
+              >
+                Final Approval & Activate Internship
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -676,7 +677,7 @@ const InternshipStudentsView = ({ coordinatorDept, onBack }) => {
 
 // ─── Main Coordinator Dashboard ─────────────────────────────────────────────
 // ─── Active Interns Management (Advisor/Examiner Assignment) ───────────
-const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
+const ActiveInternsManagementView = ({ coordinatorDept, onBack, apiOverallQueue = [] }) => {
   const [activeInterns, setActiveInterns] = useState([]);
   const [advisorsPool, setAdvisorsPool] = useState([]);
   const [examinersPool, setExaminersPool] = useState([]);
@@ -684,44 +685,44 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [logbookRecord, setLogbookRecord] = useState(null);
-  
-    const buildLogbookRecordFromApi = useCallback((apiData, internLike) => {
-      const items = Array.isArray(apiData)
-        ? apiData
-        : (apiData?.results || apiData?.data || []);
 
-      if (!Array.isArray(items) || items.length === 0) {
-        return null;
-      }
+  const buildLogbookRecordFromApi = useCallback((apiData, internLike) => {
+    const items = Array.isArray(apiData)
+      ? apiData
+      : (apiData?.results || apiData?.data || []);
 
-      const weeks = items.map((item) => apiLogbookToWeek(item));
-      const first = items[0] || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return null;
+    }
 
-      return {
-        meta: {
-          studentName:
-            first.student_full_name ||
-            internLike?.studentName ||
-            internLike?.student_name ||
-            internLike?.form_snapshot?.student?.name ||
-            "",
-          companyName:
-            first.company_name ||
-            internLike?.companyName ||
-            internLike?.company_name ||
-            internLike?.form_snapshot?.company?.name ||
-            "",
-          supervisorName:
-            first.supervisor_name ||
-            internLike?.supervisorName ||
-            internLike?.mentor_name ||
-            internLike?.form_snapshot?.mentor?.name ||
-            "",
-          safetyBrief: first.safety_brief || "",
-        },
-        weeks,
-      };
-    }, []);
+    const weeks = items.map((item) => apiLogbookToWeek(item));
+    const first = items[0] || {};
+
+    return {
+      meta: {
+        studentName:
+          first.student_full_name ||
+          internLike?.studentName ||
+          internLike?.student_name ||
+          internLike?.form_snapshot?.student?.name ||
+          "",
+        companyName:
+          first.company_name ||
+          internLike?.companyName ||
+          internLike?.company_name ||
+          internLike?.form_snapshot?.company?.name ||
+          "",
+        supervisorName:
+          first.supervisor_name ||
+          internLike?.supervisorName ||
+          internLike?.mentor_name ||
+          internLike?.form_snapshot?.mentor?.name ||
+          "",
+        safetyBrief: first.safety_brief || "",
+      },
+      weeks,
+    };
+  }, []);
   const [debugLogs, setDebugLogs] = useState([]);
   const [progressDataNonce, setProgressDataNonce] = useState(0);
   const [advisorEvalRecord, setAdvisorEvalRecord] = useState(null);
@@ -735,17 +736,16 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
   };
 
   const progressTabClass = (tab) =>
-    `flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
-      internDetailTab === tab
-        ? "bg-white text-indigo-600 shadow-sm"
-        : "text-gray-500 hover:text-gray-700"
+    `flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${internDetailTab === tab
+      ? "bg-white text-indigo-600 shadow-sm"
+      : "text-gray-500 hover:text-gray-700"
     }`;
 
   useEffect(() => {
     const loadData = () => {
       const allApps = JSON.parse(localStorage.getItem("applications")) || [];
       const students = JSON.parse(localStorage.getItem("students")) || [];
-      
+
       const filtered = allApps.filter((app) => {
         // Treat approved applications and ongoing internships as active interns.
         const status = String(app.finalInternshipStatus || app.__raw?.status || app.__raw?.dept_status || "").toUpperCase();
@@ -760,10 +760,10 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
 
         const rawStudentDept = String(
           app.__raw?.form_snapshot?.student?.department_name ||
-            app.__raw?.form_snapshot?.student?.department ||
-            app.__raw?.department_name ||
-            app.__raw?.department ||
-            ""
+          app.__raw?.form_snapshot?.student?.department ||
+          app.__raw?.department_name ||
+          app.__raw?.department ||
+          ""
         ).trim().toLowerCase();
         const student = students.find((s) => {
           const sid = String(s.studentId || s.id || "").trim();
@@ -774,16 +774,16 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
 
         const studentDept = String(
           student?.department_name ||
-            student?.department ||
-            app.__raw?.form_snapshot?.student?.department_name ||
-            app.__raw?.form_snapshot?.student?.department ||
-            app.__raw?.department_name ||
-            app.__raw?.department ||
-            ""
+          student?.department ||
+          app.__raw?.form_snapshot?.student?.department_name ||
+          app.__raw?.form_snapshot?.student?.department ||
+          app.__raw?.department_name ||
+          app.__raw?.department ||
+          ""
         ).trim().toLowerCase();
         return rawStudentDept === dept || studentDept === dept;
       });
-      
+
       setActiveInterns(filtered);
 
       const dept = String(coordinatorDept || "").trim();
@@ -793,7 +793,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
       const examiners = JSON.parse(localStorage.getItem("assignedExaminers") || "[]").filter(
         (e) => matchesDepartment(e, dept)
       );
-      
+
       setAdvisorsPool(advisors);
       setExaminersPool(examiners);
     };
@@ -1430,27 +1430,27 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             formData: {
               // Arrays matching ADVISOR_EVAL_REPORT_ITEMS order (7 items)
               reportScores: [
-                unscale(d.report_format_score,           2,  4),
-                unscale(d.organization_background_score, 3,  4),
-                unscale(d.activities_score,              4,  6),
-                unscale(d.data_figure_table_score,       3,  8),
-                unscale(d.report_content_score,          4, 10),
-                unscale(d.recommendation_score,          2,  4),
-                unscale(d.conclusion_score,              2,  4),
+                unscale(d.report_format_score, 2, 4),
+                unscale(d.organization_background_score, 3, 4),
+                unscale(d.activities_score, 4, 6),
+                unscale(d.data_figure_table_score, 3, 8),
+                unscale(d.report_content_score, 4, 10),
+                unscale(d.recommendation_score, 2, 4),
+                unscale(d.conclusion_score, 2, 4),
               ],
               // Arrays matching ADVISOR_EVAL_LOGBOOK_ITEMS order (5 items)
               logbookScores: [
                 unscale(d.pictures_and_data_score, 1, 5),
-                unscale(d.weekly_summary_score,    1, 5),
-                unscale(d.daily_detail_score,      1, 5),
-                unscale(d.improvement_score,       1, 5),
-                unscale(d.initiative_score,        1, 5),
+                unscale(d.weekly_summary_score, 1, 5),
+                unscale(d.daily_detail_score, 1, 5),
+                unscale(d.improvement_score, 1, 5),
+                unscale(d.initiative_score, 1, 5),
               ],
               // Arrays matching ADVISOR_EVAL_PERFORMANCE_ITEMS order (3 items)
               performanceScores: [
                 unscale(d.understanding_objective_score, 4, 10),
-                unscale(d.engagement_score,              3,  6),
-                unscale(d.discipline_score,              3,  2),
+                unscale(d.engagement_score, 3, 6),
+                unscale(d.discipline_score, 3, 2),
               ],
             },
             totals: {
@@ -1615,10 +1615,10 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
             ← Dashboard
           </button>
         </div>
-        
+
       </div>
 
-  
+
 
       {activeInterns.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/40 px-6 py-14 text-center">
@@ -1697,8 +1697,29 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                       </div>
                     </div>
                     {(() => {
-                      const overall = computeOverallEvaluation(app);
-                      const approvals = getOverallApprovals(app.studentId);
+                      // Prefer API data from apiOverallQueue if available for this student
+                      const apiItem = apiOverallQueue.find(item =>
+                        String(item.internship || item.internship_id || "") === String(app.id)
+                      );
+
+                      const overall = apiItem ? {
+                        overallMark100: parseFloat(apiItem.final_total_score) || 0,
+                        advisorMark: parseFloat(apiItem.advisor_score) || 0,
+                        ex1Mark: parseFloat(apiItem.examiner_one_score) || 0,
+                        ex2Mark: parseFloat(apiItem.examiner_two_score) || 0,
+                        companyTotal40: parseFloat(apiItem.company_score) || 0,
+                        companyMonAvg: parseFloat(apiItem.company_monthly_avg) || 0,
+                        companyFinalMark: parseFloat(apiItem.company_final_score) || 0,
+                        complete: apiItem.can_finalize || false,
+                      } : computeOverallEvaluation(app);
+
+                      const approvals = apiItem ? {
+                        advisorApproved: Boolean(apiItem.advisor_approved),
+                        examiner1Approved: Boolean(apiItem.examiner_approval_state?.["1"]?.approved || apiItem.examiner_approval_state?.[1]?.approved),
+                        examiner2Approved: Boolean(apiItem.examiner_approval_state?.["2"]?.approved || apiItem.examiner_approval_state?.[2]?.approved),
+                        coordinatorApproved: Boolean(apiItem.coordinator_approved),
+                      } : getOverallApprovals(app.studentId);
+
                       const readyForCoordinator = overall.complete;
                       return (
                         <div className="rounded-md border border-slate-200 bg-slate-50/40 px-3 py-3">
@@ -1708,6 +1729,8 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                               <p className="text-base font-bold text-green-700">{overall.overallMark100} / 100</p>
                               <p className="mt-0.5 text-xs text-slate-500">
                                 Company: {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                                {" · "}
+                                Company Details (Avg: {overall.companyMonAvg ?? "—"} · Final: {overall.companyFinalMark ?? "—"})
                                 {" · "}
                                 Academic: {overall.academicOverall100} / 100
                               </p>
@@ -1722,7 +1745,7 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                               <span className={`rounded border px-2 py-0.5 ${approvals.examiner2Approved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
                                 Ex2
                               </span>
-  
+
                               <span className={`rounded border px-2 py-0.5 ${approvals.coordinatorApproved ? "border-green-200 bg-green-100 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
                                 Coord
                               </span>
@@ -1973,23 +1996,23 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
                   const apiRec = internshipId && apiMonthlyEvals[internshipId]?.[month];
                   const rec = apiRec
                     ? {
-                        status: apiRec.status === "ADVISOR_APPROVED" ? EVAL_STATUS.APPROVED
-                               : apiRec.status === "REJECTED" ? EVAL_STATUS.REJECTED
-                               : EVAL_STATUS.SUBMITTED,
-                        advisorComment: apiRec.advisor_comment || "",
-                        evaluationData: {
-                          ...(apiRec.form_data || {}),
-                          totalMarks: (apiRec.form_data?.totalMarks ?? apiRec.total_score),
-                          monthlyPerformance: (apiRec.form_data?.monthlyPerformance ?? (apiRec.total_score ? ((apiRec.total_score/100)*20) : null)),
-                        },
-                      }
+                      status: apiRec.status === "ADVISOR_APPROVED" ? EVAL_STATUS.APPROVED
+                        : apiRec.status === "REJECTED" ? EVAL_STATUS.REJECTED
+                          : EVAL_STATUS.SUBMITTED,
+                      advisorComment: apiRec.advisor_comment || "",
+                      evaluationData: {
+                        ...(apiRec.form_data || {}),
+                        totalMarks: (apiRec.form_data?.totalMarks ?? apiRec.total_score),
+                        monthlyPerformance: (apiRec.form_data?.monthlyPerformance ?? (apiRec.total_score ? ((apiRec.total_score / 100) * 20) : null)),
+                      },
+                    }
                     : getEvaluation(selectedIntern.studentId, month);
                   const status = rec?.status || EVAL_STATUS.NOT_STARTED;
                   const badgeMap = {
                     [EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-                    [EVAL_STATUS.SUBMITTED]:   "bg-indigo-100 text-indigo-700 border-indigo-200",
-                    [EVAL_STATUS.APPROVED]:    "bg-green-100 text-green-700 border-green-200",
-                    [EVAL_STATUS.REJECTED]:    "bg-red-100 text-red-700 border-red-200",
+                    [EVAL_STATUS.SUBMITTED]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+                    [EVAL_STATUS.APPROVED]: "bg-green-100 text-green-700 border-green-200",
+                    [EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
                   };
                   return (
                     <div key={month} className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
@@ -2029,222 +2052,222 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack }) => {
               </div>
             )}
           </div>
-            {internDetailTab === "documents" && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Files the student uploaded for advisor and examiner review (read only).
-                </p>
-                {studentDocuments.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No student documents uploaded yet.</p>
-                  </div>
-                ) : (
-                  <ul className="space-y-4">
-                    {studentDocuments.map((doc) => {
-                      const summary = getStudentDocumentSummary(doc);
-                      return (
-                        <li key={doc.id} className="rounded-xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5">
-                          <div className="flex flex-wrap justify-between gap-2 items-start">
-                            <div>
-                              <h4 className="font-bold text-gray-900">{doc.title}</h4>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Submitted {new Date(doc.submittedAt).toLocaleString()}
-                              </p>
-                              {doc.description && (
-                                <p className="text-sm text-gray-600 mt-2">{doc.description}</p>
-                              )}
-                            </div>
-                            <a
-                              href={doc.fileData}
-                              download={doc.fileName}
-                              className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
-                            >
-                              Download
-                            </a>
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.advisorStatus)}`}>
-                              Advisor: {doc.advisorStatus}
-                            </span>
-                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.examinerStatus)}`}>
-                              Examiner: {doc.examinerStatus}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            {internDetailTab === "company-final" && selectedIntern && (
-              <div className="space-y-6">
-                {(() => {
-                  const finalEval = apiFinalEvalRecord || getFinalEvaluation(selectedIntern.studentId);
-                  if (!finalEval) {
+          {internDetailTab === "documents" && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Files the student uploaded for advisor and examiner review (read only).
+              </p>
+              {studentDocuments.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                  <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No student documents uploaded yet.</p>
+                </div>
+              ) : (
+                <ul className="space-y-4">
+                  {studentDocuments.map((doc) => {
+                    const summary = getStudentDocumentSummary(doc);
                     return (
-                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                        <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">No company overall evaluation submitted yet.</p>
-                      </div>
-                    );
-                  }
-                  const badgeMap = {
-                    [FINAL_EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
-                    [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-indigo-100 text-indigo-700 border-indigo-200",
-                    [FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR]: "bg-green-100 text-green-700 border-green-200",
-                    [FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL]: "bg-yellow-100 text-yellow-700 border-yellow-200",
-                    [FINAL_EVAL_STATUS.FINAL_APPROVED]: "bg-green-100 text-green-700 border-green-200",
-                    [FINAL_EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
-                  };
-                  return (
-                    <div className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-gray-900">Company Overall Evaluation</h4>
-                        <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[finalEval.status] || badgeMap[FINAL_EVAL_STATUS.NOT_STARTED]}`}>
-                          {FINAL_EVAL_STATUS_LABELS[finalEval.status] || finalEval.status || FINAL_EVAL_STATUS_LABELS[FINAL_EVAL_STATUS.NOT_STARTED]}
-                        </span>
-                      </div>
-                      {finalEval.total !== undefined && finalEval.total !== null && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
-                            <p className="text-xs text-gray-400 font-medium mb-1">Total Score</p>
-                            <p className="text-2xl font-bold text-indigo-700">{finalEval.total} / 60</p>
+                      <li key={doc.id} className="rounded-xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5">
+                        <div className="flex flex-wrap justify-between gap-2 items-start">
+                          <div>
+                            <h4 className="font-bold text-gray-900">{doc.title}</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Submitted {new Date(doc.submittedAt).toLocaleString()}
+                            </p>
+                            {doc.description && (
+                              <p className="text-sm text-gray-600 mt-2">{doc.description}</p>
+                            )}
                           </div>
-                          <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
-                            <p className="text-xs text-gray-400 font-medium mb-1">Final Mark</p>
-                            <p className="text-2xl font-bold text-green-700">{finalEval.finalMark} / 20</p>
-                          </div>
+                          <a
+                            href={doc.fileData}
+                            download={doc.fileName}
+                            className="text-sm font-bold text-indigo-600 hover:underline shrink-0"
+                          >
+                            Download
+                          </a>
                         </div>
-                      )}
-                      <InternshipEvaluationForm
-                        key={`coord-final-${selectedIntern.studentId}`}
-                        initialData={finalEval.formData || {}}
-                        readOnly
-                        advisorComment={finalEval.advisorComment || ""}
-                        examinerComment={finalEval.examinerComment || ""}
-                      />
+                        <p className="text-sm font-semibold text-gray-800 mt-3">{summary.text}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.advisorStatus)}`}>
+                            Advisor: {doc.advisorStatus}
+                          </span>
+                          <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-full border ${docStatusPill(doc.examinerStatus)}`}>
+                            Examiner: {doc.examinerStatus}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {internDetailTab === "company-final" && selectedIntern && (
+            <div className="space-y-6">
+              {(() => {
+                const finalEval = apiFinalEvalRecord || getFinalEvaluation(selectedIntern.studentId);
+                if (!finalEval) {
+                  return (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                      <ClipboardList className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No company overall evaluation submitted yet.</p>
                     </div>
                   );
-                })()}
-              </div>
-            )}
-
-            {internDetailTab === "advisor-eval" && selectedIntern && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Academic advisor evaluation for this student (read only).
-                </p>
-                {!studentAdvisorEval ? (
-                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                    <GraduationCap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">Advisor has not submitted their evaluation yet.</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-500">
-                        Submitted {new Date(studentAdvisorEval.submittedAt).toLocaleString()}
-                        {studentAdvisorEval.advisorName && (
-                          <span className="block mt-1 font-semibold text-gray-800">
-                            Advisor: {studentAdvisorEval.advisorName}
-                          </span>
-                        )}
-                      </p>
-                      {studentAdvisorEval.totals && (
-                        <div className="text-right text-sm">
-                          <p className="text-gray-500">Total: <span className="font-bold text-indigo-700">{studentAdvisorEval.totals.totalMarks} / 100</span></p>
-                          <p className="text-gray-500">Weighted: <span className="font-bold text-green-700">{studentAdvisorEval.totals.finalWeightedMark} / 35</span></p>
-                        </div>
-                      )}
+                }
+                const badgeMap = {
+                  [FINAL_EVAL_STATUS.NOT_STARTED]: "bg-gray-100 text-gray-600 border-gray-200",
+                  [FINAL_EVAL_STATUS.PENDING_ADVISOR_APPROVAL]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+                  [FINAL_EVAL_STATUS.APPROVED_BY_ADVISOR]: "bg-green-100 text-green-700 border-green-200",
+                  [FINAL_EVAL_STATUS.PENDING_EXAMINER_APPROVAL]: "bg-yellow-100 text-yellow-700 border-yellow-200",
+                  [FINAL_EVAL_STATUS.FINAL_APPROVED]: "bg-green-100 text-green-700 border-green-200",
+                  [FINAL_EVAL_STATUS.REJECTED]: "bg-red-100 text-red-700 border-red-200",
+                };
+                return (
+                  <div className="border border-gray-200 rounded-xl p-5 space-y-4 bg-gray-50/30">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-gray-900">Company Overall Evaluation</h4>
+                      <span className={`px-3 py-1 rounded-full border text-xs font-black uppercase ${badgeMap[finalEval.status] || badgeMap[FINAL_EVAL_STATUS.NOT_STARTED]}`}>
+                        {FINAL_EVAL_STATUS_LABELS[finalEval.status] || finalEval.status || FINAL_EVAL_STATUS_LABELS[FINAL_EVAL_STATUS.NOT_STARTED]}
+                      </span>
                     </div>
-                    <AdvisorStudentEvaluationForm
+                    {finalEval.total !== undefined && finalEval.total !== null && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
+                          <p className="text-xs text-gray-400 font-medium mb-1">Total Score</p>
+                          <p className="text-2xl font-bold text-indigo-700">{finalEval.total} / 60</p>
+                        </div>
+                        <div className="text-center bg-white rounded-lg border border-gray-100 p-3">
+                          <p className="text-xs text-gray-400 font-medium mb-1">Final Mark</p>
+                          <p className="text-2xl font-bold text-green-700">{finalEval.finalMark} / 20</p>
+                        </div>
+                      </div>
+                    )}
+                    <InternshipEvaluationForm
+                      key={`coord-final-${selectedIntern.studentId}`}
+                      initialData={finalEval.formData || {}}
                       readOnly
-                      initialData={{
-                        ...(studentAdvisorEval.formData || {}),
-                        studentName: selectedIntern.studentName || selectedIntern.student_name || "",
-                        idNo: selectedIntern.studentId || selectedIntern.form_snapshot?.student?.student_id || "",
-                        department: selectedIntern.department || selectedIntern.form_snapshot?.student?.department || "",
-                        organization: selectedIntern.companyName || selectedIntern.company_name || "",
-                        supervisorName:
-                          studentAdvisorEval.formData?.supervisorName ||
-                          studentAdvisorEval.advisorName ||
-                          "",
-                      }}
+                      advisorComment={finalEval.advisorComment || ""}
+                      examinerComment={finalEval.examinerComment || ""}
                     />
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
-            {internDetailTab === "examiner-1" && selectedIntern && (
-              <div className="space-y-4">
-                <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
-                  Examiner 1{(selectedIntern.examinerName || studentExaminerEvals.ev1?.examinerName) ? ` — ${selectedIntern.examinerName || studentExaminerEvals.ev1?.examinerName}` : ""}
-                </h4>
-                {!studentExaminerEvals.ev1 ? (
-                  <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
-                    Examiner 1 has not submitted an evaluation yet.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-500">
-                      Submitted {new Date(studentExaminerEvals.ev1.submittedAt).toLocaleString()}
+          {internDetailTab === "advisor-eval" && selectedIntern && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Academic advisor evaluation for this student (read only).
+              </p>
+              {!studentAdvisorEval ? (
+                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                  <GraduationCap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Advisor has not submitted their evaluation yet.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                      Submitted {new Date(studentAdvisorEval.submittedAt).toLocaleString()}
+                      {studentAdvisorEval.advisorName && (
+                        <span className="block mt-1 font-semibold text-gray-800">
+                          Advisor: {studentAdvisorEval.advisorName}
+                        </span>
+                      )}
                     </p>
-                    <ExaminerUniversityEvaluationForm
-                      readOnly
-                      initialData={{
-                        ...(studentExaminerEvals.ev1.formData || {}),
-                        studentName: selectedIntern.studentName || "",
-                        idNo: selectedIntern.studentId || "",
-                        department: selectedIntern.department || "",
-                        organization: selectedIntern.companyName || "",
-                        examinerName:
-                          studentExaminerEvals.ev1.examinerName ||
-                          studentExaminerEvals.ev1.formData?.examinerName ||
-                          "",
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            )}
+                    {studentAdvisorEval.totals && (
+                      <div className="text-right text-sm">
+                        <p className="text-gray-500">Total: <span className="font-bold text-indigo-700">{studentAdvisorEval.totals.totalMarks} / 100</span></p>
+                        <p className="text-gray-500">Weighted: <span className="font-bold text-green-700">{studentAdvisorEval.totals.finalWeightedMark} / 35</span></p>
+                      </div>
+                    )}
+                  </div>
+                  <AdvisorStudentEvaluationForm
+                    readOnly
+                    initialData={{
+                      ...(studentAdvisorEval.formData || {}),
+                      studentName: selectedIntern.studentName || selectedIntern.student_name || "",
+                      idNo: selectedIntern.studentId || selectedIntern.form_snapshot?.student?.student_id || "",
+                      department: selectedIntern.department || selectedIntern.form_snapshot?.student?.department || "",
+                      organization: selectedIntern.companyName || selectedIntern.company_name || "",
+                      supervisorName:
+                        studentAdvisorEval.formData?.supervisorName ||
+                        studentAdvisorEval.advisorName ||
+                        "",
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
 
-            {internDetailTab === "examiner-2" && selectedIntern && (
-              <div className="space-y-4">
-                <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
-                  Examiner 2{(selectedIntern.examiner2Name || studentExaminerEvals.ev2?.examinerName) ? ` — ${selectedIntern.examiner2Name || studentExaminerEvals.ev2?.examinerName}` : ""}
-                </h4>
-                {!studentExaminerEvals.ev2 ? (
-                  <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
-                    Examiner 2 has not submitted an evaluation yet.
+          {internDetailTab === "examiner-1" && selectedIntern && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                Examiner 1{(selectedIntern.examinerName || studentExaminerEvals.ev1?.examinerName) ? ` — ${selectedIntern.examinerName || studentExaminerEvals.ev1?.examinerName}` : ""}
+              </h4>
+              {!studentExaminerEvals.ev1 ? (
+                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                  Examiner 1 has not submitted an evaluation yet.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Submitted {new Date(studentExaminerEvals.ev1.submittedAt).toLocaleString()}
                   </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-500">
-                      Submitted {new Date(studentExaminerEvals.ev2.submittedAt).toLocaleString()}
-                    </p>
-                    <ExaminerUniversityEvaluationForm
-                      readOnly
-                      initialData={{
-                        ...(studentExaminerEvals.ev2.formData || {}),
-                        studentName: selectedIntern.studentName || "",
-                        idNo: selectedIntern.studentId || "",
-                        department: selectedIntern.department || "",
-                        organization: selectedIntern.companyName || "",
-                        examinerName:
-                          studentExaminerEvals.ev2.examinerName ||
-                          studentExaminerEvals.ev2.formData?.examinerName ||
-                          "",
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-            )}
+                  <ExaminerUniversityEvaluationForm
+                    readOnly
+                    initialData={{
+                      ...(studentExaminerEvals.ev1.formData || {}),
+                      studentName: selectedIntern.studentName || "",
+                      idNo: selectedIntern.studentId || "",
+                      department: selectedIntern.department || "",
+                      organization: selectedIntern.companyName || "",
+                      examinerName:
+                        studentExaminerEvals.ev1.examinerName ||
+                        studentExaminerEvals.ev1.formData?.examinerName ||
+                        "",
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {internDetailTab === "examiner-2" && selectedIntern && (
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-gray-700 uppercase tracking-wide">
+                Examiner 2{(selectedIntern.examiner2Name || studentExaminerEvals.ev2?.examinerName) ? ` — ${selectedIntern.examiner2Name || studentExaminerEvals.ev2?.examinerName}` : ""}
+              </h4>
+              {!studentExaminerEvals.ev2 ? (
+                <p className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-6 text-center">
+                  Examiner 2 has not submitted an evaluation yet.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Submitted {new Date(studentExaminerEvals.ev2.submittedAt).toLocaleString()}
+                  </p>
+                  <ExaminerUniversityEvaluationForm
+                    readOnly
+                    initialData={{
+                      ...(studentExaminerEvals.ev2.formData || {}),
+                      studentName: selectedIntern.studentName || "",
+                      idNo: selectedIntern.studentId || "",
+                      department: selectedIntern.department || "",
+                      organization: selectedIntern.companyName || "",
+                      examinerName:
+                        studentExaminerEvals.ev2.examinerName ||
+                        studentExaminerEvals.ev2.formData?.examinerName ||
+                        "",
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
 
         </div>
       )}
@@ -2312,12 +2335,12 @@ function computeCoordinatorHomeMetrics(coordinatorDept, mockStaffCount, advisorC
     );
     const resolvedDept = normalize(
       student?.department_name ||
-        student?.department ||
-        raw?.form_snapshot?.student?.department_name ||
-        raw?.form_snapshot?.student?.department ||
-        raw?.department_name ||
-        raw?.department ||
-        ""
+      student?.department ||
+      raw?.form_snapshot?.student?.department_name ||
+      raw?.form_snapshot?.student?.department ||
+      raw?.department_name ||
+      raw?.department ||
+      ""
     );
     if (useDeptFilter && resolvedDept !== deptNorm) return;
     if (app.coordinatorApprovalStatus === "PENDING" || raw.dept_status === "PENDING") pendingApprovals += 1;
@@ -2353,12 +2376,12 @@ function getCoordinatorActiveInterns(coordinatorDept) {
     );
     const resolvedDept = String(
       student?.department_name ||
-        student?.department ||
-        raw?.form_snapshot?.student?.department_name ||
-        raw?.form_snapshot?.student?.department ||
-        raw?.department_name ||
-        raw?.department ||
-        ""
+      student?.department ||
+      raw?.form_snapshot?.student?.department_name ||
+      raw?.form_snapshot?.student?.department ||
+      raw?.department_name ||
+      raw?.department ||
+      ""
     ).trim().toLowerCase();
     return resolvedDept === deptNorm;
   });
@@ -2378,6 +2401,8 @@ const CoordinatorDashboard = () => {
   const [toast, setToast] = useState({ show: false, message: "" });
   const [homeMetricsNonce, setHomeMetricsNonce] = useState(0);
   const [overallNonce, setOverallNonce] = useState(0);
+  const [apiOverallQueue, setApiOverallQueue] = useState([]);
+  const [loadingOverallQueue, setLoadingOverallQueue] = useState(true);
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -2420,27 +2445,92 @@ const CoordinatorDashboard = () => {
     };
   }, []);
 
+  // Fetch coordinator overall queue from API
+  useEffect(() => {
+    let cancelled = false;
+    const fetchOverallQueue = async () => {
+      setLoadingOverallQueue(true);
+      try {
+        const res = await api.get("/evaluations/coordinator/overall-queue/");
+        if (!cancelled) {
+          // API returns { count, queue: [...] }
+          const items = Array.isArray(res.data) ? res.data : (res.data?.queue || []);
+          setApiOverallQueue(items);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch coordinator overall queue from API:", err.message);
+      } finally {
+        if (!cancelled) setLoadingOverallQueue(false);
+      }
+    };
+
+    fetchOverallQueue();
+    return () => {
+      cancelled = true;
+    };
+  }, [overallNonce]);
+
   const coordinatorActiveInterns = useMemo(
     () => getCoordinatorActiveInterns(coordinatorDept),
     [coordinatorDept, overallNonce, view]
   );
 
-  const pendingOverallQueue = useMemo(
-    () =>
-      coordinatorActiveInterns
-        .map((app) => {
-          const approvals = getOverallApprovals(app.studentId);
-          if (approvals.coordinatorApproved) return null;
-          if (!approvals.advisorApproved || !approvals.examiner1Approved || !approvals.examiner2Approved) {
-            return null;
-          }
-          const overall = computeOverallEvaluation(app);
-          if (!overall.complete) return null;
-          return { app, overall, approvals };
-        })
-        .filter(Boolean),
-    [coordinatorActiveInterns, overallNonce]
-  );
+  const pendingOverallQueue = useMemo(() => {
+    // The backend /evaluations/coordinator/overall-queue/ already pre-filters to only
+    // return items that need coordinator approval — trust it and map to display shape.
+    if (apiOverallQueue.length > 0) {
+      return apiOverallQueue
+        .filter((apiItem) => apiItem.is_pending_approval === true)
+        .map((apiItem) => {
+          const internshipKey = String(apiItem.internship || apiItem.internship_id || apiItem.id || "");
+          const app = coordinatorActiveInterns.find(
+            (student) => String(student.id || student.__raw?.id || "") === internshipKey
+          ) || {
+            id: internshipKey,
+            studentName: apiItem.student_full_name || "",
+            studentId: internshipKey,
+            companyName: apiItem.advisor_evaluation_detail?.company_name || "",
+          };
+
+          const examinerState = apiItem.examiner_approval_state || {};
+          const approvals = {
+            advisorApproved: Boolean(apiItem.advisor_approved),
+            examiner1Approved: Boolean(examinerState["1"]?.approved),
+            examiner2Approved: Boolean(examinerState["2"]?.approved),
+            coordinatorApproved: Boolean(apiItem.coordinator_approved),
+          };
+
+          // Use API data for scores instead of local computation
+          const overall = {
+            overallMark100: parseFloat(apiItem.final_total_score) || 0,
+            advisorMark: parseFloat(apiItem.advisor_score) || 0,
+            ex1Mark: parseFloat(apiItem.examiner_one_score) || 0,
+            ex2Mark: parseFloat(apiItem.examiner_two_score) || 0,
+            companyTotal40: parseFloat(apiItem.company_score) || 0,
+            companyMonAvg: parseFloat(apiItem.company_monthly_avg) || 0,
+            companyFinalMark: parseFloat(apiItem.company_final_score) || 0,
+            complete: apiItem.can_finalize || false,
+            finalGrade: apiItem.final_grade || "",
+          };
+
+          return { app, overall, approvals, apiItem };
+        }).filter(Boolean);
+    }
+
+    // Fall back to localStorage computation
+    return coordinatorActiveInterns
+      .map((app) => {
+        const approvals = getOverallApprovals(app.studentId);
+        if (approvals.coordinatorApproved) return null;
+        if (!approvals.advisorApproved || !approvals.examiner1Approved || !approvals.examiner2Approved) {
+          return null;
+        }
+        const overall = computeOverallEvaluation(app);
+        if (!overall.complete) return null;
+        return { app, overall, approvals };
+      })
+      .filter(Boolean);
+  }, [coordinatorActiveInterns, overallNonce, apiOverallQueue]);
 
   const homeMetrics = useMemo(
     () =>
@@ -2592,8 +2682,8 @@ const CoordinatorDashboard = () => {
 
         setAssignedAdvisors(advisors);
         setAssignedExaminers(examiners);
-        try { localStorage.setItem("assignedAdvisors", JSON.stringify(advisors)); } catch {}
-        try { localStorage.setItem("assignedExaminers", JSON.stringify(examiners)); } catch {}
+        try { localStorage.setItem("assignedAdvisors", JSON.stringify(advisors)); } catch { }
+        try { localStorage.setItem("assignedExaminers", JSON.stringify(examiners)); } catch { }
 
         if (unassignedRes && unassignedRes.success) {
           setMockStaff((unassignedRes.data || []).filter((item) => matchesDepartment(item, dept)));
@@ -2632,9 +2722,9 @@ const CoordinatorDashboard = () => {
         setAssignedExaminers(allE.filter(s => String(s.department || "").trim().toLowerCase() === String(deptRaw).trim().toLowerCase()));
         const key = (deptRaw || "department").toString().replace(/\s+/g, "").toLowerCase();
         const staff = Array.from({ length: 10 }).map((_, i) => ({
-          id: `${key}-staff-${i+1}`,
-          name: `${deptRaw || "Department"}Staff${i+1}`,
-          email: `${key}staff${i+1}@mock.com`,
+          id: `${key}-staff-${i + 1}`,
+          name: `${deptRaw || "Department"}Staff${i + 1}`,
+          email: `${key}staff${i + 1}@mock.com`,
           department: deptRaw || "",
           status: "unassigned",
         }));
@@ -2682,7 +2772,7 @@ const CoordinatorDashboard = () => {
                   const list = JSON.parse(localStorage.getItem("notifications") || "[]");
                   const updated = list.map((n) => ({ ...n, read: true }));
                   localStorage.setItem("notifications", JSON.stringify(updated));
-                } catch {}
+                } catch { }
                 // open drawer by setting flag on window (simple cross-file approach)
                 window.dispatchEvent(new CustomEvent("open-notifications"));
               }}
@@ -2717,343 +2807,363 @@ const CoordinatorDashboard = () => {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           {toast.show && (
-          <div className="fixed right-4 top-20 z-[100] animate-bounce-in">
-            <div className="flex items-center gap-3 rounded-lg border-2 border-green-400 bg-green-600 px-6 py-3 text-white shadow-2xl">
-              <div className="rounded-full bg-white/20 p-1">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-                </svg>
+            <div className="fixed right-4 top-20 z-[100] animate-bounce-in">
+              <div className="flex items-center gap-3 rounded-lg border-2 border-green-400 bg-green-600 px-6 py-3 text-white shadow-2xl">
+                <div className="rounded-full bg-white/20 p-1">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="font-bold tracking-tight">{toast.message}</span>
               </div>
-              <span className="font-bold tracking-tight">{toast.message}</span>
             </div>
-          </div>
-        )}
+          )}
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          {view === "home" && (
-            <>
-              <div className="app-hero mb-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h1 className="mb-1 text-2xl font-bold md:text-3xl">Welcome, {coordinatorName}</h1>
-                    <div className="flex flex-wrap gap-4 text-sm opacity-90 md:text-base">
-                      <span>
-                        Department: <strong>{coordinatorDept || "—"}</strong>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 rounded-lg bg-white/10 px-4 py-3">
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            {view === "home" && (
+              <>
+                <div className="app-hero mb-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <p className="text-xs font-medium opacity-80">Role</p>
-                      <p className="text-sm font-bold">Coordinator</p>
+                      <h1 className="mb-1 text-2xl font-bold md:text-3xl">Welcome, {coordinatorName}</h1>
+                      <div className="flex flex-wrap gap-4 text-sm opacity-90 md:text-base">
+                        <span>
+                          Department: <strong>{coordinatorDept || "—"}</strong>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-lg bg-white/10 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-medium opacity-80">Role</p>
+                        <p className="text-sm font-bold">Coordinator</p>
+                      </div>
                     </div>
                   </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/20 pt-5 sm:grid-cols-4">
+                    {[
+                      { label: "Pending approvals", value: homeMetrics.pendingApprovals },
+                      { label: "Active interns", value: homeMetrics.activeInterns },
+                      { label: "Not signed up", value: homeMetrics.notSignedUp },
+                      { label: "Staff in pool", value: homeMetrics.staffUnassigned },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className="rounded-lg bg-white/10 px-3 py-2.5 backdrop-blur-sm"
+                      >
+                        <p className="text-2xl font-bold tabular-nums leading-tight">{stat.value}</p>
+                        <p className="mt-0.5 text-xs font-medium opacity-90">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/20 pt-5 sm:grid-cols-4">
-                  {[
-                    { label: "Pending approvals", value: homeMetrics.pendingApprovals },
-                    { label: "Active interns", value: homeMetrics.activeInterns },
-                    { label: "Not signed up", value: homeMetrics.notSignedUp },
-                    { label: "Staff in pool", value: homeMetrics.staffUnassigned },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="rounded-lg bg-white/10 px-3 py-2.5 backdrop-blur-sm"
-                    >
-                      <p className="text-2xl font-bold tabular-nums leading-tight">{stat.value}</p>
-                      <p className="mt-0.5 text-xs font-medium opacity-90">{stat.label}</p>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {COORDINATOR_HOME_TILES.map((tile) => {
+                    const Icon = tile.icon;
+                    return (
+                      <button
+                        key={tile.view}
+                        type="button"
+                        onClick={() => navigateCoordinator(tile.view)}
+                        className="app-card group flex w-full flex-col items-start gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
+                      >
+                        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-slate-900">{tile.title}</p>
+                          <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
+                        </div>
+                        <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {view !== "home" && (
+              <div className="max-w-6xl">
+                {/* STUDENTS */}
+                {view === "students" && (
+                  <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
+                )}
+
+                {/* INTERNSHIP STUDENTS */}
+                {view === "internships" && (
+                  <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
+                )}
+
+                {/* ACTIVE INTERNSHIP STUDENTS (Academic Assignment) */}
+                {view === "active-students" && (
+                  <ActiveInternsManagementView
+                    coordinatorDept={coordinatorDept}
+                    onBack={() => navigateCoordinator("home")}
+                    apiOverallQueue={apiOverallQueue}
+                  />
+                )}
+
+                {view === "overall-queue" && (
+                  <div className="max-w-5xl">
+                    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
+                        <p className="text-gray-600">
+                          Final sign-off for your department. Approve after advisor and both examiners have approved.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition"
+                        onClick={() => navigateCoordinator("home")}
+                      >
+                        ← Back
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {COORDINATOR_HOME_TILES.map((tile) => {
-                  const Icon = tile.icon;
-                  return (
-                    <button
-                      key={tile.view}
-                      type="button"
-                      onClick={() => navigateCoordinator(tile.view)}
-                      className="app-card group flex w-full flex-col items-start gap-3 p-5 text-left transition-all hover:border-indigo-200 hover:shadow-md"
-                    >
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${tile.accent}`}>
-                        <Icon className="h-5 w-5" />
+                    {coordinatorActiveInterns.length === 0 ? (
+                      <p className="text-center py-8 text-gray-500">No active interns in your department.</p>
+                    ) : pendingOverallQueue.length === 0 ? (
+                      <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
+                        <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No overall evaluations waiting for coordinator approval.</p>
+                        <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
+                          Items appear when all component evaluations are complete and advisor plus both examiners have approved.
+                        </p>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-900">{tile.title}</p>
-                        <p className="mt-1 text-sm text-slate-600">{tile.description}</p>
+                    ) : (
+                      <div className="space-y-6" key={overallNonce}>
+                        {pendingOverallQueue.map(({ app, overall, approvals }) => (
+                          <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-white shadow-sm space-y-4">
+                            <div className="flex flex-wrap justify-between items-start gap-3">
+                              <div>
+                                <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
+                                <p className="text-sm text-gray-500">{app.companyName}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
+                                <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
+                                <p className="text-base font-bold text-gray-900 mt-1">
+                                  {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
+                                </p>
+                              </div>
+                              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
+                                <p className="text-base font-bold text-gray-900 mt-1">
+                                  {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
+                                </p>
+                              </div>
+                              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
+                                <p className="text-base font-bold text-gray-900 mt-1">
+                                  {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
+                                </p>
+                              </div>
+                              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex flex-col justify-between">
+                                <p className="text-[10px] font-black uppercase text-gray-500 text-center mb-1">Company Evaluation</p>
+                                <div className="grid grid-cols-3 gap-1 flex-1 items-center">
+                                  <div className="text-center">
+                                    <p className="text-[7px] text-gray-400 font-bold leading-none mb-1">MON AVG</p>
+                                    <p className="text-xs font-black text-indigo-600">
+                                      {overall.companyMonAvg != null ? `${overall.companyMonAvg}` : "—"}
+                                    </p>
+                                  </div>
+                                  <div className="text-center border-x border-gray-200">
+                                    <p className="text-[7px] text-gray-400 font-bold leading-none mb-1">FINAL</p>
+                                    <p className="text-xs font-black text-indigo-600">
+                                      {overall.companyFinalMark != null ? `${overall.companyFinalMark}` : "—"}
+                                    </p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-[7px] text-gray-400 font-bold leading-none mb-1">TOTAL</p>
+                                    <p className="text-sm font-black text-green-700">
+                                      {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
+                              <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                                Advisor: Approved
+                              </span>
+                              <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                                Examiner 1: Approved
+                              </span>
+                              <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
+                                Examiner 2: Approved
+                              </span>
+                              <span
+                                className={`px-3 py-1 rounded-full border ${approvals.coordinatorApproved
+                                  ? "bg-green-100 text-green-800 border-green-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}
+                              >
+                                Coordinator: {approvals.coordinatorApproved ? "Approved" : "Pending"}
+                              </span>
+                            </div>
+                            {!approvals.coordinatorApproved ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const internshipId = app.id || app.__raw?.id;
+                                  const res = await internshipService.coordinatorApproveOverall(internshipId, "approve", "");
+                                  if (res.success) {
+                                    setOverallApproval(app.studentId, {
+                                      coordinatorApproved: true,
+                                      coordinatorApprovedAt: new Date().toISOString(),
+                                    });
+                                    setOverallNonce((n) => n + 1);
+                                    showToast(`Overall evaluation approved for ${app.studentName}.`);
+                                  } else {
+                                    showToast(`Failed to approve overall: ${(res.error && (res.error.detail || res.error)) || res.error || "Unknown error"}`);
+                                  }
+                                }}
+                                className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
+                              >
+                                Approve overall evaluation (Coordinator)
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm font-bold">
+                                Overall evaluation approved
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                    )}
+                  </div>
+                )}
 
-          {view !== "home" && (
-            <div className="max-w-6xl">
-              {/* STUDENTS */}
-              {view === "students" && (
-                <StudentManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
-              )}
+                {/* UPLOAD */}
+                {view === "upload" && (
+                  <div className="max-w-xl">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-semibold text-gray-900">Upload Eligible Students</h2>
+                      <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                    </div>
+                    {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
+                    {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
+                    <div className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+                      <label className="block text-sm font-medium text-slate-700">Select JSON File</label>
+                      <input
+                        type="file" accept=".json"
+                        onChange={(e) => setSelectedFile(e.target.files[0])}
+                        className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+                      />
+                      <button type="button" onClick={handleFileUpload} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-indigo-700">
+                        Upload
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-          {/* INTERNSHIP STUDENTS */}
-          {view === "internships" && (
-            <InternshipStudentsView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
-          )}
-
-          {/* ACTIVE INTERNSHIP STUDENTS (Academic Assignment) */}
-          {view === "active-students" && (
-            <ActiveInternsManagementView coordinatorDept={coordinatorDept} onBack={() => navigateCoordinator("home")} />
-          )}
-
-          {view === "overall-queue" && (
-            <div className="max-w-5xl">
-              <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-1">Overall evaluation queue</h2>
-                  <p className="text-gray-600">
-                    Final sign-off for your department. Approve after advisor and both examiners have approved.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition"
-                  onClick={() => navigateCoordinator("home")}
-                >
-                  ← Back
-                </button>
-              </div>
-              {coordinatorActiveInterns.length === 0 ? (
-                <p className="text-center py-8 text-gray-500">No active interns in your department.</p>
-              ) : pendingOverallQueue.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
-                  <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No overall evaluations waiting for coordinator approval.</p>
-                  <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                    Items appear when all component evaluations are complete and advisor plus both examiners have approved.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6" key={overallNonce}>
-                  {pendingOverallQueue.map(({ app, overall, approvals }) => (
-                    <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-white shadow-sm space-y-4">
-                      <div className="flex flex-wrap justify-between items-start gap-3">
-                        <div>
-                          <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
-                          <p className="text-sm text-gray-500">{app.companyName}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
-                          <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                          <p className="text-[10px] font-black uppercase text-gray-500">Advisor</p>
-                          <p className="text-base font-bold text-gray-900 mt-1">
-                            {overall.advisorMark != null ? `${overall.advisorMark} / 35` : "—"}
-                          </p>
-                        </div>
-                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                          <p className="text-[10px] font-black uppercase text-gray-500">Examiner 1</p>
-                          <p className="text-base font-bold text-gray-900 mt-1">
-                            {overall.ex1Mark != null ? `${overall.ex1Mark} / 25` : "—"}
-                          </p>
-                        </div>
-                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                          <p className="text-[10px] font-black uppercase text-gray-500">Examiner 2</p>
-                          <p className="text-base font-bold text-gray-900 mt-1">
-                            {overall.ex2Mark != null ? `${overall.ex2Mark} / 25` : "—"}
-                          </p>
-                        </div>
-                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                          <p className="text-[10px] font-black uppercase text-gray-500">Company</p>
-                          <p className="text-base font-bold text-gray-900 mt-1">
-                            {overall.companyTotal40 != null ? `${overall.companyTotal40} / 40` : "—"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-xs font-black uppercase">
-                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
-                          Advisor: Approved
-                        </span>
-                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
-                          Examiner 1: Approved
-                        </span>
-                        <span className="px-3 py-1 rounded-full border bg-green-100 text-green-800 border-green-200">
-                          Examiner 2: Approved
-                        </span>
-                        <span
-                          className={`px-3 py-1 rounded-full border ${
-                            approvals.coordinatorApproved
-                              ? "bg-green-100 text-green-800 border-green-200"
-                              : "bg-amber-50 text-amber-800 border-amber-200"
-                          }`}
-                        >
-                          Coordinator: {approvals.coordinatorApproved ? "Approved" : "Pending"}
-                        </span>
-                      </div>
-                      {!approvals.coordinatorApproved ? (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const internshipId = app.id || app.__raw?.id;
-                            const res = await internshipService.coordinatorApproveOverall(internshipId, "approve", "");
-                            if (res.success) {
-                              setOverallApproval(app.studentId, {
-                                coordinatorApproved: true,
-                                coordinatorApprovedAt: new Date().toISOString(),
-                              });
-                              setOverallNonce((n) => n + 1);
-                              showToast(`Overall evaluation approved for ${app.studentName}.`);
-                            } else {
-                              showToast(`Failed to approve overall: ${(res.error && (res.error.detail || res.error)) || res.error || "Unknown error"}`);
-                            }
-                          }}
-                          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700"
-                        >
-                          Approve overall evaluation (Coordinator)
-                        </button>
-                      ) : (
-                        <div className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-green-200 bg-green-50 text-green-800 text-sm font-bold">
-                          Overall evaluation approved
-                        </div>
+                {/* STAFF LIST */}
+                {view === "staff" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
+                      <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                    </div>
+                    {staffDataLoading ? (
+                      <LoadingState title="Loading staff list" subtitle="Fetching unassigned staff for your department." />
+                    ) : departmentFilteredStaff.length === 0
+                      ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
+                      : (
+                        <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                          {departmentFilteredStaff.map((s) => (
+                            <li key={s.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                              <div className="min-w-0">
+                                <div className="font-medium text-slate-900">{s.name}</div>
+                                <div className="text-sm text-slate-600">{s.email}</div>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap gap-2">
+                                <button type="button" onClick={() => assignAsAdvisor(s)} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                                  Assign advisor
+                                </button>
+                                <button type="button" onClick={() => assignAsExaminer(s)} className="rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100">
+                                  Assign examiner
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       )}
+                  </div>
+                )}
+
+                {/* ASSIGNED ADVISORS */}
+                {view === "advisors" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
+                      <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* UPLOAD */}
-          {view === "upload" && (
-            <div className="max-w-xl">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Upload Eligible Students</h2>
-                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
-              </div>
-              {fileError && <div className="mb-4 bg-red-100 text-red-700 p-3 rounded-md text-sm">{fileError}</div>}
-              {fileSuccess && <div className="mb-4 bg-green-100 text-green-700 p-3 rounded-md text-sm">{fileSuccess}</div>}
-              <div className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
-                <label className="block text-sm font-medium text-slate-700">Select JSON File</label>
-                <input
-                  type="file" accept=".json"
-                  onChange={(e) => setSelectedFile(e.target.files[0])}
-                  className="block w-full cursor-pointer rounded-lg border border-slate-300 bg-white text-sm text-slate-900 focus:outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
-                />
-                <button type="button" onClick={handleFileUpload} className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-indigo-700">
-                  Upload
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STAFF LIST */}
-          {view === "staff" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Unassigned Staff List</h2>
-                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
-              </div>
-              {staffDataLoading ? (
-                <LoadingState title="Loading staff list" subtitle="Fetching unassigned staff for your department." />
-              ) : departmentFilteredStaff.length === 0
-                ? <p className="text-slate-500 py-4">No unassigned staff available.</p>
-                : (
-                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {departmentFilteredStaff.map((s) => (
-                      <li key={s.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-900">{s.name}</div>
-                          <div className="text-sm text-slate-600">{s.email}</div>
-                        </div>
-                        <div className="flex shrink-0 flex-wrap gap-2">
-                          <button type="button" onClick={() => assignAsAdvisor(s)} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                            Assign advisor
-                          </button>
-                          <button type="button" onClick={() => assignAsExaminer(s)} className="rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900 hover:bg-violet-100">
-                            Assign examiner
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                    {staffDataLoading ? (
+                      <LoadingState title="Loading advisors" subtitle="Fetching assigned advisors for your department." />
+                    ) : departmentFilteredAdvisors.length === 0
+                      ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
+                      : (
+                        <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                          {departmentFilteredAdvisors.map((s) => (
+                            <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                              <div className="min-w-0">
+                                <div className="font-medium text-slate-900">{s.name}</div>
+                                <div className="text-sm text-slate-600">{s.email}</div>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                <span className="shrink-0 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 sm:self-center">{s.role || s.status || "ADVISOR"}</span>
+                                <button type="button" onClick={() => unassignStaff(s)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                  Unassign
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                  </div>
                 )}
-            </div>
-          )}
 
-          {/* ASSIGNED ADVISORS */}
-          {view === "advisors" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Assigned Advisors</h2>
-                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
-              </div>
-              {staffDataLoading ? (
-                <LoadingState title="Loading advisors" subtitle="Fetching assigned advisors for your department." />
-              ) : departmentFilteredAdvisors.length === 0
-                ? <p className="text-slate-500 py-4">No advisors have been assigned yet.</p>
-                : (
-                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {departmentFilteredAdvisors.map((s) => (
-                      <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-900">{s.name}</div>
-                          <div className="text-sm text-slate-600">{s.email}</div>
-                        </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
-                          <span className="shrink-0 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 sm:self-center">{s.role || s.status || "ADVISOR"}</span>
-                          <button type="button" onClick={() => unassignStaff(s)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                            Unassign
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                {/* ASSIGNED EXAMINERS */}
+                {view === "examiners" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
+                      <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
+                    </div>
+                    {staffDataLoading ? (
+                      <LoadingState title="Loading examiners" subtitle="Fetching assigned examiners for your department." />
+                    ) : departmentFilteredExaminers.length === 0
+                      ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
+                      : (
+                        <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                          {departmentFilteredExaminers.map((s) => (
+                            <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
+                              <div className="min-w-0">
+                                <div className="font-medium text-slate-900">{s.name}</div>
+                                <div className="text-sm text-slate-600">{s.email}</div>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                <span className="shrink-0 self-start rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-900 sm:self-center">{s.role || s.status || "EXAMINER"}</span>
+                                <button type="button" onClick={() => unassignStaff(s)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                  Unassign
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                  </div>
                 )}
-            </div>
-          )}
 
-          {/* ASSIGNED EXAMINERS */}
-          {view === "examiners" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Assigned Examiners</h2>
-                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition" onClick={() => navigateCoordinator("home")}>← Back</button>
               </div>
-              {staffDataLoading ? (
-                <LoadingState title="Loading examiners" subtitle="Fetching assigned examiners for your department." />
-              ) : departmentFilteredExaminers.length === 0
-                ? <p className="text-slate-500 py-4">No examiners have been assigned yet.</p>
-                : (
-                  <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
-                    {departmentFilteredExaminers.map((s) => (
-                      <li key={s.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/70">
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-900">{s.name}</div>
-                          <div className="text-sm text-slate-600">{s.email}</div>
-                        </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
-                          <span className="shrink-0 self-start rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-900 sm:self-center">{s.role || s.status || "EXAMINER"}</span>
-                          <button type="button" onClick={() => unassignStaff(s)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                            Unassign
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-            </div>
-          )}
+            )}
 
-            </div>
-          )}
-
-        </main>
+          </main>
         </div>
       </div>
     </div>
