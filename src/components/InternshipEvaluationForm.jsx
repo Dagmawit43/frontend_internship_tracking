@@ -94,11 +94,10 @@ const InternshipEvaluationForm = ({
   const [advisorComment, setAdvisorComment] = useState(existingAdvisorComment);
   const [examinerComment, setExaminerComment] = useState(existingExaminerComment);
 
-  useEffect(() => {
-    setForm(normalizeInitial(initialData));
-    setAdvisorComment(existingAdvisorComment);
-    setExaminerComment(existingExaminerComment);
-  }, [initialData, existingAdvisorComment, existingExaminerComment]);
+  // We rely on the 'key' prop (evaluation id) from the parent to re-initialize 
+  // the component state when switching between different evaluations. 
+  // We removed the useEffect that reset state on prop changes to prevent 
+  // background syncs in the parent from clearing user input.
 
   const handleRating = (section, index, value) => {
     if (fieldsLocked) return;

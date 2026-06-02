@@ -2717,7 +2717,7 @@ const AdvisorDashboard = () => {
               initialData={selectedEval.eval.evaluationData || {}}
               readOnly
               advisorView={selectedEval.eval.status === EVAL_STATUS.SUBMITTED}
-              existingAdvisorComment={selectedEval.eval.advisorComment || ""}
+              advisorComment={selectedEval.eval.advisorComment || ""}
               onAdvisorAction={
                 selectedEval.eval.status === EVAL_STATUS.SUBMITTED
                   ? handleAdvisorMonthlyDecision
