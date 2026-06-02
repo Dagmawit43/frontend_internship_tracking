@@ -27,7 +27,7 @@ export const authService = {
    */
   async login(email, password, role = "") {
     try {
-      const response = await api.post("/api/auth/login/", { email, password, role });
+      const response = await api.post("/auth/login/", { email, password, role });
       const { tokens, user } = response.data;
 
       if (tokens?.access) {
