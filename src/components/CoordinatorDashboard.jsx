@@ -1732,7 +1732,6 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack, apiOverallQueue 
                                 {" · "}
                                 Company Details (Avg: {overall.companyMonAvg ?? "—"} · Final: {overall.companyFinalMark ?? "—"})
                                 {" · "}
-                                Academic: {overall.academicOverall100} / 100
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold uppercase">
