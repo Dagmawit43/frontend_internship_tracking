@@ -261,11 +261,11 @@ const internshipService = {
   },
 
   /** Student: create a new weekly logbook */
-  async createLogbook(weekNumber, internshipId = null) {
+  async createLogbook(weekNumber, internshipId = null, config = {}) {
     try {
       const body = { week_number: weekNumber };
       if (internshipId) body.internship_id = internshipId;
-      const response = await api.post("/logbooks/", body);
+      const response = await api.post("/logbooks/", body, config);
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -273,9 +273,9 @@ const internshipService = {
   },
 
   /** Student: add a daily entry to a logbook */
-  async addLogbookEntry(logbookId, entry) {
+  async addLogbookEntry(logbookId, entry, config = {}) {
     try {
-      const response = await api.post(`/logbooks/${logbookId}/entries/`, entry);
+      const response = await api.post(`/logbooks/${logbookId}/entries/`, entry, config);
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -283,9 +283,9 @@ const internshipService = {
   },
 
   /** Student: submit a logbook week for company review */
-  async submitLogbook(logbookId, studentComment = "") {
+  async submitLogbook(logbookId, studentComment = "", config = {}) {
     try {
-      const response = await api.post(`/logbooks/${logbookId}/submit/`, { student_comment: studentComment });
+      const response = await api.post(`/logbooks/${logbookId}/submit/`, { student_comment: studentComment }, config);
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
@@ -384,20 +384,20 @@ const internshipService = {
     } catch (error) {
       return { success: false, error: error.response?.data || error.message };
     }
-    },
+  },
 
-    /** Coordinator: approve/reject overall evaluation (backend) */
-    async coordinatorApproveOverall(internshipId, action = "approve", comment = "") {
-      try {
-        const response = await api.patch(`/coordinator/overall-evaluation/${internshipId}/approve/`, {
-          action,
-          comment,
-        });
-        return { success: true, data: response.data };
-      } catch (error) {
-        return { success: false, error: error.response?.data || error.message };
-      }
-    },
+  /** Coordinator: approve/reject overall evaluation (backend) */
+  async coordinatorApproveOverall(internshipId, action = "approve", comment = "") {
+    try {
+      const response = await api.patch(`/coordinator/overall-evaluation/${internshipId}/approve/`, {
+        action,
+        comment,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || error.message };
+    }
+  },
 
   /**
    * Mentor reviews application

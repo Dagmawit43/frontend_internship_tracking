@@ -41,9 +41,9 @@ const logbookService = {
     }
   },
 
-  async submitLogbook(logbookId) {
+  async submitLogbook(logbookId, config = {}) {
     try {
-      const res = await api.post(`/logbooks/${logbookId}/submit/`);
+      const res = await api.post(`/logbooks/${logbookId}/submit/`, {}, config);
       return { success: true, data: res.data };
     } catch (err) {
       return { success: false, error: err?.response?.data || err?.message || String(err) };

@@ -17,6 +17,7 @@ import {
   WEEK_STATUS,
   STATUS_LABELS,
   canStudentEditWeek,
+  createEmptyWeek,
   getLogbookForApplication,
   getLogbookScope,
   submitWeekForInternship,
@@ -1092,10 +1093,18 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
           if (!sid || items.length === 0) return false;
 
           const grouped = groupApiLogbooksByStudent(items);
-          const rec = grouped.get(sid) || grouped.values().next().value;
-          if (!rec) return false;
+          const apiRec = grouped.get(sid) || grouped.values().next().value;
+          if (!apiRec) return false;
 
-          setWeeklyLogbook(rec);
+          // Pad to full 8-week logbook (API only returns submitted weeks)
+          const fullWeeks = Array.from({ length: 8 }).map((_, idx) => {
+            const weekNum = idx + 1;
+            const apiWeek = apiRec?.weeks?.find(w => Number(w.weekNumber) === weekNum);
+            if (apiWeek) return apiWeek;
+            return createEmptyWeek(weekNum);
+          });
+
+          setWeeklyLogbook({ ...apiRec, weeks: fullWeeks });
           return true;
         } catch (err) {
           console.warn("Failed to load live weekly logbook:", err.message);
@@ -1366,13 +1375,27 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       if (!sid || items.length === 0) return null;
 
       const grouped = groupApiLogbooksByStudent(items);
-      const rec = grouped.get(sid) || grouped.values().next().value;
-      if (!rec) return null;
+      const apiRec = grouped.get(sid) || grouped.values().next().value;
+
+      // Construct a full 8-week logbook by merging API data into empty weeks
+      const fullWeeks = Array.from({ length: 8 }).map((_, idx) => {
+        const weekNum = idx + 1;
+        const apiWeek = apiRec?.weeks?.find(w => Number(w.weekNumber) === weekNum);
+        if (apiWeek) return apiWeek;
+        return createEmptyWeek(weekNum);
+      });
+
+      const rec = {
+        ...(apiRec || {}),
+        studentId: sid,
+        internshipId,
+        weeks: fullWeeks
+      };
 
       setWeeklyLogbook(rec);
 
       if (weekNumberToFocus !== null) {
-        const liveWeek = (rec.weeks || []).find(
+        const liveWeek = fullWeeks.find(
           (week) => Number(week.weekNumber) === Number(weekNumberToFocus)
         );
         if (liveWeek) {
@@ -1871,8 +1894,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
         let logbookId = getLogbookApiId(scope.studentId, internshipId, weekNum);
 
         if (!logbookId) {
-          // Create (or get existing) logbook week on the backend
-          const createRes = await internshipService.createLogbook(weekNum, internshipId);
+          // Create (or get existing) logbook week on the backend.
+          // Pass { silent: true } to avoid "noise" success toasts for multi-step save.
+          const createRes = await internshipService.createLogbook(weekNum, internshipId, { silent: true });
           if (createRes.success && createRes.data?.id) {
             logbookId = createRes.data.id;
             setLogbookApiId(scope.studentId, internshipId, weekNum, logbookId);
@@ -1881,11 +1905,12 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             for (const day of mergedDays) {
               if (String(day.workPerformed || "").trim()) {
                 try {
+                  // silent: true for each daily entry to prevent many concurrent toasts
                   const entryRes = await internshipService.addLogbookEntry(logbookId, {
                     day_number: day.dayNumber,
                     work_date: new Date().toISOString().split("T")[0],
                     work_performed: day.workPerformed,
-                  });
+                  }, { silent: true });
                   if (!entryRes.success) {
                     const entryMessage = typeof entryRes.error === "string"
                       ? entryRes.error
@@ -1915,7 +1940,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
         if (logbookId) {
           const studentComment = payload.studentComment || "";
           try {
-            const submitRes = await internshipService.submitLogbook(logbookId, studentComment);
+            // Final submit also silent since we show the big green banner in the UI
+            const submitRes = await internshipService.submitLogbook(logbookId, studentComment, { silent: true });
             if (!submitRes.success) {
               const submitMessage = typeof submitRes.error === "string"
                 ? submitRes.error

@@ -12,11 +12,11 @@ const api = axios.create({
 });
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
-const getAccess  = () => localStorage.getItem("access");
+const getAccess = () => localStorage.getItem("access");
 const getRefresh = () => localStorage.getItem("refresh");
-const setAccess  = (token) => localStorage.setItem("access", token);
+const setAccess = (token) => localStorage.setItem("access", token);
 const setRefresh = (token) => localStorage.setItem("refresh", token);
-const clearAuth  = () => {
+const clearAuth = () => {
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");
   localStorage.removeItem("user");
@@ -34,7 +34,7 @@ api.interceptors.request.use((cfg) => {
 
 // ── Response interceptor — silent token refresh on 401 / 403 ─────────────────
 let isRefreshing = false;
-let failedQueue  = [];
+let failedQueue = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
@@ -97,6 +97,7 @@ api.interceptors.response.use(
     try {
       const method = String(response.config?.method || "").toLowerCase();
       if (["post", "patch", "put", "delete"].includes(method)) {
+        if (response.config?.silent) return response; // Skip toast if silent
         const data = response.data || {};
         const message = data?.message || data?.detail || (method === "post" ? "Saved" : method === "delete" ? "Deleted" : "Updated");
         showToast({ type: "success", message });
@@ -151,7 +152,7 @@ api.interceptors.response.use(
         refresh: refreshToken,
       });
 
-      const newAccess  = resp.data?.access;
+      const newAccess = resp.data?.access;
       const newRefresh = resp.data?.refresh; // present when ROTATE_REFRESH_TOKENS=True
 
       if (!newAccess) throw new Error("No access token in refresh response");

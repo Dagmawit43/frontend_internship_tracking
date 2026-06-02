@@ -27,7 +27,7 @@ export const authService = {
    */
   async login(email, password, role = "") {
     try {
-      const response = await api.post("/auth/login/", { email, password, role });
+      const response = await api.post("/api/auth/login/", { email, password, role });
       const { tokens, user } = response.data;
 
       if (tokens?.access) {
@@ -89,7 +89,7 @@ export const authService = {
             if (payload.department_name) user.department = payload.department_name;
             else if (payload.department_id) user.department = payload.department_id;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -139,7 +139,7 @@ export const authService = {
             if (payload.department_name) user.department = payload.department_name;
             else if (payload.department_id) user.department = payload.department_id;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -179,7 +179,7 @@ export const authService = {
             if (payload.department_name) user.department = payload.department_name;
             else if (payload.department_id) user.department = payload.department_id;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
