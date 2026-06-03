@@ -38,7 +38,12 @@ import {
   getExaminerEvaluationsForStudent,
   findExaminerEvalForStaffField,
 } from "../utils/examinerEvaluations";
-import { computeOverallEvaluation, getOverallApprovals } from "../utils/overallEvaluation";
+import {
+  computeOverallEvaluation,
+  getOverallApprovals,
+  calculateOverallMark100,
+  calculateGrade
+} from "../utils/overallEvaluation";
 import {
   getStudentCompanyEvaluationSummaries,
   studentCompanyEvalStatusPill
@@ -2480,10 +2485,12 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                             {apiOverallResults.final_total_score ?? "—"} <span className="text-base font-semibold text-gray-500">/ 100</span>
                           </p>
                         </div>
-                        {apiOverallResults.final_grade && (
+                        {apiOverallResults.final_total_score != null && (
                           <div>
                             <p className="text-xs font-black uppercase text-gray-500">Grade</p>
-                            <p className="text-3xl font-black text-indigo-700">{apiOverallResults.final_grade}</p>
+                            <p className="text-3xl font-black text-indigo-700">
+                              {calculateGrade(Number(apiOverallResults.final_total_score))}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -2532,7 +2539,29 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                         <p className="mb-2 text-xs font-black uppercase tracking-wider text-gray-500">
                           Calculated overall (pending approval)
                         </p>
-                        <p className="mb-3 text-2xl font-black text-indigo-700">{overallComputed.overallMark100} / 100</p>
+                        <p className="mb-3 text-2xl font-black text-indigo-700">
+                          {(overallComputed.overallMark100 > 0 ? overallComputed.overallMark100 : calculateOverallMark100({
+                            advisorMark: overallComputed.advisorMark,
+                            ex1Mark: overallComputed.ex1Mark,
+                            ex2Mark: overallComputed.ex2Mark,
+                            companyTotal40: overallComputed.companyTotal40
+                          }))} / 100
+                        </p>
+                        {(() => {
+                          const mark = overallComputed.overallMark100 > 0 ? overallComputed.overallMark100 : calculateOverallMark100({
+                            advisorMark: overallComputed.advisorMark,
+                            ex1Mark: overallComputed.ex1Mark,
+                            ex2Mark: overallComputed.ex2Mark,
+                            companyTotal40: overallComputed.companyTotal40
+                          });
+                          const grade = overallComputed.finalGrade || calculateGrade(mark);
+                          if (!grade) return null;
+                          return (
+                            <div className="mb-4 inline-block rounded-lg bg-indigo-50 px-3 py-1.5 border border-indigo-100">
+                              <p className="text-sm font-black text-indigo-700 uppercase">Grade: {grade}</p>
+                            </div>
+                          );
+                        })()}
                         <div className="grid grid-cols-1 gap-2 text-xs font-semibold text-gray-700 sm:grid-cols-2">
                           <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                             Advisor: {overallComputed.advisorMark != null ? `${overallComputed.advisorMark} / 35` : "—"}

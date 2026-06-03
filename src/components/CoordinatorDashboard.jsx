@@ -1,4 +1,10 @@
-import { computeOverallEvaluation, getOverallApprovals, setOverallApproval } from "../utils/overallEvaluation";
+import {
+  computeOverallEvaluation,
+  getOverallApprovals,
+  setOverallApproval,
+  calculateOverallMark100,
+  calculateGrade
+} from "../utils/overallEvaluation";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Bell, ChevronDown, CheckCircle, XCircle, User, Building2, Briefcase, GraduationCap, MapPin, FileText, Eye, BookOpen, ClipboardList, Users, UserCheck, Upload, ChevronRight, LogOut, BarChart3 } from "lucide-react";
 import NotificationsDrawer from "./NotificationsDrawer";
@@ -2512,9 +2518,22 @@ const CoordinatorDashboard = () => {
             coordinatorApproved: Boolean(apiItem.coordinator_approved),
           };
 
+          const calculatedMark = calculateOverallMark100({
+            advisorMark: apiItem.advisor_score != null ? Number(apiItem.advisor_score) : 0,
+            ex1Mark: apiItem.examiner_one_score != null ? Number(apiItem.examiner_one_score) : 0,
+            ex2Mark: apiItem.examiner_two_score != null ? Number(apiItem.examiner_two_score) : 0,
+            companyTotal40: apiItem.company_score != null ? Number(apiItem.company_score) : 0,
+          });
+
+          const overallMark100 = (apiItem.final_total_score != null && Number(apiItem.final_total_score) > 0)
+            ? Number(apiItem.final_total_score)
+            : calculatedMark;
+
+          const finalGrade = apiItem.final_grade || calculateGrade(overallMark100);
+
           // Use API data for scores instead of local computation
           const overall = {
-            overallMark100: parseFloat(apiItem.final_total_score) || 0,
+            overallMark100,
             advisorMark: parseFloat(apiItem.advisor_score) || 0,
             ex1Mark: parseFloat(apiItem.examiner_one_score) || 0,
             ex2Mark: parseFloat(apiItem.examiner_two_score) || 0,
@@ -2522,7 +2541,7 @@ const CoordinatorDashboard = () => {
             companyMonAvg: parseFloat(apiItem.company_monthly_avg) || 0,
             companyFinalMark: parseFloat(apiItem.company_final_score) || 0,
             complete: apiItem.can_finalize || false,
-            finalGrade: apiItem.final_grade || "",
+            finalGrade,
           };
 
           return { app, overall, approvals, apiItem };
@@ -2956,6 +2975,9 @@ const CoordinatorDashboard = () => {
                               <div className="text-right">
                                 <p className="text-xs text-gray-500 font-bold uppercase">Overall mark</p>
                                 <p className="text-2xl font-black text-green-700">{overall.overallMark100} / 100</p>
+                                {overall.finalGrade && (
+                                  <p className="text-lg font-black text-indigo-600">Grade: {overall.finalGrade}</p>
+                                )}
                               </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">

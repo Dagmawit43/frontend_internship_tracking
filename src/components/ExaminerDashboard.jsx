@@ -15,9 +15,11 @@ import {
   submitExaminerEvaluation,
 } from "../utils/examinerEvaluations";
 import {
-  approveOverallAsExaminerSlot,
-  computeOverallEvaluation,
   getOverallApprovals,
+  computeOverallEvaluation,
+  calculateOverallMark100,
+  calculateGrade,
+  approveOverallAsExaminerSlot,
 } from "../utils/overallEvaluation";
 import {
   mapApiDocumentToLocal,
@@ -665,15 +667,12 @@ const ExaminerDashboard = () => {
           coordinatorApprovedAt: apiItem.coordinator_approved_at || null,
         };
 
-        const overall = {
-          advisorMark: apiItem.advisor_score != null ? Number(apiItem.advisor_score) : null,
-          ex1Mark: apiItem.examiner_one_score != null ? Number(apiItem.examiner_one_score) : null,
-          ex2Mark: apiItem.examiner_two_score != null ? Number(apiItem.examiner_two_score) : null,
-          companyTotal40: apiItem.company_score != null ? Number(apiItem.company_score) : null,
-          overallMark100: apiItem.final_total_score != null ? Number(apiItem.final_total_score) : null,
-          finalGrade: apiItem.final_grade || null,
-          complete: true,
-        };
+        const overall = computeOverallEvaluation({
+          studentId: app.studentId,
+          examinerName: app.examinerName,
+          examiner2Name: app.examiner2Name,
+          __raw: apiItem
+        });
 
         return { app, slot, overall, approvals, apiItem };
       });
@@ -981,7 +980,7 @@ const ExaminerDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-6" key={overallNonce}>
-                    {pendingOverallQueue.map(({ app, slot, overall, approvals }) => (
+                    {pendingOverallQueue.map(({ app, slot, overall, approvals, apiItem }) => (
                       <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
                         <div className="flex flex-wrap justify-between items-start gap-3">
                           <div>
@@ -1055,7 +1054,7 @@ const ExaminerDashboard = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openStudentWorkspace(app, "overall")}
+                            onClick={() => openStudentWorkspace({ ...app, __raw: apiItem }, "overall")}
                             className="inline-flex items-center justify-center px-4 py-2 rounded-lg border-2 border-indigo-200 text-indigo-800 text-sm font-bold hover:bg-indigo-50"
                           >
                             Open full report
@@ -1245,6 +1244,11 @@ const ExaminerDashboard = () => {
                     <p className="text-2xl font-black text-green-700">
                       {overall?.overallMark100 ?? "—"} / 100
                     </p>
+                    {overall?.finalGrade && (
+                      <p className="text-xl font-black text-indigo-600 mt-1">
+                        Grade: {overall.finalGrade}
+                      </p>
+                    )}
                     {overall?.companyTotal40 != null && (
                       <p className="text-xs text-gray-500 mt-1">
                         Company: {overall.companyTotal40} / 40
