@@ -2,12 +2,20 @@ import React from 'react'
 
 export default function ButtonWithSpinner({ children, isLoading, disabled, className = '', onClick, type = 'button', ...props }) {
   const isDisabled = disabled || isLoading
+  const baseClasses = "inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md disabled:opacity-60 disabled:cursor-not-allowed transition-colors";
+
+  // Only apply default blue styling if no explicit background or text color is provided in className
+  const hasBg = className.includes("bg-");
+  const hasText = className.includes("text-");
+
+  const defaultStyles = `${!hasBg ? "bg-blue-600 hover:bg-blue-700" : ""} ${!hasText ? "text-white" : ""}`;
+
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={isDisabled}
-      className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      className={`${baseClasses} ${defaultStyles} ${className}`}
       {...props}
     >
       {isLoading && (

@@ -264,13 +264,18 @@ const InternshipEvaluationForm = ({
           />
         </div>
 
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg space-y-1">
-          <p className="font-medium text-gray-800">
-            Total Score: {total} / 60
-          </p>
-          <p className="text-green-800 font-semibold">
-            Final mark (out of 20): {finalMark}
-          </p>
+        <div className="mt-6 p-5 bg-gray-100 rounded-xl border border-gray-200 shadow-inner space-y-2">
+          <div className="flex justify-between items-center text-sm font-medium text-gray-700">
+            <span>Raw Marks Combined:</span>
+            <span className="font-bold">{total} / 60</span>
+          </div>
+          <hr className="border-gray-200" />
+          <div className="flex justify-between items-center">
+            <span className="text-base font-bold text-gray-900 border-l-4 border-green-500 pl-3">
+              FINAL MARK (scaled to 20%):
+            </span>
+            <span className="text-2xl font-bold text-green-700">{finalMark} / 20</span>
+          </div>
         </div>
 
         {existingAdvisorComment && !advisorView && (

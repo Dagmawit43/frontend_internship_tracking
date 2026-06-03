@@ -261,7 +261,7 @@ export const updateWeekForInternship = (
 };
 
 /** Meta + week update in one write/notify (student submit). */
-export const submitWeekForInternship = (scope, weekNumber, { meta, days, status }) => {
+export const submitWeekForInternship = (scope, weekNumber, { meta, days, status }, { notify = true } = {}) => {
   const scopeResolved = resolveLogbookScope({
     studentId: scope.studentId,
     internshipId: scope.internshipId,
@@ -292,7 +292,7 @@ export const submitWeekForInternship = (scope, weekNumber, { meta, days, status 
   const updated = allRecords.map((record) =>
     record.recordId === current.recordId ? updatedRecord : record
   );
-  saveWeeklyLogbooks(updated);
+  saveWeeklyLogbooks(updated, { notify });
   return updatedRecord;
 };
 
@@ -369,11 +369,11 @@ export const setLogbookApiId = (studentId, internshipId, weekNumber, apiId) => {
  */
 export const backendStatusToFrontend = (backendStatus) => {
   switch (String(backendStatus || "").toUpperCase()) {
-    case "DRAFT":       return WEEK_STATUS.NOT_SUBMITTED;
-    case "SUBMITTED":   return WEEK_STATUS.PENDING_COMPANY;
-    case "VERIFIED":    return WEEK_STATUS.PENDING_ADVISOR;
-    case "REVIEWED":    return WEEK_STATUS.APPROVED;
-    default:            return WEEK_STATUS.NOT_SUBMITTED;
+    case "DRAFT": return WEEK_STATUS.NOT_SUBMITTED;
+    case "SUBMITTED": return WEEK_STATUS.PENDING_COMPANY;
+    case "VERIFIED": return WEEK_STATUS.PENDING_ADVISOR;
+    case "REVIEWED": return WEEK_STATUS.APPROVED;
+    default: return WEEK_STATUS.NOT_SUBMITTED;
   }
 };
 
@@ -493,9 +493,9 @@ export const syncWeeklyLogbooksFromApi = (apiLogbooks, { merge = true } = {}) =>
 
   const merged = merge
     ? [
-        ...existing.filter((record) => !apiRecords.some((next) => next.recordId === record.recordId)),
-        ...apiRecords,
-      ]
+      ...existing.filter((record) => !apiRecords.some((next) => next.recordId === record.recordId)),
+      ...apiRecords,
+    ]
     : apiRecords;
 
   saveWeeklyLogbooks(merged);

@@ -157,38 +157,43 @@ const AdvisorStudentEvaluationForm = ({
     ? "border border-gray-200 p-2 rounded w-24 text-sm bg-gray-50 cursor-not-allowed shrink-0"
     : "border border-gray-300 p-2 rounded w-24 text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none shrink-0";
 
-  const renderSection = (title, items, sectionKey, rawTotal, maxTotal) => (
-    <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4 border-b border-gray-200 pb-2 text-gray-900">{title}</h2>
-      <div className="space-y-3">
-        {items.map((item, i) => (
-          <div
-            key={`${sectionKey}-${i}`}
-            className="flex flex-col md:flex-row md:items-center justify-between border border-gray-200 p-3 rounded-lg bg-white/80"
-          >
-            <div className="font-medium md:w-3/4 text-sm text-gray-800">
-              {i + 1}. {item.title}
-            </div>
-            <select
-              className={`${selectClass} mt-2 md:mt-0`}
-              value={form[sectionKey][i]}
-              disabled={readOnly}
-              onChange={(e) => handleChange(sectionKey, i, e.target.value)}
+  const renderSection = (title, items, sectionKey, rawTotal, maxTotal, sectionWeight) => {
+    const scaledTotal = ((rawTotal / maxTotal) * sectionWeight).toFixed(2);
+
+    return (
+      <div className="mb-8">
+        <h2 className="text-xl font-bold mb-4 border-b border-gray-200 pb-2 text-gray-900">{title}</h2>
+        <div className="space-y-3">
+          {items.map((item, i) => (
+            <div
+              key={`${sectionKey}-${i}`}
+              className="flex flex-col md:flex-row md:items-center justify-between border border-gray-200 p-3 rounded-lg bg-white/80"
             >
-              {Array.from({ length: item.weight + 1 }, (_, n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+              <div className="font-medium md:w-3/4 text-sm text-gray-800">
+                {i + 1}. {item.title} (Max {item.weight})
+              </div>
+              <select
+                className={`${selectClass} mt-2 md:mt-0`}
+                value={form[sectionKey][i]}
+                disabled={readOnly}
+                onChange={(e) => handleChange(sectionKey, i, e.target.value)}
+              >
+                {Array.from({ length: item.weight + 1 }, (_, n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 bg-gray-100 p-3 rounded font-semibold text-sm text-gray-800 flex justify-between">
+          <span>Raw Marks: {rawTotal} / {maxTotal}</span>
+          <span className="text-indigo-700">Marks Obtained: {scaledTotal} / {sectionWeight}</span>
+        </div>
       </div>
-      <div className="mt-4 bg-gray-100 p-3 rounded font-semibold text-sm text-gray-800">
-        Marks Obtained: {rawTotal} / {maxTotal}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -266,21 +271,24 @@ const AdvisorStudentEvaluationForm = ({
           ADVISOR_EVAL_REPORT_ITEMS,
           "reportScores",
           reportRaw,
-          REPORT_MAX
+          REPORT_MAX,
+          20
         )}
         {renderSection(
           "2. LOG BOOK (5%)",
           ADVISOR_EVAL_LOGBOOK_ITEMS,
           "logbookScores",
           logbookRaw,
-          LOGBOOK_MAX
+          LOGBOOK_MAX,
+          5
         )}
         {renderSection(
           "3. STUDENT PERFORMANCE (10%)",
           ADVISOR_EVAL_PERFORMANCE_ITEMS,
           "performanceScores",
           performanceRaw,
-          PERFORMANCE_MAX
+          PERFORMANCE_MAX,
+          10
         )}
 
         <div className="mt-8 bg-gray-100 p-6 rounded-xl border border-gray-200">

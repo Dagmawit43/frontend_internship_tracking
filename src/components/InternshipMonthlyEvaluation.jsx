@@ -67,27 +67,32 @@ const InputField = ({ label, name, value, onChange, readOnly }) => (
       value={value}
       onChange={onChange}
       readOnly={readOnly}
-      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-        readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
-      }`}
+      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
+        }`}
     />
   </div>
 );
 
-const ScoreField = ({ label, name, value, onChange, readOnly }) => (
+const ScoreField = ({ label, name, value, onChange, readOnly, max = 20 }) => (
   <div>
     <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
     <input
       type="number"
       min="0"
-      max="20"
+      max={max}
       name={name}
       value={value}
-      onChange={onChange}
-      readOnly={readOnly}
-      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-        readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
-      }`}
+      onChange={(e) => {
+        if (readOnly) return;
+        let val = e.target.value;
+        // Strict clamping: if user types a number greater than max, clamp it.
+        if (val !== "" && Number(val) > max) {
+          val = String(max);
+        }
+        onChange({ target: { name, value: val } });
+      }}
+      className={`w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${readOnly ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
+        }`}
     />
   </div>
 );
@@ -164,7 +169,19 @@ const InternshipMonthlyEvaluation = ({
     const newErrors = {};
     SCORE_FIELDS.forEach((key) => {
       const v = Number(formData[key]);
-      if (formData[key] === "" || isNaN(v) || v < 0 || v > 20) {
+      // Find the corresponding max from our layout mapping
+      let maxVal = 20; // fallback default
+      if (["punctuality", "reliability", "independence", "communication", "professionalism",
+        "speedOfWork", "accuracy", "engagement", "workNeed", "cooperation",
+        "technicalSkills", "organizationalSkills", "projectSupport"].includes(key)) {
+        maxVal = 5;
+      } else if (key === "responsibility") {
+        maxVal = 15;
+      } else if (key === "teamwork") {
+        maxVal = 20;
+      }
+
+      if (formData[key] === "" || isNaN(v) || v < 0 || v > maxVal) {
         newErrors[key] = true;
       }
     });
@@ -176,7 +193,7 @@ const InternshipMonthlyEvaluation = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-      try {
+    try {
       setIsSubmitting(true);
       const maybe = onSubmit?.({ ...formData, totalMarks: displayedTotal, monthlyPerformance: Number(monthlyPerformance) });
       if (maybe && typeof maybe.then === "function") await maybe;
@@ -221,15 +238,15 @@ const InternshipMonthlyEvaluation = ({
         <SectionTitle title="General Performance (25%)" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
           {[
-            { label: "Punctuality (5%)", name: "punctuality" },
-            { label: "Reliability (5%)", name: "reliability" },
-            { label: "Independence In Work (5%)", name: "independence" },
-            { label: "Communication Skills (5%)", name: "communication" },
-            { label: "Professionalism (5%)", name: "professionalism" },
-          ].map(({ label, name }) => (
+            { label: "Punctuality (5%)", name: "punctuality", max: 5 },
+            { label: "Reliability (5%)", name: "reliability", max: 5 },
+            { label: "Independence In Work (5%)", name: "independence", max: 5 },
+            { label: "Communication Skills (5%)", name: "communication", max: 5 },
+            { label: "Professionalism (5%)", name: "professionalism", max: 5 },
+          ].map(({ label, name, max }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
-              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} max={max} />
+              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–{max}</p>}
             </div>
           ))}
         </div>
@@ -238,15 +255,15 @@ const InternshipMonthlyEvaluation = ({
         <SectionTitle title="Personal Skills (25%)" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
           {[
-            { label: "Speed of Work (5%)", name: "speedOfWork" },
-            { label: "Accuracy (5%)", name: "accuracy" },
-            { label: "Engagement (5%)", name: "engagement" },
-            { label: "Do you need him/her for your work (5%)", name: "workNeed" },
-            { label: "Cooperation with colleagues (5%)", name: "cooperation" },
-          ].map(({ label, name }) => (
+            { label: "Speed of Work (5%)", name: "speedOfWork", max: 5 },
+            { label: "Accuracy (5%)", name: "accuracy", max: 5 },
+            { label: "Engagement (5%)", name: "engagement", max: 5 },
+            { label: "Do you need him/her for your work (5%)", name: "workNeed", max: 5 },
+            { label: "Cooperation with colleagues (5%)", name: "cooperation", max: 5 },
+          ].map(({ label, name, max }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
-              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} max={max} />
+              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–{max}</p>}
             </div>
           ))}
         </div>
@@ -255,30 +272,30 @@ const InternshipMonthlyEvaluation = ({
         <SectionTitle title="Professional Skills (50%)" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
           {[
-            { label: "Technical Skills (5%)", name: "technicalSkills" },
-            { label: "Organizational Skills (5%)", name: "organizationalSkills" },
-            { label: "Support of Project Tasks (5%)", name: "projectSupport" },
-            { label: "Responsibility in Task Fulfillment (15%)", name: "responsibility" },
-            { label: "Quality as a Team Member (20%)", name: "teamwork" },
-          ].map(({ label, name }) => (
+            { label: "Technical Skills (5%)", name: "technicalSkills", max: 5 },
+            { label: "Organizational Skills (5%)", name: "organizationalSkills", max: 5 },
+            { label: "Support of Project Tasks (5%)", name: "projectSupport", max: 5 },
+            { label: "Responsibility in Task Fulfillment (15%)", name: "responsibility", max: 15 },
+            { label: "Quality as a Team Member (20%)", name: "teamwork", max: 20 },
+          ].map(({ label, name, max }) => (
             <div key={name}>
-              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} />
-              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–20</p>}
+              <ScoreField label={label} name={name} value={formData[name]} onChange={handleChange} readOnly={fieldsLocked} max={max} />
+              {errors[name] && <p className="text-xs text-red-500 mt-1">Enter a value between 0–{max}</p>}
             </div>
           ))}
         </div>
 
         {/* Totals */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 my-6">
-            <div className="flex justify-between items-center mb-3 text-base font-bold text-gray-800">
-              <span>Total Marks (out of 100)</span>
-              <span className="text-2xl text-indigo-700">{displayedTotal}</span>
-            </div>
-            <div className="flex justify-between items-center text-base font-bold text-gray-800">
-              <span>Monthly Performance Mark (out of 20)</span>
-              <span className="text-2xl text-green-700">{monthlyPerformance}</span>
-            </div>
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 my-6">
+          <div className="flex justify-between items-center mb-3 text-base font-bold text-gray-800">
+            <span>Total Marks (out of 100)</span>
+            <span className="text-2xl text-indigo-700">{displayedTotal}</span>
           </div>
+          <div className="flex justify-between items-center text-base font-bold text-gray-800">
+            <span>Monthly Performance Mark (out of 20)</span>
+            <span className="text-2xl text-green-700">{monthlyPerformance}</span>
+          </div>
+        </div>
 
         {/* Additional Comment */}
         <div className="mb-6">
@@ -289,9 +306,8 @@ const InternshipMonthlyEvaluation = ({
             onChange={handleChange}
             readOnly={fieldsLocked}
             rows={4}
-            className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-              fieldsLocked ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
-            }`}
+            className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${fieldsLocked ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"
+              }`}
             placeholder="Write additional comments here..."
           />
         </div>
@@ -353,7 +369,7 @@ const InternshipMonthlyEvaluation = ({
                     setIsAdvisorProcessing(false);
                   }
                 }}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-bold"
+                className="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-6"
               >
                 <CheckCircle className="w-4 h-4" /> Approve Evaluation
               </ButtonWithSpinner>
@@ -369,7 +385,7 @@ const InternshipMonthlyEvaluation = ({
                     setIsAdvisorProcessing(false);
                   }
                 }}
-                className="flex-1 bg-white border border-red-200 text-red-700 text-sm font-bold hover:bg-red-50"
+                className="bg-white border border-red-200 text-red-700 text-sm font-bold hover:bg-red-50 px-6"
               >
                 Reject — Send Back
               </ButtonWithSpinner>

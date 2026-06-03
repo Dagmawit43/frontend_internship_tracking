@@ -208,14 +208,19 @@ const ExaminerUniversityEvaluationForm = ({
           </div>
         ))}
 
-        <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200 text-sm text-gray-800">
-          <p>Report Total: {reportTotal} / 40</p>
-          <p>Presentation Total: {presentationTotal} / 40</p>
+        <div className="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200 text-sm text-gray-800 space-y-2">
+          <div className="flex justify-between font-medium">
+            <span>Report Raw Marks: {reportTotal} / 40</span>
+            <span className="text-indigo-700 font-bold">Report Score (15%): {reportFinal.toFixed(2)} / 15</span>
+          </div>
+          <div className="flex justify-between font-medium">
+            <span>Presentation Raw Marks: {presentationTotal} / 40</span>
+            <span className="text-indigo-700 font-bold">Presentation Score (10%): {presentationFinal.toFixed(2)} / 10</span>
+          </div>
           <hr className="my-2 border-gray-300" />
-          <p>Report (15%): {reportFinal.toFixed(2)}</p>
-          <p>Presentation (10%): {presentationFinal.toFixed(2)}</p>
-          <h2 className="text-xl font-bold mt-3 text-gray-900">
-            FINAL MARK: {finalMark} / 25
+          <h2 className="text-xl font-bold mt-1 text-green-700 flex justify-between">
+            <span>FINAL MARK:</span>
+            <span>{finalMark} / 25</span>
           </h2>
         </div>
 

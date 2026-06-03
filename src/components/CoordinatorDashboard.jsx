@@ -747,9 +747,15 @@ const ActiveInternsManagementView = ({ coordinatorDept, onBack, apiOverallQueue 
       const students = JSON.parse(localStorage.getItem("students")) || [];
 
       const filtered = allApps.filter((app) => {
-        // Treat approved applications and ongoing internships as active interns.
-        const status = String(app.finalInternshipStatus || app.__raw?.status || app.__raw?.dept_status || "").toUpperCase();
-        const appApproved = String(app.__raw?.dept_status || "").toUpperCase() === "APPROVED";
+        const deptStatus = String(app.__raw?.dept_status || "").toUpperCase();
+        const studentDecision = String(app.__raw?.student_decision || "").toUpperCase();
+        const overallStatus = String(app.__raw?.overall_status || app.overallStatus || "").toUpperCase();
+
+        // Explicitly exclude declined applications regardless of other flags
+        if (studentDecision === "DECLINED" || overallStatus === "DECLINED") return false;
+
+        const status = String(app.finalInternshipStatus || app.__raw?.status || deptStatus || "").toUpperCase();
+        const appApproved = deptStatus === "APPROVED";
         const isActive = status === "ACTIVE_INTERN" || status === "ONGOING" || status === "ACCEPTED" || appApproved;
 
         if (!isActive) return false;
@@ -2405,10 +2411,17 @@ const CoordinatorDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  const departmentFilteredStaff = useMemo(
-    () => mockStaff.filter((item) => matchesDepartment(item, coordinatorDept)),
-    [mockStaff, coordinatorDept]
-  );
+  const departmentFilteredStaff = useMemo(() => {
+    const profile = readCoordinatorProfile();
+    const myEmail = String(profile?.email || "").toLowerCase();
+    const myId = profile?.user?.id || profile?.id;
+
+    return mockStaff.filter((item) => {
+      const isMe = (myEmail && String(item.email || "").toLowerCase() === myEmail) ||
+        (myId && (item.user_id === myId || item.id === myId));
+      return matchesDepartment(item, coordinatorDept) && !isMe;
+    });
+  }, [mockStaff, coordinatorDept]);
   const departmentFilteredAdvisors = useMemo(
     () => assignedAdvisors.filter((item) => matchesDepartment(item, coordinatorDept)),
     [assignedAdvisors, coordinatorDept]

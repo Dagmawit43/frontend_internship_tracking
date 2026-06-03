@@ -2093,23 +2093,33 @@ const AdvisorDashboard = () => {
                   <ul className="space-y-3 text-sm text-gray-600">
                     <li className="flex gap-3">
                       <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                      Company approves the student week first; then it appears for your approval.
+                      <span className="flex-1 min-w-0 leading-relaxed">
+                        Company approves the student week first; then it appears for your approval.
+                      </span>
                     </li>
                     <li className="flex gap-3">
                       <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                      Use <strong className="text-gray-800">My students</strong> in the sidebar to open a student and approve or reject each week.
+                      <span className="flex-1 min-w-0 leading-relaxed">
+                        Use <strong className="text-gray-800">My students</strong> in the sidebar to open a student and approve or reject each week.
+                      </span>
                     </li>
                     <li className="flex gap-3">
                       <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                      Company monthly evaluations submitted by the host appear under <strong className="text-gray-800">Monthly evaluations</strong> in the sidebar for your review.
+                      <span className="flex-1 min-w-0 leading-relaxed">
+                        Company monthly evaluations submitted by the host appear under <strong className="text-gray-800">Monthly evaluations</strong> in the sidebar for your review.
+                      </span>
                     </li>
                     <li className="flex gap-3">
                       <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                      Use <strong className="text-gray-800">My evaluations</strong> and <strong className="text-gray-800">Examiner evaluations</strong> in the sidebar to review submissions across all students.
+                      <span className="flex-1 min-w-0 leading-relaxed">
+                        Use <strong className="text-gray-800">My evaluations</strong> and <strong className="text-gray-800">Examiner evaluations</strong> in the sidebar to review submissions across all students.
+                      </span>
                     </li>
                     <li className="flex gap-3">
                       <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                      Student uploads appear under <strong className="text-gray-800">Document queue</strong> until you approve or reject them.
+                      <span className="flex-1 min-w-0 leading-relaxed">
+                        Student uploads appear under <strong className="text-gray-800">Document queue</strong> until you approve or reject them.
+                      </span>
                     </li>
                   </ul>
                 </div>

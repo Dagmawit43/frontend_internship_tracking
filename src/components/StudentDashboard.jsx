@@ -61,6 +61,7 @@ const safeJsonParse = (key, fallback = []) => {
 // Top navigation (inlined)
 const TopNavigation = ({ studentName, notificationCount = 0, onNotificationClick }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -460,7 +461,7 @@ const normalizeDepartmentValue = (value) => {
   return String(rawDepartment).trim().toLowerCase();
 };
 
-const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmit }) => {
+const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmit, hasActivePlacement }) => {
   const [internships, setInternships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -782,22 +783,19 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
                   Close
                 </button>
                 <button
-                  type="button"
                   onClick={() => {
-                    if (selectedInternship?.is_applied) return;
-                    if (!selectedPositionId && !selectedInternship?.id) {
-                      alert("This opportunity is missing an application id.");
-                      return;
-                    }
+                    if (selectedInternship.is_applied || hasActivePlacement) return;
+                    setSelectedInternship(selectedInternship);
+                    setSelectedPositionId(selectedInternship.id);
                     setIsApplyModalOpen(true);
                   }}
-                  className={`px-6 py-2 rounded-lg font-medium ${selectedInternship?.is_applied
-                    ? "bg-green-100 text-green-700 border border-green-200 cursor-not-allowed"
-                    : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 ${selectedInternship.is_applied
+                    ? "bg-green-50 text-green-700 border border-green-100 cursor-not-allowed"
+                    : (hasActivePlacement ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200" : "bg-indigo-600 text-white hover:bg-indigo-700")
                     }`}
-                  disabled={selectedInternship?.is_applied}
+                  disabled={selectedInternship.is_applied || hasActivePlacement}
                 >
-                  {selectedInternship?.is_applied ? "Already Applied" : "Apply Now"}
+                  {selectedInternship.is_applied ? "Applied" : (hasActivePlacement ? "Placement Finalized" : "Apply Now")}
                 </button>
               </div>
             </div>
@@ -825,10 +823,12 @@ const AvailableInternships = ({ studentId, studentDepartment, onApplicationSubmi
 const AppliedInternshipsList = ({ studentId, studentName }) => {
   const [appliedInternships, setAppliedInternships] = useState([]);
   const [previewForm, setPreviewForm] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadApplied = async () => {
       try {
+        setIsLoading(true);
         const placementResult = await internshipService.getCurrentPlacement();
         const applicationsResult = await internshipService.getMyApplications();
         if (!applicationsResult.success) {
@@ -854,15 +854,12 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
             studentName
           );
 
-          // Merge: Replace the matching application with the placement data for richer display
-          // or add it if not found in my-applications list
           const existingIdx = allApps.findIndex(a => String(a.id) === String(normalizedPlacement.id));
           if (existingIdx !== -1) {
             const original = allApps[existingIdx];
             allApps[existingIdx] = {
               ...original,
               ...normalizedPlacement,
-              // Restore specific fields if they were lost/nullified or default in the placement
               appliedAt: normalizedPlacement.appliedAt || original.appliedAt,
               coordinatorApprovalStatus: (normalizedPlacement.coordinatorApprovalStatus === "PENDING" && original.coordinatorApprovalStatus !== "PENDING")
                 ? original.coordinatorApprovalStatus
@@ -876,6 +873,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 
         setAppliedInternships(sortApplicationsByDate(allApps));
       } catch (error) {
+        console.error("Load applied failed:", error);
         const allApps = safeJsonParse("applications", []);
         const studentApps = allApps.filter(
           (app) => app.studentId === studentId || app.studentName === studentName
@@ -883,6 +881,8 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         setAppliedInternships(
           studentApps.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt))
         );
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -955,10 +955,9 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
       return { text: 'Pending Coordinator', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200', canSelect: false };
     }
 
-    // Fallback logic for mentor statuses
-    if ((mentorStatus || "").toString().toUpperCase() === "REJECTED") {
+    if (overallStatus === "DECLINED" || (mentorStatus || "").toString().toUpperCase() === "REJECTED") {
       return {
-        text: 'Rejected by Company',
+        text: 'Declined',
         classes: 'bg-red-100 text-red-700 border-red-200',
         canSelect: false,
       };
@@ -990,7 +989,9 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
         <p className="text-gray-600">Track and finalize your internship placements</p>
       </div>
 
-      {appliedInternships.length === 0 ? (
+      {isLoading ? (
+        <LoadingState message="Loading your applications..." />
+      ) : appliedInternships.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
           <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">You haven't applied to any internships yet.</p>
@@ -1076,6 +1077,7 @@ const AppliedInternshipsList = ({ studentId, studentName }) => {
 
 const MyInternshipView = ({ studentId, studentName, advisorName }) => {
   const [activeApp, setActiveApp] = useState(null);
+  const isSubmittingLogbook = useRef(false);
   const [weeklyLogbook, setWeeklyLogbook] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [draftWeek, setDraftWeek] = useState(null);
@@ -1129,7 +1131,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             return createEmptyWeek(weekNum);
           });
 
-          setWeeklyLogbook({ ...apiRec, weeks: fullWeeks });
+          if (!isSubmittingLogbook.current) {
+            setWeeklyLogbook({ ...apiRec, weeks: fullWeeks });
+          }
           return true;
         } catch (err) {
           console.warn("Failed to load live weekly logbook:", err.message);
@@ -1628,6 +1632,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     });
   }, [apiStudentEvaluationStatus]);
 
+  /** Match coordinator/advisor/examiner flows: approvals are keyed by application `studentId`, not necessarily login id */
+  const approvalStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
+
   const examinerEvalsVisible = useMemo(() => {
     if (!activeApp) return [];
 
@@ -1673,9 +1680,6 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
     pushSlot(activeApp.examiner2Name);
     return picked.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   }, [activeApp, studentId, examinerEvalNonce, apiStudentEvaluationStatus]);
-
-  /** Match coordinator/advisor/examiner flows: approvals are keyed by application `studentId`, not necessarily login id */
-  const approvalStudentKey = activeApp ? String(activeApp.studentId ?? studentId) : String(studentId);
 
   const overallApprovals = useMemo(() => {
     const local = getOverallApprovals(approvalStudentKey);
@@ -1736,6 +1740,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             label: toLabel(m1?.status),
             submittedAt: m1?.submitted_at || null,
             approvedAt: m1?.advisor_approved_at || null,
+            score: m1?.form_data?.monthlyPerformance ?? m1?.total_score ?? null,
+            maxScore: 20,
           },
           {
             key: "month-2",
@@ -1743,6 +1749,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             label: toLabel(m2?.status),
             submittedAt: m2?.submitted_at || null,
             approvedAt: m2?.advisor_approved_at || null,
+            score: m2?.form_data?.monthlyPerformance ?? m2?.total_score ?? null,
+            maxScore: 20,
           },
           {
             key: "final",
@@ -1750,6 +1758,8 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
             label: toLabel(finalEval?.status),
             submittedAt: finalEval?.submitted_at || null,
             approvedAt: finalEval?.advisor_approved_at || null,
+            score: finalEval?.total_mark ?? null,
+            maxScore: 20,
           },
         ];
 
@@ -1923,6 +1933,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       supervisorComment: selectedWeek.days[i]?.supervisorComment ?? "",
     }));
 
+    isSubmittingLogbook.current = true;
     const updated = submitWeekForInternship(scope, weekNum, {
       meta: {
         studentName: payload.studentName || activeApp.studentName || studentName || "",
@@ -1931,7 +1942,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
       },
       days: mergedDays,
       status: WEEK_STATUS.PENDING_COMPANY,
-    });
+    }, { notify: false });
 
     setWeeklyLogbook(updated);
     setLogbookSubmitSuccess(true);
@@ -1996,7 +2007,9 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
           try {
             // Final submit also silent since we show the big green banner in the UI
             const submitRes = await internshipService.submitLogbook(logbookId, studentComment, { silent: true });
-            if (!submitRes.success) {
+            if (submitRes.success) {
+              await refreshLiveWeeklyLogbook(weekNum);
+            } else {
               const submitMessage = typeof submitRes.error === "string"
                 ? submitRes.error
                 : submitRes.error?.detail || submitRes.error?.error || "";
@@ -2017,6 +2030,10 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
         }
       } catch (err) {
         console.warn("Logbook API sync failed (local state is still saved):", err.message);
+      } finally {
+        isSubmittingLogbook.current = false;
+        // After API sync is done (success or fail), we can afford one final refresh to align with backend reality
+        setTimeout(() => refreshLiveWeeklyLogbook(weekNum), 1000);
       }
     })();
   };
@@ -2367,7 +2384,7 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Company evaluations</h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Your host company submits these forms. You can track submission and advisor approval status only — form contents, scores, and comments are not visible to students.
+                    Your host company submits these forms. You can track submission, advisor approval status, and your performance scores here.
                   </p>
                 </div>
                 <ul className="space-y-4">
@@ -2405,6 +2422,17 @@ const MyInternshipView = ({ studentId, studentName, advisorName }) => {
                               : "—"}
                           </dd>
                         </div>
+                        {item.score !== null && (
+                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 col-span-1 sm:col-span-2">
+                            <dt className="text-[10px] font-black uppercase text-indigo-600 tracking-wider">
+                              Performance Score
+                            </dt>
+                            <dd className="mt-1 flex items-baseline gap-1">
+                              <span className="text-xl font-black text-indigo-700">{item.score}</span>
+                              {item.maxScore && <span className="text-xs font-semibold text-gray-500">/ {item.maxScore}</span>}
+                            </dd>
+                          </div>
+                        )}
                       </dl>
                     </li>
                   ))}
@@ -3179,8 +3207,11 @@ const StudentDashboard = () => {
   const resolveDisplayName = (u) => {
     if (!u || typeof u !== "object") return "";
     return (
-      u?.name ||
+      u?.full_name ||
       u?.fullName ||
+      u?.profile?.full_name ||
+      u?.profile?.fullName ||
+      u?.name ||
       [u?.first_name, u?.last_name].filter(Boolean).join(" ").trim() ||
       u?.username ||
       ""
@@ -3202,6 +3233,7 @@ const StudentDashboard = () => {
       "";
     const name =
       resolveDisplayName(user) ||
+      resolveDisplayName(JSON.parse(localStorage.getItem("user") || "{}")) ||
       studentName ||
       userName ||
       resolveDisplayName(storedStudent) ||
@@ -3541,6 +3573,7 @@ const StudentDashboard = () => {
                     studentDepartment={studentData.department}
                     studentProfile={studentData}
                     onApplicationSubmit={handleApplicationSubmit}
+                    hasActivePlacement={internshipStatus === "Active" || internshipStatus === "Company Accepted"}
                   />
                 )}
 

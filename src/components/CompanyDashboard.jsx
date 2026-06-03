@@ -600,6 +600,7 @@ const InternsPage = ({ companySession }) => {
   const [selectedIntern, setSelectedIntern] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [logbookLoading, setLogbookLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [internDetailTab, setInternDetailTab] = useState("logbook");
   const [openEvalMonth, setOpenEvalMonth] = useState(null);
   const [evalRecords, setEvalRecords] = useState({ 1: null, 2: null });
@@ -626,14 +627,20 @@ const InternsPage = ({ companySession }) => {
     if (!companyId) return;
     const load = async () => {
       try {
+        if (interns.length === 0) setIsLoading(true);
         // Fetch coordinator-approved applications for this company — these are the active interns
         const result = await internshipService.getCompanyApplicants(companyId);
         const payload = result.success ? result.data : [];
         const items = Array.isArray(payload) ? payload : payload?.results || [];
         // Filter to only dept_status=APPROVED (coordinator approved = active intern)
+        // AND exclude anything that has been DECLINED (superseded by another acceptance)
         const active = items.filter((record) => {
           const dept = String(record.dept_status || "").toUpperCase();
           const decision = String(record.student_decision || "").toUpperCase();
+          const overall = String(record.overall_status || "").toUpperCase();
+
+          if (decision === "DECLINED" || overall === "DECLINED") return false;
+
           return dept === "APPROVED" || decision === "ACCEPTED";
         });
         setInterns(active.map((record) => ({
@@ -651,6 +658,8 @@ const InternsPage = ({ companySession }) => {
       } catch (err) {
         console.error("Failed to load interns:", err);
         setInterns([]);
+      } finally {
+        setIsLoading(false);
       }
     };
     load();
@@ -1002,9 +1011,6 @@ const InternsPage = ({ companySession }) => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Auto reminders */}
-
-
       <div className="flex justify-between items-center bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <div>
           <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Your Active Interns</h2>
@@ -1013,7 +1019,9 @@ const InternsPage = ({ companySession }) => {
         <div className="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest border border-indigo-100">University Verified</div>
       </div>
 
-      {Object.keys(groupedInterns).length === 0 ? (
+      {isLoading ? (
+        <LoadingState message="Loading active interns..." />
+      ) : Object.keys(groupedInterns).length === 0 ? (
         <div className="bg-white p-16 rounded-xl shadow-sm border border-gray-200 text-center">
           <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6"><Users className="w-10 h-10 text-gray-200" /></div>
           <h3 className="text-lg font-bold text-gray-900 mb-2">No Active Internships Yet</h3>

@@ -161,18 +161,18 @@ const ExaminerStudentDocumentsPanel = ({
                   className="w-full border border-gray-200 rounded-lg p-2 text-sm"
                   placeholder="Optional comment for the student"
                 />
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col md:flex-row gap-2">
                   <ButtonWithSpinner
                     onClick={() => decide(doc.id, "approve")}
                     isLoading={Boolean(processingByDoc?.[doc.id])}
-                    className="flex-1"
+                    className="bg-green-600 hover:bg-green-700 text-white px-6"
                   >
                     <CheckCircle className="w-4 h-4" /> Approve
                   </ButtonWithSpinner>
                   <ButtonWithSpinner
                     onClick={() => decide(doc.id, "reject")}
                     isLoading={Boolean(processingByDoc?.[doc.id])}
-                    className="flex-1 bg-white border border-red-200 text-red-700 hover:bg-red-50"
+                    className="bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 px-6"
                   >
                     Reject
                   </ButtonWithSpinner>
@@ -250,11 +250,19 @@ const ExaminerDocQueueRow = ({ doc, studentApp, examinerIdentity, displayName, o
             className="w-full border border-gray-200 rounded-lg p-2 text-sm"
             placeholder="Optional comment for the student"
           />
-          <div className="flex flex-col sm:flex-row gap-2">
-            <ButtonWithSpinner onClick={() => decide("approve")} isLoading={isProcessing} className="flex-1">
+          <div className="flex flex-col md:flex-row gap-2">
+            <ButtonWithSpinner
+              onClick={() => decide("approve")}
+              isLoading={isProcessing}
+              className="bg-green-600 hover:bg-green-700 text-white px-6"
+            >
               <CheckCircle className="w-4 h-4" /> Approve
             </ButtonWithSpinner>
-            <ButtonWithSpinner onClick={() => decide("reject")} isLoading={isProcessing} className="flex-1 bg-white border border-red-200 text-red-700 hover:bg-red-50">
+            <ButtonWithSpinner
+              onClick={() => decide("reject")}
+              isLoading={isProcessing}
+              className="bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 px-6"
+            >
               Reject
             </ButtonWithSpinner>
           </div>
@@ -688,13 +696,18 @@ const ExaminerDashboard = () => {
       .filter(Boolean);
   }, [assignedStudents, examinerIdentity, examinerEvalNonce, overallNonce, docQueueNonce, apiOverallQueue]);
 
+  const examinerSlot = useMemo(() => {
+    if (!selectedStudent) return null;
+    return getExaminerSlotForApp(selectedStudent);
+  }, [selectedStudent, examinerIdentity]);
+
   const examinerOwnEval = useMemo(() => {
     if (!selectedStudent) return null;
     const internshipId = selectedStudent?.id || selectedStudent?.__raw?.id;
     // Prefer API data; fall back to localStorage
     if (internshipId && apiEvals[internshipId]) return apiEvals[internshipId];
     return getExaminerEvaluation(selectedStudent.studentId, examinerIdentity, internshipId, examinerSlot);
-  }, [selectedStudent, examinerIdentity, examinerEvalNonce, apiEvals]);
+  }, [selectedStudent, examinerIdentity, examinerSlot, examinerEvalNonce, apiEvals]);
 
   const overall = useMemo(() => {
     if (!selectedStudent) return null;
@@ -721,10 +734,6 @@ const ExaminerDashboard = () => {
     return getOverallApprovals(selectedStudent.studentId);
   }, [selectedStudent, examinerEvalNonce, docQueueNonce, apiOverallQueue]);
 
-  const examinerSlot = useMemo(() => {
-    if (!selectedStudent) return null;
-    return getExaminerSlotForApp(selectedStudent);
-  }, [selectedStudent, examinerIdentity]);
 
   const examinerEvalFormInitial = useMemo(() => {
     if (!selectedStudent || !session) return {};
