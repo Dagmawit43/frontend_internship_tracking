@@ -975,13 +975,13 @@ const ExaminerDashboard = () => {
                     <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">No overall evaluations waiting for your approval.</p>
                     <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto">
-                      Items appear here after the advisor approves the overall report and all component evaluations are complete.
+                      Items appear here after the advisor approves the overall report and all component evaluations are completed.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-6" key={overallNonce}>
                     {pendingOverallQueue.map(({ app, slot, overall, approvals, apiItem }) => (
-                      <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4">
+                      <div key={app.id} className="border border-indigo-100 rounded-xl p-4 sm:p-6 bg-indigo-50/20 space-y-4"> 
                         <div className="flex flex-wrap justify-between items-start gap-3">
                           <div>
                             <h3 className="font-bold text-lg text-gray-900">{app.studentName}</h3>
